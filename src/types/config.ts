@@ -46,6 +46,7 @@ import { Node } from 'reactflow';
     }
 
     export interface ValidationConditions {
+      id: number;
       conditionGroups: ConditionGroup[];
       description?: string;
       evaluateBefore?: string | null;

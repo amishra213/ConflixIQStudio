@@ -12,13 +12,14 @@ import ReactFlow, {
   Handle,
   Position,
   NodeProps,
+  BackgroundVariant,
 } from 'reactflow';
 import 'reactflow/dist/style.css';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
-import { useWorkflowStore } from '@/stores/workflowStore';
-import { SaveIcon, PlayIcon, EyeIcon, EditIcon, Trash2Icon } from 'lucide-react';
+import { useWorkflowStore, WorkflowSettings } from '@/stores/workflowStore';
+import { SaveIcon, PlayIcon, EyeIcon, EditIcon, Trash2Icon, LayoutGridIcon } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
@@ -54,7 +55,7 @@ const CustomNode = memo(({ data, selected, id }: NodeProps) => {
 
   return (
     <div
-      className={`px-3 py-2 rounded-lg border-2 bg-[#1a1f2e] min-w-[150px] transition-all group ${
+      className={`px-2 py-1.5 rounded-md border-2 bg-[#1a1f2e] min-w-[120px] transition-all group ${
         selected ? 'border-cyan-500 shadow-lg shadow-cyan-500/20' : 'border-[#2a3142]'
       }`}
       style={{
@@ -64,47 +65,47 @@ const CustomNode = memo(({ data, selected, id }: NodeProps) => {
       <Handle type="target" position={Position.Top} className="w-2.5 h-2.5 !bg-cyan-500" />
       
       {/* Action Buttons */}
-      <div className="absolute -top-1.5 -right-1.5 flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+      <div className="absolute -top-1 -right-1 flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
         <button
           onClick={(e) => {
             e.stopPropagation();
             data.onEdit?.(id);
           }}
-          className="w-5 h-5 bg-blue-500 hover:bg-blue-600 rounded-full flex items-center justify-center shadow-lg"
+          className="w-4 h-4 bg-blue-500 hover:bg-blue-600 rounded-full flex items-center justify-center shadow-lg"
           title="Edit Task"
         >
-          <EditIcon className="w-2.5 h-2.5 text-white" />
+          <EditIcon className="w-2 h-2 text-white" />
         </button>
         <button
           onClick={(e) => {
             e.stopPropagation();
             data.onDelete?.(id);
           }}
-          className="w-5 h-5 bg-red-500 hover:bg-red-600 rounded-full flex items-center justify-center shadow-lg"
+          className="w-4 h-4 bg-red-500 hover:bg-red-600 rounded-full flex items-center justify-center shadow-lg"
           title="Delete Task"
         >
-          <Trash2Icon className="w-2.5 h-2.5 text-white" />
+          <Trash2Icon className="w-2 h-2 text-white" />
         </button>
       </div>
 
       {/* Sequence Number Badge */}
       {data.sequenceNo && (
-        <div className="absolute -top-1.5 -left-1.5 w-5 h-5 bg-cyan-500 rounded-full flex items-center justify-center text-xs font-bold text-white shadow-lg">
+        <div className="absolute -top-1 -left-1 w-4 h-4 bg-cyan-500 rounded-full flex items-center justify-center text-[10px] font-bold text-white shadow-lg">
           {data.sequenceNo}
         </div>
       )}
 
       <div className="flex items-center gap-1 mb-0.5">
-        <span className="text-base">{getNodeIcon(data.taskType)}</span>
-        <span className="text-xs font-semibold text-cyan-400 uppercase">{data.taskType}</span>
+        <span className="text-sm">{getNodeIcon(data.taskType)}</span>
+        <span className="text-[10px] font-semibold text-cyan-400 uppercase">{data.taskType}</span>
       </div>
-      <div className="text-sm font-medium text-white truncate">{data.label}</div>
+      <div className="text-xs font-medium text-white truncate">{data.label}</div>
       
       {/* Config indicator */}
       {data.config && (
-        <div className="mt-1 flex items-center gap-1">
-          <div className="w-1.5 h-1.5 bg-green-500 rounded-full"></div>
-          <span className="text-xs text-green-400">Configured</span>
+        <div className="mt-0.5 flex items-center gap-0.5">
+          <div className="w-1 h-1 bg-green-500 rounded-full"></div>
+          <span className="text-[9px] text-green-400">Configured</span>
         </div>
       )}
       
@@ -225,12 +226,12 @@ const systemTasks = [
 export function WorkflowDesigner() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { workflows, tasks, updateWorkflow, executeWorkflow } = useWorkflowStore();
+  const { workflows, updateWorkflow, executeWorkflow } = useWorkflowStore();
   const { toast } = useToast();
 
   const workflow = id ? workflows.find((w) => w.id === id) : null;
   const [workflowName, setWorkflowName] = useState('New Workflow');
-  const [workflowSettings, setWorkflowSettings] = useState({
+  const [workflowSettings, setWorkflowSettings] = useState<WorkflowSettings>({
     description: 'A new workflow definition',
     version: 1,
     timeoutSeconds: 3600,
@@ -240,21 +241,71 @@ export function WorkflowDesigner() {
     workflowId: `workflow-${Date.now()}`,
     effectiveDate: formatDate(new Date()),
     endDate: formatDate(new Date(new Date().setFullYear(new Date().getFullYear() + 10))),
-    status: 'DRAFT' as const,
-    inputParameters: [] as string[],
-    outputParameters: {} as Record<string, any>,
+    status: 'DRAFT',
+    inputParameters: [],
+    outputParameters: {},
   });
   const [activeTab, setActiveTab] = useState('design');
   const [searchQuery, setSearchQuery] = useState('');
 
+  // Declare nodes and edges state before useEffect hooks that depend on them
+  const [nodes, setNodes, onNodesChange] = useNodesState([]);
+  const [edges, setEdges, onEdgesChange] = useEdgesState([]);
+
+  // Load workflow data on mount or when workflow changes
   useEffect(() => {
     if (workflow) {
       setWorkflowName(workflow.name);
       if (workflow.settings) {
         setWorkflowSettings(workflow.settings);
       }
+      // Load nodes and edges from the workflow
+      if (workflow.nodes && workflow.nodes.length > 0) {
+        setNodes(workflow.nodes);
+      } else {
+        setNodes([]); // Clear nodes if workflow has none
+      }
+      if (workflow.edges && workflow.edges.length > 0) {
+        setEdges(workflow.edges);
+      } else {
+        setEdges([]); // Clear edges if workflow has none
+      }
     }
-  }, [workflow]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id]); // Only run when the workflow ID changes
+
+  // Update node handlers after they're loaded (only runs once after initial load)
+  useEffect(() => {
+    if (nodes.length > 0 && nodes[0].data.onEdit === undefined) {
+      setNodes((nds) =>
+        nds.map((node) => ({
+          ...node,
+          data: {
+            ...node.data,
+            onEdit: handleEditNode,
+            onDelete: handleDeleteNode,
+          },
+        }))
+      );
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [nodes.length]); // Only check when nodes count changes
+
+  // Auto-save nodes and edges whenever they change
+  useEffect(() => {
+    if (workflow && (nodes.length > 0 || edges.length > 0)) {
+      // Debounce the save to avoid too frequent updates
+      const timeoutId = setTimeout(() => {
+        updateWorkflow(workflow.id, {
+          nodes: nodes,
+          edges: edges,
+        });
+      }, 500);
+
+      return () => clearTimeout(timeoutId);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [nodes, edges, workflow?.id]); // Only depend on workflow.id, not the entire workflow object
 
   function formatDate(date: Date): string {
     const month = String(date.getMonth() + 1).padStart(2, '0');
@@ -293,11 +344,28 @@ export function WorkflowDesigner() {
     }
   }
 
-  const [nodes, setNodes, onNodesChange] = useNodesState([]);
-  const [edges, setEdges, onEdgesChange] = useEdgesState([]);
-
   const onConnect = useCallback(
     (params: Connection | Edge) => {
+      // Get source and target nodes
+      const sourceNode = nodes.find(n => n.id === params.source);
+      const targetNode = nodes.find(n => n.id === params.target);
+
+      if (!sourceNode || !targetNode) return;
+
+      // Get sequence numbers
+      const sourceSeq = sourceNode.data.sequenceNo || 0;
+      const targetSeq = targetNode.data.sequenceNo || 0;
+
+      // Only allow connecting to the next node in sequence
+      if (targetSeq !== sourceSeq + 1) {
+        toast({
+          title: 'Invalid connection',
+          description: 'Tasks can only be connected in sequence order. Use Auto Arrange to reorganize.',
+          variant: 'destructive',
+        });
+        return;
+      }
+
       const edge = {
         ...params,
         type: 'smoothstep',
@@ -306,7 +374,7 @@ export function WorkflowDesigner() {
       };
       setEdges((eds) => addEdge(edge, eds));
     },
-    [setEdges]
+    [nodes, setEdges, toast]
   );
 
   const [executeModalOpen, setExecuteModalOpen] = useState(false);
@@ -320,30 +388,27 @@ export function WorkflowDesigner() {
 
   // Define handlers first without dependencies on each other
   const handleEditNode = useCallback((nodeId: string) => {
-    setNodes((nds) => {
-      const node = nds.find(n => n.id === nodeId);
-      if (node) {
-        setSelectedNodeForConfig(node);
-        // Open the correct modal based on task type
-        switch (node.data.taskType) {
-          case 'GENERIC': setIsGenericConfigModalOpen(true); break;
-          case 'HTTP': setIsHttpConfigModalOpen(true); break;
-          case 'MAPPER': setIsMapperConfigModalOpen(true); break;
-          case 'WAIT_FOR_SIGNAL': setIsWaitForSignalConfigModalOpen(true); break;
-          case 'WAIT': setIsScheduledWaitConfigModalOpen(true); break; // Assuming 'WAIT' maps to ScheduledWaitTaskModal
-          default:
-            toast({
-              title: 'Configuration not available',
-              description: `No specific configuration modal for task type: ${node.data.taskType}`,
-              variant: 'destructive',
-            });
-            setSelectedNodeForConfig(null); // Clear if no modal opens
-            break;
-        }
+    const node = nodes.find(n => n.id === nodeId);
+    if (node) {
+      setSelectedNodeForConfig(node);
+      // Open the correct modal based on task type
+      switch (node.data.taskType) {
+        case 'GENERIC': setIsGenericConfigModalOpen(true); break;
+        case 'HTTP': setIsHttpConfigModalOpen(true); break;
+        case 'MAPPER': setIsMapperConfigModalOpen(true); break;
+        case 'WAIT_FOR_SIGNAL': setIsWaitForSignalConfigModalOpen(true); break;
+        case 'WAIT': setIsScheduledWaitConfigModalOpen(true); break;
+        default:
+          toast({
+            title: 'Configuration not available',
+            description: `No specific configuration modal for task type: ${node.data.taskType}`,
+            variant: 'destructive',
+          });
+          setSelectedNodeForConfig(null);
+          break;
       }
-      return nds;
-    });
-  }, [setNodes, toast]);
+    }
+  }, [nodes, toast]);
 
   const handleDeleteNode = useCallback((nodeId: string) => {
     setNodes((nds) => {
@@ -456,13 +521,8 @@ export function WorkflowDesigner() {
         
         return updatedNodes;
       });
-
-      toast({
-        title: 'Task added',
-        description: `${task.name} has been added to the workflow.`,
-      });
     },
-    [setNodes, setEdges, toast, handleEditNode, handleDeleteNode]
+    [setNodes, setEdges, handleEditNode, handleDeleteNode]
   );
 
   const handleAddNode = useCallback((taskId: string) => {
@@ -509,14 +569,9 @@ export function WorkflowDesigner() {
       
       return updatedNodes;
     });
+  }, [setNodes, setEdges, handleEditNode, handleDeleteNode]);
 
-    toast({
-      title: 'Task added',
-      description: `${task.name} has been added to the workflow.`,
-    });
-  }, [setNodes, setEdges, toast, handleEditNode, handleDeleteNode]);
-
-  const handleAutoArrange = () => {
+  const handleAutoArrange = useCallback(() => {
     if (nodes.length === 0) {
       toast({
         title: 'No tasks to arrange',
@@ -526,163 +581,57 @@ export function WorkflowDesigner() {
       return;
     }
 
-    // Build a graph to understand connections
-    const adjacencyList = new Map<string, string[]>();
-    const inDegree = new Map<string, number>();
-    
-    // Initialize
-    nodes.forEach(node => {
-      adjacencyList.set(node.id, []);
-      inDegree.set(node.id, 0);
-    });
-    
-    // Build graph from edges
-    edges.forEach(edge => {
-      adjacencyList.get(edge.source)?.push(edge.target);
-      inDegree.set(edge.target, (inDegree.get(edge.target) || 0) + 1);
-    });
-    
-    // Find root nodes (nodes with no incoming edges)
-    const rootNodes = nodes.filter(node => inDegree.get(node.id) === 0);
-    
-    // If no root nodes, use the first node
-    if (rootNodes.length === 0 && nodes.length > 0) {
-      rootNodes.push(nodes[0]);
-    }
-    
-    // Perform level-order traversal (BFS) to determine layout
-    const levels: string[][] = [];
-    const visited = new Set<string>();
-    const queue: Array<{ id: string; level: number }> = [];
-    
-    rootNodes.forEach(node => {
-      queue.push({ id: node.id, level: 0 });
-    });
-    
-    while (queue.length > 0) {
-      const { id, level } = queue.shift()!;
-      
-      if (visited.has(id)) continue;
-      visited.add(id);
-      
-      if (!levels[level]) {
-        levels[level] = [];
-      }
-      levels[level].push(id);
-      
-      const children = adjacencyList.get(id) || [];
-      children.forEach(childId => {
-        if (!visited.has(childId)) {
-          queue.push({ id: childId, level: level + 1 });
-        }
-      });
-    }
-    
-    // Add any unvisited nodes (disconnected) to the end
-    nodes.forEach(node => {
-      if (!visited.has(node.id)) {
-        const lastLevel = levels.length;
-        if (!levels[lastLevel]) {
-          levels[lastLevel] = [];
-        }
-        levels[lastLevel].push(node.id);
-      }
-    });
-    
-    // Calculate positions based on levels
-    const arrangedNodes = nodes.map(node => {
-      let levelIndex = -1;
-      let positionInLevel = -1;
-      
-      for (let i = 0; i < levels.length; i++) {
-        const pos = levels[i].indexOf(node.id);
-        if (pos !== -1) {
-          levelIndex = i;
-          positionInLevel = pos;
-          break;
-        }
-      }
-      
-      const nodesInLevel = levels[levelIndex]?.length || 1;
-      const horizontalSpacing = 300;
-      const verticalSpacing = 150;
-      const startX = 100;
-      const startY = 100;
-      
-      // Center nodes horizontally if multiple nodes in same level
-      const levelWidth = (nodesInLevel - 1) * horizontalSpacing;
-      const offsetX = positionInLevel * horizontalSpacing - (levelWidth / 2);
-      
-      return {
-        ...node,
-        position: {
-          x: startX + offsetX + (levelIndex % 2 === 0 ? 0 : 150), // Slight offset for alternating levels
-          y: startY + (levelIndex * verticalSpacing),
-        },
-      };
-    });
-
-    setNodes(arrangedNodes);
-
-    toast({
-      title: 'Layout arranged',
-      description: 'Tasks have been arranged based on their connections.',
-    });
-  };
-
-  const handleConnectAll = () => {
-    if (nodes.length < 2) {
-      toast({
-        title: 'Not enough tasks',
-        description: 'Add at least 2 tasks to connect them.',
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    // Sort nodes by their sequence number
+    // Sort nodes by their sequence number to maintain logical order
     const sortedNodes = [...nodes].sort((a, b) => {
       const seqA = a.data.sequenceNo || 0;
       const seqB = b.data.sequenceNo || 0;
       return seqA - seqB;
     });
 
-    // Create edges connecting all nodes sequentially based on sequence number
+    // Configuration for snake layout
+    const nodesPerRow = 5; // Number of nodes in each row
+    const horizontalSpacing = 200; // Space between nodes horizontally
+    const verticalSpacing = 120; // Space between rows
+    const startX = 50; // Starting X position
+    const startY = 50; // Starting Y position
+
+    // Arrange nodes in a snake pattern
+    const arrangedNodes = sortedNodes.map((node, index) => {
+      const rowIndex = Math.floor(index / nodesPerRow);
+      const colIndex = index % nodesPerRow;
+
+      // Snake pattern: reverse direction on odd rows
+      const isOddRow = rowIndex % 2 === 1;
+      const actualColIndex = isOddRow ? (nodesPerRow - 1 - colIndex) : colIndex;
+
+      return {
+        ...node,
+        position: {
+          x: startX + (actualColIndex * horizontalSpacing),
+          y: startY + (rowIndex * verticalSpacing),
+        },
+      };
+    });
+
+    setNodes(arrangedNodes);
+
+    // Auto-connect all nodes in sequence
     const newEdges: Edge[] = [];
     for (let i = 0; i < sortedNodes.length - 1; i++) {
       const sourceNode = sortedNodes[i];
       const targetNode = sortedNodes[i + 1];
-      
-      // Check if edge already exists
-      const edgeExists = edges.some(
-        (edge) => edge.source === sourceNode.id && edge.target === targetNode.id
-      );
 
-      if (!edgeExists) {
-        newEdges.push({
-          id: `${sourceNode.id}-${targetNode.id}`,
-          source: sourceNode.id,
-          target: targetNode.id,
-          type: 'smoothstep',
-          animated: true,
-          style: { stroke: '#00bcd4', strokeWidth: 2 },
-        });
-      }
-    }
-
-    if (newEdges.length > 0) {
-      setEdges((eds) => [...eds, ...newEdges]);
-      toast({
-        title: 'Tasks connected',
-        description: `${newEdges.length} new connections created based on sequence numbers.`,
-      });
-    } else {
-      toast({
-        title: 'Already connected',
-        description: 'All tasks are already connected sequentially.',
+      newEdges.push({
+        id: `${sourceNode.id}-${targetNode.id}`,
+        source: sourceNode.id,
+        target: targetNode.id,
+        type: 'smoothstep',
+        animated: true,
+        style: { stroke: '#00bcd4', strokeWidth: 2 },
       });
     }
-  };
+    setEdges(newEdges);
+  }, [nodes, setNodes, setEdges]);
 
   const handlePreview = () => {
     // Save current state temporarily
@@ -715,6 +664,8 @@ export function WorkflowDesigner() {
         name: workflowName,
         description: workflowSettings.description,
         settings: workflowSettings,
+        nodes: nodes,
+        edges: edges,
       });
       toast({
         title: 'Workflow saved',
@@ -727,8 +678,8 @@ export function WorkflowDesigner() {
         id: workflowSettings.workflowId,
         name: workflowName,
         description: workflowSettings.description,
-        nodes: [],
-        edges: [],
+        nodes: nodes,
+        edges: edges,
         createdAt: new Date().toISOString(),
         status: workflowSettings.status.toLowerCase() as 'draft' | 'active' | 'paused',
         settings: workflowSettings,
@@ -1026,6 +977,18 @@ export function WorkflowDesigner() {
                 JSON Definition
               </Button>
               </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleAutoArrange}
+                  className="text-cyan-400 border-[#2a3142] hover:bg-cyan-500/10 hover:text-cyan-300"
+                  disabled={nodes.length === 0}
+                >
+                  <LayoutGridIcon className="w-4 h-4 mr-2" />
+                  Auto Arrange
+                </Button>
+              </div>
             </div>
 
             {/* Canvas Content */}
@@ -1035,11 +998,9 @@ export function WorkflowDesigner() {
                   {/* Canvas Info Bar */}
                   <div className="bg-[#1a1f2e] border-b border-[#2a3142] px-4 py-2">
                   <p className="text-xs text-gray-400">
-                    <span className="font-medium">Tip:</span> Tasks auto-connect sequentially when added
+                    <span className="font-medium">Tip:</span> Tasks auto-connect in sequence • Use <span className="font-medium">Auto Arrange</span> to organize in snake pattern (5 per row)
                     <br />
-                    <span className="font-medium">Connect All:</span> Connect existing unconnected tasks
-                    <br />
-                    <span className="font-medium">Configure/Delete:</span> Select task Clear / click Trash icon
+                    <span className="font-medium">Edit/Delete:</span> Hover over task and click blue Edit or red Delete button
                   </p>
                 </div>
 
@@ -1079,11 +1040,11 @@ export function WorkflowDesigner() {
                           style: { stroke: '#00bcd4', strokeWidth: 2 },
                         }}
                       >
-                        <Background 
-                          color="#2a3142" 
+                        <Background
+                          color="#2a3142"
                           gap={20}
                           size={1}
-                          variant="dots"
+                          variant={"dots" as BackgroundVariant}
                         />
                         <Controls 
                           className="bg-[#1a1f2e] border border-[#2a3142] rounded-lg overflow-hidden"
@@ -1185,7 +1146,7 @@ export function WorkflowDesigner() {
                           <Input
                             type="number"
                             value={workflowSettings.version}
-                            onChange={(e) => setWorkflowSettings({ ...workflowSettings, version: parseInt(e.target.value) || 1 })}
+                            onChange={(e) => setWorkflowSettings({ ...workflowSettings, version: Number.parseInt(e.target.value) || 1 })}
                             className="mt-2 bg-[#0f1419] text-white border-[#2a3142]"
                           />
                         </div>
@@ -1194,7 +1155,7 @@ export function WorkflowDesigner() {
                           <Input
                             type="number"
                             value={workflowSettings.schemaVersion}
-                            onChange={(e) => setWorkflowSettings({ ...workflowSettings, schemaVersion: parseInt(e.target.value) || 2 })}
+                            onChange={(e) => setWorkflowSettings({ ...workflowSettings, schemaVersion: Number.parseInt(e.target.value) || 2 })}
                             className="mt-2 bg-[#0f1419] text-white border-[#2a3142]"
                           />
                         </div>
@@ -1443,7 +1404,7 @@ export function WorkflowDesigner() {
       <ExecuteWorkflowModal
         open={executeModalOpen}
         onOpenChange={setExecuteModalOpen}
-        workflow={workflow}
+        workflow={workflow || null}
         onExecute={handleExecuteWorkflow}
       />
 

@@ -12,13 +12,10 @@ import { useSettingsStore } from '@/stores/settingsStore';
 export function Settings() {
   const { toast } = useToast();
   const {
-    conductorApi,
     proxyServer,
     openAiLlm,
     enableNotifications,
     autoSaveWorkflows,
-    setConductorApiEndpoint,
-    setConductorApiKey,
     setProxyServerEnabled,
     setProxyEndpoint,
     setConductorServerUrl,
@@ -196,39 +193,6 @@ export function Settings() {
                 </div>
               </>
             )}
-          </div>
-        </Card>
-
-        {/* Conductor API Configuration (Legacy) */}
-        <Card className="p-6 bg-card border-border shadow-sm">
-          <div className="flex items-center gap-3 mb-6">
-            <SettingsIcon className="w-5 h-5 text-primary" />
-            <h2 className="text-xl font-semibold text-foreground">Conductor API Configuration (Direct)</h2>
-          </div>
-          <p className="text-sm text-muted-foreground mb-4">
-            Direct REST API configuration (used when proxy server is disabled)
-          </p>
-          <div className="space-y-4">
-            <div>
-              <Label htmlFor="conductor-api-endpoint" className="text-foreground">API Endpoint</Label>
-              <Input
-                id="conductor-api-endpoint"
-                value={conductorApi.endpoint}
-                onChange={(e) => setConductorApiEndpoint(e.target.value)}
-                className="mt-2 bg-background text-foreground border-border"
-              />
-            </div>
-            <div>
-              <Label htmlFor="conductor-api-key" className="text-foreground">API Key (Optional)</Label>
-              <Input
-                id="conductor-api-key"
-                type="password"
-                value={conductorApi.apiKey}
-                onChange={(e) => setConductorApiKey(e.target.value)}
-                placeholder="Enter your Conductor API key"
-                className="mt-2 bg-background text-foreground border-border"
-              />
-            </div>
           </div>
         </Card>
 

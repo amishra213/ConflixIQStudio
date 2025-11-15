@@ -14,7 +14,7 @@ import { useState, useEffect } from 'react';
     import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
     import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
     import { Switch } from '@/components/ui/switch';
-    import { PlusIcon, Trash2Icon, AlertCircleIcon } from 'lucide-react';
+    import { PlusIcon, Trash2Icon } from 'lucide-react';
     import { v4 as uuidv4 } from 'uuid';
     import { Config, AlertConfig, ConditionGroup, FilterConditions, ValidationConditions, JoinType } from '@/types/config';
     import { ConditionGroupForm } from '@/components/alert-config/ConditionGroupForm';
@@ -34,6 +34,7 @@ import { useState, useEffect } from 'react';
     const defaultValidationConditions: ValidationConditions = {
       conditionGroups: [{ id: uuidv4(), conditions: [{ id: uuidv4(), name: '', conditionType: 'EQUAL', value: '' }], joinType: 'AND' }],
       joinType: 'AND',
+      id: 0
     };
 
     export function AlertConfigModal({
@@ -41,7 +42,7 @@ import { useState, useEffect } from 'react';
       onOpenChange,
       onSave,
       initialConfig,
-    }: AlertConfigModalProps) {
+    }: Readonly<AlertConfigModalProps>) {
       const [config, setConfig] = useState<AlertConfig>(() => ({
         id: uuidv4(),
         configurationId: '',
@@ -110,9 +111,6 @@ import { useState, useEffect } from 'react';
         setConfig((prev) => ({ ...prev, [name]: value }));
       };
 
-      const handleDateChange = (name: 'effectiveStart' | 'effectiveEnd', value: string) => {
-        setConfig((prev) => ({ ...prev, [name]: value }));
-      };
 
       const handleFilterGroupChange = (updatedGroup: ConditionGroup) => {
         setConfig((prev) => ({
@@ -238,10 +236,12 @@ import { useState, useEffect } from 'react';
             updateTime: new Date().toISOString(),
             customEvaluatorParams: parsedCustomEvaluatorParams,
           };
-          onSave(finalConfig as Config); // Cast to generic Config type
+          onSave(finalConfig); // Cast to generic Config type
           onOpenChange(false);
         } catch (error) {
+          console.error('Failed to parse Custom Evaluator Params JSON:', error);
           setJsonError('Failed to parse Custom Evaluator Params JSON.');
+          alert('Failed to parse Custom Evaluator Params JSON.');
         }
       };
 
@@ -433,7 +433,7 @@ import { useState, useEffect } from 'react';
                         <p className="text-gray-400 text-sm text-center py-8">No validation conditions defined.</p>
                       ) : (
                         config.validationConditions.map((validationSet, validationIndex) => (
-                          <div key={validationIndex} className="p-4 bg-[#1a1f2e] border border-[#2a3142] rounded-lg space-y-4">
+                          <div key={validationSet.id ?? validationIndex} className="p-4 bg-[#1a1f2e] border border-[#2a3142] rounded-lg space-y-4">
                             <div className="flex items-center justify-between border-b border-[#2a3142] pb-3 mb-3">
                               <h4 className="text-md font-semibold text-white">Validation Set {validationIndex + 1}</h4>
                               <div className="flex items-center gap-2">

@@ -9,19 +9,32 @@ export interface Task {
 
 export interface WorkflowNode {
   id: string;
-  type: string;
+  type?: string;
   position: { x: number; y: number };
   data: {
     label: string;
-    taskId: string;
+    taskId?: string;
+    taskType?: string;
+    taskName?: string;
+    color?: string;
+    sequenceNo?: number;
+    config?: any;
     status?: 'idle' | 'running' | 'success' | 'failed';
+    onEdit?: (nodeId: string) => void;
+    onDelete?: (nodeId: string) => void;
+    [key: string]: any; // Allow additional properties
   };
+  [key: string]: any; // Allow additional ReactFlow properties
 }
 
 export interface WorkflowEdge {
   id: string;
   source: string;
   target: string;
+  type?: string;
+  animated?: boolean;
+  style?: any;
+  [key: string]: any; // Allow additional properties
 }
 
 export interface WorkflowSettings {
