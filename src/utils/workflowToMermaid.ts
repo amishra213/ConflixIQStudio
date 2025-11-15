@@ -123,7 +123,7 @@ function getStatusClass(status?: string): string {
  * Generate unique node ID
  */
 function generateNodeId(taskRef: string, index: number): string {
-  return `${taskRef.replace(/[^a-zA-Z0-9]/g, '_')}_${index}`;
+  return `${taskRef.replaceAll(/[^a-zA-Z0-9]/g, '_')}_${index}`;
 }
 
 /**
@@ -139,24 +139,22 @@ function processDecisionTask(
   const nextNodes: string[] = [];
   
   if (task.decisionCases) {
-    Object.entries(task.decisionCases).forEach(([caseValue, caseTasks]) => {
+    for (const [caseValue, caseTasks] of Object.entries(task.decisionCases)) {
       if (caseTasks && caseTasks.length > 0) {
         const firstCaseTask = caseTasks[0];
         const caseNodeId = generateNodeId(firstCaseTask.taskReferenceName, nodeIndex.value++);
-        mermaidLines.push(`    ${nodeId} -->|${caseValue}| ${caseNodeId}`);
-        
         const caseNodes = processTaskList(caseTasks, mermaidLines, nodeIndex, config, caseNodeId);
+        mermaidLines.push(`    ${nodeId} -->|${caseValue}| ${caseNodeId}`);
         nextNodes.push(...caseNodes);
       }
-    });
+    }
   }
   
   if (task.defaultCase && task.defaultCase.length > 0) {
     const firstDefaultTask = task.defaultCase[0];
     const defaultNodeId = generateNodeId(firstDefaultTask.taskReferenceName, nodeIndex.value++);
-    mermaidLines.push(`    ${nodeId} -->|default| ${defaultNodeId}`);
-    
     const defaultNodes = processTaskList(task.defaultCase, mermaidLines, nodeIndex, config, defaultNodeId);
+    mermaidLines.push(`    ${nodeId} -->|default| ${defaultNodeId}`);
     nextNodes.push(...defaultNodes);
   }
   
@@ -175,24 +173,26 @@ function processForkJoinTask(
 ): string {
   const joinNodeId = `${nodeId}_join`;
   const joinLabel = task.joinOn ? `Join: ${task.joinOn.join(', ')}` : 'Join';
-  mermaidLines.push(`    ${joinNodeId}${getNodeShape('JOIN', joinLabel)}`);
+  const joinLines: string[] = [`    ${joinNodeId}${getNodeShape('JOIN', joinLabel)}`];
   
   if (task.forkTasks) {
-    task.forkTasks.forEach((forkBranch, branchIndex) => {
+    for (let branchIndex = 0; branchIndex < task.forkTasks.length; branchIndex++) {
+      const forkBranch = task.forkTasks[branchIndex];
       if (forkBranch && forkBranch.length > 0) {
         const firstTask = forkBranch[0];
         const branchNodeId = generateNodeId(firstTask.taskReferenceName, nodeIndex.value++);
-        mermaidLines.push(`    ${nodeId} -->|branch ${branchIndex + 1}| ${branchNodeId}`);
+        joinLines.push(`    ${nodeId} -->|branch ${branchIndex + 1}| ${branchNodeId}`);
         
         const branchNodes = processTaskList(forkBranch, mermaidLines, nodeIndex, config, branchNodeId);
         
-        branchNodes.forEach(endNode => {
-          mermaidLines.push(`    ${endNode} --> ${joinNodeId}`);
-        });
+        for (const endNode of branchNodes) {
+          joinLines.push(`    ${endNode} --> ${joinNodeId}`);
+        }
       }
-    });
+    }
   }
   
+  mermaidLines.push(...joinLines);
   return joinNodeId;
 }
 
@@ -209,16 +209,17 @@ function processDoWhileTask(
   if (task.loopOver && task.loopOver.length > 0) {
     const firstLoopTask = task.loopOver[0];
     const loopNodeId = generateNodeId(firstLoopTask.taskReferenceName, nodeIndex.value++);
-    mermaidLines.push(`    ${nodeId} --> ${loopNodeId}`);
+    const loopLines: string[] = [`    ${nodeId} --> ${loopNodeId}`];
     
     const loopNodes = processTaskList(task.loopOver, mermaidLines, nodeIndex, config, loopNodeId);
     
-    loopNodes.forEach(endNode => {
-      mermaidLines.push(`    ${endNode} -->|loop| ${nodeId}`);
-    });
+    for (const endNode of loopNodes) {
+      loopLines.push(`    ${endNode} -->|loop| ${nodeId}`);
+    }
     
     const exitNodeId = `${nodeId}_exit`;
-    mermaidLines.push(`    ${nodeId} -->|exit| ${exitNodeId}`);
+    loopLines.push(`    ${nodeId} -->|exit| ${exitNodeId}`);
+    mermaidLines.push(...loopLines);
     return exitNodeId;
   }
   
@@ -238,45 +239,48 @@ function processTaskList(
   const endNodes: string[] = [];
   let previousNodeId = startNodeId;
   
-  tasks.forEach((task, index) => {
+  for (let index = 0; index < tasks.length; index++) {
+    const task = tasks[index];
     const currentNodeId = previousNodeId || generateNodeId(task.taskReferenceName, nodeIndex.value++);
     const label = task.name || task.taskReferenceName;
     const nodeShape = getNodeShape(task.type, label);
+    const taskLines: string[] = [];
     
     if (!previousNodeId) {
-      mermaidLines.push(`    ${currentNodeId}${nodeShape}`);
+      taskLines.push(`    ${currentNodeId}${nodeShape}`);
     } else if (index > 0) {
       const newNodeId = generateNodeId(task.taskReferenceName, nodeIndex.value++);
-      mermaidLines.push(`    ${newNodeId}${nodeShape}`);
-      mermaidLines.push(`    ${previousNodeId} --> ${newNodeId}`);
+      taskLines.push(`    ${newNodeId}${nodeShape}`, `    ${previousNodeId} --> ${newNodeId}`);
       previousNodeId = newNodeId;
     } else {
-      mermaidLines.push(`    ${currentNodeId}${nodeShape}`);
+      taskLines.push(`    ${currentNodeId}${nodeShape}`);
     }
     
     if (config.showStatus && task.status) {
       const statusClass = getStatusClass(task.status);
-      mermaidLines.push(`    class ${currentNodeId || previousNodeId} ${statusClass}`);
+      taskLines.push(`    class ${currentNodeId || previousNodeId} ${statusClass}`);
     }
+    
+    mermaidLines.push(...taskLines);
     
     const activeNodeId = previousNodeId || currentNodeId;
     
     switch (task.type.toUpperCase()) {
       case 'DECISION':
-        const decisionNextNodes = processDecisionTask(task, activeNodeId, mermaidLines, nodeIndex, config);
+        { const decisionNextNodes = processDecisionTask(task, activeNodeId, mermaidLines, nodeIndex, config);
         endNodes.push(...decisionNextNodes);
         previousNodeId = undefined;
-        break;
+        break; }
         
       case 'FORK_JOIN':
-        const joinNodeId = processForkJoinTask(task, activeNodeId, mermaidLines, nodeIndex, config);
+        { const joinNodeId = processForkJoinTask(task, activeNodeId, mermaidLines, nodeIndex, config);
         previousNodeId = joinNodeId;
-        break;
+        break; }
         
       case 'DO_WHILE':
-        const exitNodeId = processDoWhileTask(task, activeNodeId, mermaidLines, nodeIndex, config);
+        { const exitNodeId = processDoWhileTask(task, activeNodeId, mermaidLines, nodeIndex, config);
         previousNodeId = exitNodeId;
-        break;
+        break; }
         
       case 'TERMINATE':
         endNodes.push(activeNodeId);
@@ -289,7 +293,7 @@ function processTaskList(
         }
         break;
     }
-  });
+  }
   
   if (previousNodeId && endNodes.length === 0) {
     endNodes.push(previousNodeId);

@@ -5,6 +5,7 @@ const { expressMiddleware } = require('@apollo/server/express4');
 const cors = require('cors');
 const typeDefs = require('./schema');
 const resolvers = require('./resolvers');
+const { fileStoreRoutes } = require('./fileStoreServer');
 
 const app = express();
 const PORT = process.env.PORT || 4000;
@@ -12,6 +13,9 @@ const PORT = process.env.PORT || 4000;
 // Enable CORS for all origins
 app.use(cors());
 app.use(express.json());
+
+// Register filestore routes
+fileStoreRoutes(app);
 
 async function startApolloServer() {
   const server = new ApolloServer({
@@ -26,8 +30,9 @@ async function startApolloServer() {
 
   app.listen(PORT, () => {
     console.log(`🚀 GraphQL proxy server ready at http://localhost:${PORT}/graphql`);
+    console.log(`📁 FileStore API ready at http://localhost:${PORT}/api/filestore`);
     console.log(`Conductor API URL: ${process.env.CONDUCTOR_SERVER_URL}`);
   });
 }
 
-startApolloServer();
+await startApolloServer();

@@ -2,7 +2,7 @@ import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AppShell } from './components/layout/AppShell';
 import { Dashboard } from './pages/Dashboard';
-import Tasks from './pages/TaskManagement';
+import { Tasks } from './pages/Tasks';
 import { Workflows } from './pages/Workflows';
 import { WorkflowDesigner } from './pages/WorkflowDesigner';
 import { UnifiedWorkflowDiagram } from './pages/UnifiedWorkflowDiagram';

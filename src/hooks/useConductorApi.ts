@@ -2,6 +2,7 @@ import { useState, useCallback } from 'react';
 import { WorkflowDefinition, WorkflowExecution } from '@/utils/workflowToMermaid';
 import { useWorkflowStore } from '@/stores/workflowStore';
 import { useSettingsStore } from '@/stores/settingsStore';
+import type { TaskDefinition } from '@/types/taskDefinition';
 
 interface UseConductorApiOptions {
   enableFallback?: boolean;
@@ -168,13 +169,14 @@ export function useConductorApi(options: UseConductorApiOptions = {}) {
         let errorMessage = `Failed to start workflow: ${response.statusText}`;
         try {
           const errorBody = await response.json();
-          if (errorBody && errorBody.message) {
+          if (errorBody?.message) {
             errorMessage = errorBody.message;
           } else if (typeof errorBody === 'string') {
             errorMessage = errorBody;
           }
         } catch (parseError) {
           // Ignore if response body is not JSON
+          console.debug('Failed to parse error response:', parseError);
         }
         throw new Error(errorMessage);
       }
@@ -189,6 +191,29 @@ export function useConductorApi(options: UseConductorApiOptions = {}) {
     }
   }, [baseUrl, apiKey]);
 
+  const fetchAllTaskDefinitions = useCallback(async (): Promise<TaskDefinition[]> => {
+    setLoading(true);
+    setError(null);
+    try {
+      const headers: HeadersInit = {};
+      if (apiKey) {
+        headers['X-Conductor-API-Key'] = apiKey;
+      }
+      const response = await fetch(`${baseUrl}/metadata/taskdefs`, { headers });
+      if (!response.ok) {
+        throw new Error(`Failed to fetch task definitions: ${response.statusText}`);
+      }
+      const data = await response.json();
+      return Array.isArray(data) ? data : [];
+    } catch (err) {
+      console.error('Failed to fetch task definitions from Conductor API:', err);
+      setError(err as Error);
+      return [];
+    } finally {
+      setLoading(false);
+    }
+  }, [baseUrl, apiKey]);
+
   return {
     loading,
     error,
@@ -197,5 +222,6 @@ export function useConductorApi(options: UseConductorApiOptions = {}) {
     fetchAllWorkflows,
     fetchExecution,
     startWorkflow,
+    fetchAllTaskDefinitions,
   };
 }

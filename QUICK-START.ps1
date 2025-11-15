@@ -56,7 +56,7 @@ function Start-DevFull {
     npm run dev:full
 }
 
-function Build-Production {
+function Invoke-Production {
     Write-Header "Conductor Designer - Production Build"
     Write-Host "Building for production..." -ForegroundColor Yellow
     npm run build
@@ -89,7 +89,7 @@ switch ($Command) {
         Start-DevFull
     }
     "build" {
-        Build-Production
+        Invoke-Production
     }
     "install" {
         Write-Host "Dependencies installation complete" -ForegroundColor Green
