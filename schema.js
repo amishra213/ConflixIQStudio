@@ -1,5 +1,4 @@
-const { gql } = require('@apollo/server');
-const GraphQLJSON = require('graphql-type-json');
+import gql from 'graphql-tag';
 
 const typeDefs = gql`
   scalar JSON
@@ -128,6 +127,15 @@ const typeDefs = gql`
     updatedBy: String
     createTime: JSON
     updateTime: JSON
+    retryLogic: String
+    retryDelaySeconds: Int
+    concurrentExecLimit: Int
+    rateLimitPerFrequency: Int
+    rateLimitFrequencyInSeconds: Int
+    pollTimeoutSeconds: Int
+    backoffScaleFactor: Float
+    inputTemplate: JSON
+    timeoutPolicy: String
   }
 
   type WorkflowResponse {
@@ -148,4 +156,4 @@ const typeDefs = gql`
   }
 `;
 
-module.exports = typeDefs;
+export default typeDefs;

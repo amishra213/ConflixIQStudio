@@ -3,8 +3,8 @@
  * Handles GET, POST, and DELETE operations for task cache storage
  */
 
-const fs = require('fs').promises;
-const path = require('path');
+import fs from 'node:fs/promises';
+import path from 'node:path';
 
 // Default cache directory in project root
 const CACHE_DIR = process.env.FILESTORE_CACHE_DIR || path.join(process.cwd(), '.filestore');
@@ -202,4 +202,4 @@ const fileStoreRoutes = (app) => {
   });
 };
 
-module.exports = { fileStoreRoutes, ensureCacheDir };
+export { fileStoreRoutes, ensureCacheDir };

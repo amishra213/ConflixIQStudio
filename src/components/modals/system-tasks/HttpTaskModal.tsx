@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogFooter,
@@ -34,6 +35,7 @@ export interface HttpRequest {
 export interface HttpTaskConfig {
   type?: 'HTTP';
   name?: string;
+  description?: string;
   taskReferenceName?: string;
   http_request?: HttpRequest;
   // Extended fields for full-featured HTTP task
@@ -53,15 +55,17 @@ export interface HttpTaskConfig {
     pollTimeoutSeconds: number;
   };
   taskinputParameters?: any;
+  inputTemplate?: Record<string, any>;
   input?: Record<string, any>;
   output?: Record<string, any>;
   httpRequest?: HttpRequest;
+  ownerEmail?: string;
 }
 
 interface HttpTaskModalProps {
   readonly open: boolean;
   readonly onOpenChange: (open: boolean) => void;
-  readonly onSave: (config: HttpTaskConfig) => void;
+  readonly onSave: (config: HttpTaskConfig) => void | Promise<void>;
   readonly variant?: 'simple' | 'full'; // 'simple' for WorkflowDesigner, 'full' for TaskManagement
   readonly initialConfig?: HttpTaskConfig | null;
 }
@@ -113,122 +117,131 @@ export function HttpTaskModal({ open, onOpenChange, onSave, variant = 'simple', 
   ]);
   const [inputJsonState, setInputJsonState] = useState('{}');
   const [outputJsonState, setOutputJsonState] = useState('{}');
+  const [isLoading, setIsLoading] = useState(false);
+  const [apiError, setApiError] = useState<string | null>(null);
+
+  // Helper to load config from initialConfig
+  function loadInitialConfig(initialConfig: HttpTaskConfig) {
+    setConfig({
+      type: 'HTTP',
+      name: initialConfig.name || '',
+      taskReferenceName: initialConfig.taskReferenceName || '',
+      http_request: initialConfig.http_request || initialConfig.httpRequest || {
+        uri: '',
+        method: 'GET',
+        headers: {},
+        timeout: 5000,
+        connectionTimeOut: 3000,
+        readTimeOut: 3000,
+      },
+      orgId: initialConfig.orgId || 'TEST_ORG_DT',
+      taskId: initialConfig.taskId || '',
+      taskType: initialConfig.taskType || 'HTTP',
+      executionNamespace: initialConfig.executionNamespace || 'FULFILLMENT',
+      executionReferences: initialConfig.executionReferences || {},
+      retryPolicy: initialConfig.retryPolicy || {
+        retryInterval: 60,
+        retryCount: 3,
+      },
+      timeoutPolicy: initialConfig.timeoutPolicy || {
+        timeoutAction: 'RETRY',
+        responseTimeoutSeconds: 600,
+        timeoutInterval: 1200,
+        pollTimeoutSeconds: 600,
+      },
+      taskinputParameters: initialConfig.taskinputParameters || {},
+      input: initialConfig.input || {},
+      output: initialConfig.output || {},
+    });
+
+    // Set headers from config
+    const httpReq = initialConfig.http_request || initialConfig.httpRequest;
+    if (httpReq?.headers) {
+      const headerArray = Object.entries(httpReq.headers).map(([key, value]) => ({
+        id: `header-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`,
+        key,
+        value: value,
+      }));
+      setHeaders(headerArray);
+    } else {
+      setHeaders([]);
+    }
+
+    // Set body text
+    const body = httpReq?.body;
+    if (body) {
+      setBodyText(typeof body === 'string' ? body : JSON.stringify(body, null, 2));
+    } else {
+      setBodyText('');
+    }
+
+    // Set execution references
+    const execRefs = initialConfig.executionReferences;
+    if (execRefs && Object.keys(execRefs).length > 0) {
+      const refArray = Object.entries(execRefs).map(([name, value]) => ({
+        id: `${Date.now()}-${Math.random().toString(36).substring(2, 11)}`,
+        name,
+        value,
+      }));
+      setExecutionRefs(refArray);
+    } else {
+      setExecutionRefs([{ id: '1', name: 'genericTaskName', value: 'codeExecuter_generic_task' }]);
+    }
+
+    // Set input/output JSON
+    setInputJsonState(initialConfig.input ? JSON.stringify(initialConfig.input, null, 2) : '{}');
+    setOutputJsonState(initialConfig.output ? JSON.stringify(initialConfig.output, null, 2) : '{}');
+  }
+
+  // Helper to reset to new config
+  function resetToNewConfig() {
+    const timestamp = Date.now();
+    setConfig({
+      type: 'HTTP',
+      name: '',
+      taskReferenceName: '',
+      http_request: {
+        uri: '',
+        method: 'GET',
+        headers: {},
+        timeout: 5000,
+        connectionTimeOut: 3000,
+        readTimeOut: 3000,
+      },
+      orgId: 'TEST_ORG_DT',
+      taskId: `http-task-${timestamp}`,
+      taskType: 'HTTP',
+      executionNamespace: 'FULFILLMENT',
+      executionReferences: {},
+      retryPolicy: {
+        retryInterval: 60,
+        retryCount: 3,
+      },
+      timeoutPolicy: {
+        timeoutAction: 'RETRY',
+        responseTimeoutSeconds: 600,
+        timeoutInterval: 1200,
+        pollTimeoutSeconds: 600,
+      },
+      taskinputParameters: {},
+      input: {},
+      output: {},
+    });
+    setHeaders([]);
+    setBodyText('');
+    setExecutionRefs([{ id: '1', name: 'genericTaskName', value: 'codeExecuter_generic_task' }]);
+    setInputJsonState('{}');
+    setOutputJsonState('{}');
+  }
 
   useEffect(() => {
-    if (open) {
-      if (initialConfig) {
-        // Load existing configuration
-        setConfig({
-          type: 'HTTP',
-          name: initialConfig.name || '',
-          taskReferenceName: initialConfig.taskReferenceName || '',
-          http_request: initialConfig.http_request || initialConfig.httpRequest || {
-            uri: '',
-            method: 'GET',
-            headers: {},
-            timeout: 5000,
-            connectionTimeOut: 3000,
-            readTimeOut: 3000,
-          },
-          orgId: initialConfig.orgId || 'TEST_ORG_DT',
-          taskId: initialConfig.taskId || '',
-          taskType: initialConfig.taskType || 'HTTP',
-          executionNamespace: initialConfig.executionNamespace || 'FULFILLMENT',
-          executionReferences: initialConfig.executionReferences || {},
-          retryPolicy: initialConfig.retryPolicy || {
-            retryInterval: 60,
-            retryCount: 3,
-          },
-          timeoutPolicy: initialConfig.timeoutPolicy || {
-            timeoutAction: 'RETRY',
-            responseTimeoutSeconds: 600,
-            timeoutInterval: 1200,
-            pollTimeoutSeconds: 600,
-          },
-          taskinputParameters: initialConfig.taskinputParameters || {},
-          input: initialConfig.input || {},
-          output: initialConfig.output || {},
-        });
-
-        // Set headers from config
-        const httpReq = initialConfig.http_request || initialConfig.httpRequest;
-        if (httpReq?.headers) {
-          const headerArray = Object.entries(httpReq.headers).map(([key, value]) => ({
-            id: `header-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`,
-            key,
-            value: value as string,
-          }));
-          setHeaders(headerArray);
-        } else {
-          setHeaders([]);
-        }
-
-        // Set body text
-        const body = httpReq?.body;
-        if (body) {
-          setBodyText(typeof body === 'string' ? body : JSON.stringify(body, null, 2));
-        } else {
-          setBodyText('');
-        }
-
-        // Set execution references
-        const execRefs = initialConfig.executionReferences;
-        if (execRefs && Object.keys(execRefs).length > 0) {
-          const refArray = Object.entries(execRefs).map(([name, value]) => ({
-            id: `${Date.now()}-${Math.random().toString(36).substring(2, 11)}`,
-            name,
-            value,
-          }));
-          setExecutionRefs(refArray);
-        } else {
-          setExecutionRefs([{ id: '1', name: 'genericTaskName', value: 'codeExecuter_generic_task' }]);
-        }
-
-        // Set input/output JSON
-        setInputJsonState(initialConfig.input ? JSON.stringify(initialConfig.input, null, 2) : '{}');
-        setOutputJsonState(initialConfig.output ? JSON.stringify(initialConfig.output, null, 2) : '{}');
-      } else {
-        // Create new configuration
-        const timestamp = Date.now();
-        setConfig({
-          type: 'HTTP',
-          name: '',
-          taskReferenceName: '',
-          http_request: {
-            uri: '',
-            method: 'GET',
-            headers: {},
-            timeout: 5000,
-            connectionTimeOut: 3000,
-            readTimeOut: 3000,
-          },
-          orgId: 'TEST_ORG_DT',
-          taskId: `http-task-${timestamp}`,
-          taskType: 'HTTP',
-          executionNamespace: 'FULFILLMENT',
-          executionReferences: {},
-          retryPolicy: {
-            retryInterval: 60,
-            retryCount: 3,
-          },
-          timeoutPolicy: {
-            timeoutAction: 'RETRY',
-            responseTimeoutSeconds: 600,
-            timeoutInterval: 1200,
-            pollTimeoutSeconds: 600,
-          },
-          taskinputParameters: {},
-          input: {},
-          output: {},
-        });
-        setHeaders([]);
-        setBodyText('');
-        setExecutionRefs([{ id: '1', name: 'genericTaskName', value: 'codeExecuter_generic_task' }]);
-        setInputJsonState('{}');
-        setOutputJsonState('{}');
-      }
-      setJsonError('');
+    if (!open) return;
+    if (initialConfig) {
+      loadInitialConfig(initialConfig);
+    } else {
+      resetToNewConfig();
     }
+    setJsonError('');
   }, [open, initialConfig]);
 
   const validateJson = (value: string) => {
@@ -277,108 +290,134 @@ export function HttpTaskModal({ open, onOpenChange, onSave, variant = 'simple', 
     ));
   };
 
-  const handleSave = () => {
-    if (variant === 'simple') {
-      // Simple variant validation
-      if (!config.name || config.name.trim() === '') {
-        setJsonError('Name is required');
-        return;
-      }
-      if (!config.taskReferenceName || config.taskReferenceName.trim() === '') {
-        setJsonError('Task Reference Name is required');
-        return;
-      }
-      if (!config.http_request?.uri || config.http_request.uri.trim() === '') {
-        setJsonError('URI is required');
-        return;
-      }
+  // Helper to save simple variant
+  const handleSaveSimple = () => {
+    if (!config.name || config.name.trim() === '') {
+      setJsonError('Name is required');
+      return false;
+    }
+    if (!config.taskReferenceName || config.taskReferenceName.trim() === '') {
+      setJsonError('Task Reference Name is required');
+      return false;
+    }
+    if (!config.http_request?.uri || config.http_request.uri.trim() === '') {
+      setJsonError('URI is required');
+      return false;
+    }
 
-      const headersObj: Record<string, string> = {};
-      for (const h of headers) {
-        if (h.key && h.value) {
-          headersObj[h.key] = h.value;
+    const headersObj: Record<string, string> = {};
+    for (const h of headers) {
+      if (h.key && h.value) {
+        headersObj[h.key] = h.value;
+      }
+    }
+
+    let body: any = undefined;
+    if (bodyText.trim()) {
+      try {
+        body = JSON.parse(bodyText);
+      } catch (error) {
+        console.error('Error parsing body JSON in simple variant:', error);
+        body = bodyText;
+      }
+    }
+
+    const updatedConfig: HttpTaskConfig = {
+      type: 'HTTP',
+      name: config.name,
+      taskReferenceName: config.taskReferenceName,
+      http_request: {
+        uri: config.http_request.uri,
+        method: config.http_request.method,
+        headers: Object.keys(headersObj).length > 0 ? headersObj : undefined,
+        body: body,
+        timeout: config.http_request.timeout,
+      },
+      ownerEmail: config.ownerEmail || 'admin@conductor.com',
+    };
+
+    onSave(updatedConfig);
+    return true;
+  };
+
+  // Helper to save full variant
+  const handleSaveFull = () => {
+    if (!config.orgId || !config.taskId || !config.executionNamespace) {
+      setJsonError('Please fill in all required fields (Organization ID, Task ID, Execution Namespace)');
+      return false;
+    }
+
+    if (!validateJson(bodyText) || !validateJson(inputJsonState) || !validateJson(outputJsonState)) {
+      return false;
+    }
+
+    const invalidRefs = executionRefs.filter(ref => ref.name.trim() === '' || ref.value.trim() === '');
+    if (invalidRefs.length > 0) {
+      setJsonError('Please fill in all execution reference names and values, or remove empty references');
+      return false;
+    }
+
+    try {
+      const headers = {};
+      const body = bodyText.trim() ? JSON.parse(bodyText) : {};
+      const input = inputJsonState.trim() ? JSON.parse(inputJsonState) : {};
+      const output = outputJsonState.trim() ? JSON.parse(outputJsonState) : {};
+      
+      const executionReferences: Record<string, string> = {};
+      for (const ref of executionRefs) {
+        if (ref.name.trim() && ref.value.trim()) {
+          executionReferences[ref.name.trim()] = ref.value.trim();
         }
       }
 
-      let body: any = undefined;
-      if (bodyText.trim()) {
-        try {
-          body = JSON.parse(bodyText);
-        } catch {
-          body = bodyText;
-        }
-      }
-
-      const updatedConfig: HttpTaskConfig = {
-        type: 'HTTP',
-        name: config.name,
-        taskReferenceName: config.taskReferenceName,
-        http_request: {
-          uri: config.http_request.uri,
-          method: config.http_request.method,
-          headers: Object.keys(headersObj).length > 0 ? headersObj : undefined,
-          body: body,
-          timeout: config.http_request.timeout,
+      const finalConfig: HttpTaskConfig = {
+        name: config.taskId,
+        taskId: config.taskId,
+        description: config.taskId,
+        orgId: config.orgId,
+        taskType: config.taskType,
+        executionNamespace: config.executionNamespace,
+        executionReferences,
+        retryPolicy: config.retryPolicy,
+        timeoutPolicy: config.timeoutPolicy,
+        httpRequest: {
+          uri: config.http_request?.uri || '',
+          method: config.http_request?.method || 'GET',
+          headers,
+          body,
+          connectionTimeOut: config.http_request?.connectionTimeOut,
+          readTimeOut: config.http_request?.readTimeOut,
         },
+        taskinputParameters: config.taskinputParameters,
+        inputTemplate: input,
+        input,
+        output,
+        ownerEmail: config.ownerEmail || 'admin@conductor.com',
       };
 
-      onSave(updatedConfig);
-      onOpenChange(false);
-    } else {
-      // Full variant validation
-      if (!config.orgId || !config.taskId || !config.executionNamespace) {
-        setJsonError('Please fill in all required fields (Organization ID, Task ID, Execution Namespace)');
-        return;
-      }
+      onSave(finalConfig);
+      return true;
+    } catch (error) {
+      console.error('Error while parsing JSON for body, input, output, or execution references:', error);
+      setJsonError('Failed to parse JSON for body, input, output, or execution references');
+      return false;
+    }
+  };
 
-      if (!validateJson(bodyText) || !validateJson(inputJsonState) || !validateJson(outputJsonState)) {
-        return;
-      }
-
-      const invalidRefs = executionRefs.filter(ref => ref.name.trim() === '' || ref.value.trim() === '');
-      if (invalidRefs.length > 0) {
-        setJsonError('Please fill in all execution reference names and values, or remove empty references');
-        return;
-      }
-
+  const handleSave = async () => {
+    setApiError(null);
+    const success = variant === 'simple' ? handleSaveSimple() : handleSaveFull();
+    if (success) {
+      setIsLoading(true);
       try {
-        const headers = {};
-        const body = bodyText.trim() ? JSON.parse(bodyText) : {};
-        const input = inputJsonState.trim() ? JSON.parse(inputJsonState) : {};
-        const output = outputJsonState.trim() ? JSON.parse(outputJsonState) : {};
-        
-        const executionReferences: Record<string, string> = {};
-        executionRefs.forEach(ref => {
-          if (ref.name.trim() && ref.value.trim()) {
-            executionReferences[ref.name.trim()] = ref.value.trim();
-          }
-        });
-
-        const finalConfig: HttpTaskConfig = {
-          orgId: config.orgId,
-          taskId: config.taskId,
-          taskType: config.taskType,
-          executionNamespace: config.executionNamespace,
-          executionReferences,
-          retryPolicy: config.retryPolicy,
-          timeoutPolicy: config.timeoutPolicy,
-          httpRequest: {
-            uri: config.http_request?.uri || '',
-            method: config.http_request?.method || 'GET',
-            headers,
-            body,
-            connectionTimeOut: config.http_request?.connectionTimeOut,
-            readTimeOut: config.http_request?.readTimeOut,
-          },
-          taskinputParameters: config.taskinputParameters,
-          input,
-          output,
-        };
-
-        onSave(finalConfig);
+        await onSave(config);
         onOpenChange(false);
       } catch (error) {
-        setJsonError('Failed to parse JSON for body, input, output, or execution references');
+        const errorMessage = error instanceof Error ? error.message : 'Failed to create task';
+        setApiError(errorMessage);
+        console.error('Error in handleSave:', errorMessage);
+      } finally {
+        setIsLoading(false);
       }
     }
   };
@@ -390,6 +429,9 @@ export function HttpTaskModal({ open, onOpenChange, onSave, variant = 'simple', 
           <DialogTitle className="text-2xl font-semibold">
             {variant === 'full' ? 'Create HTTP Task' : 'Create HTTP System Task'}
           </DialogTitle>
+          <DialogDescription className="text-sm text-gray-400">
+            {variant === 'full' ? 'Configure an HTTP task to make API calls within your workflow.' : 'Configure an HTTP system task.'}
+          </DialogDescription>
         </DialogHeader>
 
         <div className={variant === 'full' ? 'flex-1 overflow-y-auto px-6' : 'space-y-4 max-h-[70vh] overflow-y-auto'}>
@@ -687,7 +729,7 @@ export function HttpTaskModal({ open, onOpenChange, onSave, variant = 'simple', 
                             ...config,
                             retryPolicy: {
                               ...(config.retryPolicy || { retryInterval: 60, retryCount: 3 }),
-                              retryInterval: parseInt(e.target.value) || 60,
+                              retryInterval: Number.parseInt(e.target.value) || 60,
                             },
                           })
                         }
@@ -704,7 +746,7 @@ export function HttpTaskModal({ open, onOpenChange, onSave, variant = 'simple', 
                             ...config,
                             retryPolicy: {
                               ...(config.retryPolicy || { retryInterval: 60, retryCount: 3 }),
-                              retryCount: parseInt(e.target.value) || 3,
+                              retryCount: Number.parseInt(e.target.value) || 3,
                             },
                           })
                         }
@@ -761,7 +803,7 @@ export function HttpTaskModal({ open, onOpenChange, onSave, variant = 'simple', 
                                 timeoutInterval: 1200,
                                 pollTimeoutSeconds: 600,
                               }),
-                              responseTimeoutSeconds: parseInt(e.target.value) || 600,
+                              responseTimeoutSeconds: Number.parseInt(e.target.value) || 600,
                             },
                           })
                         }
@@ -783,7 +825,7 @@ export function HttpTaskModal({ open, onOpenChange, onSave, variant = 'simple', 
                                 timeoutInterval: 1200,
                                 pollTimeoutSeconds: 600,
                               }),
-                              timeoutInterval: parseInt(e.target.value) || 1200,
+                              timeoutInterval: Number.parseInt(e.target.value) || 1200,
                             },
                           })
                         }
@@ -805,7 +847,7 @@ export function HttpTaskModal({ open, onOpenChange, onSave, variant = 'simple', 
                                 timeoutInterval: 1200,
                                 pollTimeoutSeconds: 600,
                               }),
-                              pollTimeoutSeconds: parseInt(e.target.value) || 600,
+                              pollTimeoutSeconds: Number.parseInt(e.target.value) || 600,
                             },
                           })
                         }
@@ -861,7 +903,7 @@ export function HttpTaskModal({ open, onOpenChange, onSave, variant = 'simple', 
                           value={config.http_request?.connectionTimeOut}
                           onChange={(e) => setConfig({
                             ...config,
-                            http_request: { ...config.http_request!, connectionTimeOut: parseInt(e.target.value) || 3000 }
+                            http_request: { ...config.http_request!, connectionTimeOut: Number.parseInt(e.target.value) || 3000 }
                           })}
                           className="mt-2 bg-[#1a1f2e] text-white border-[#2a3142]"
                         />
@@ -873,7 +915,7 @@ export function HttpTaskModal({ open, onOpenChange, onSave, variant = 'simple', 
                           value={config.http_request?.readTimeOut}
                           onChange={(e) => setConfig({
                             ...config,
-                            http_request: { ...config.http_request!, readTimeOut: parseInt(e.target.value) || 3000 }
+                            http_request: { ...config.http_request!, readTimeOut: Number.parseInt(e.target.value) || 3000 }
                           })}
                           className="mt-2 bg-[#1a1f2e] text-white border-[#2a3142]"
                         />
@@ -909,8 +951,11 @@ export function HttpTaskModal({ open, onOpenChange, onSave, variant = 'simple', 
                           try {
                             const parsed = JSON.parse(e.target.value);
                             setConfig(prev => ({ ...prev, input: parsed }));
-                          } catch (err) {
+                            setJsonError('');
+                          } catch (error) {
+                            console.error('Error parsing input JSON:', error);
                             setConfig(prev => ({ ...prev, input: {} }));
+                            setJsonError('Invalid JSON format for input parameters');
                           }
                         }}
                         className="mt-2 font-mono text-sm bg-[#1a1f2e] text-white border-[#2a3142] min-h-[150px]"
@@ -927,8 +972,10 @@ export function HttpTaskModal({ open, onOpenChange, onSave, variant = 'simple', 
                           try {
                             const parsed = JSON.parse(e.target.value);
                             setConfig(prev => ({ ...prev, output: parsed }));
-                          } catch (err) {
+                          } catch (error) {
+                            console.error('Error parsing output JSON:', error);
                             setConfig(prev => ({ ...prev, output: {} }));
+                            setJsonError('Invalid JSON format for output parameters');
                           }
                         }}
                         className="mt-2 font-mono text-sm bg-[#1a1f2e] text-white border-[#2a3142] min-h-[150px]"
@@ -941,6 +988,12 @@ export function HttpTaskModal({ open, onOpenChange, onSave, variant = 'simple', 
             </Tabs>
           )}
 
+          {apiError && (
+            <div className="p-3 bg-red-500/10 border border-red-500/50 rounded-lg mb-3">
+              <p className="text-sm text-red-400 font-medium">Error:</p>
+              <p className="text-sm text-red-300 mt-1">{apiError}</p>
+            </div>
+          )}
           {jsonError && (
             <div className="p-3 bg-red-500/10 border border-red-500/50 rounded-lg">
               <p className="text-sm text-red-400">{jsonError}</p>
@@ -958,10 +1011,10 @@ export function HttpTaskModal({ open, onOpenChange, onSave, variant = 'simple', 
           </Button>
           <Button
             onClick={handleSave}
-            disabled={!!jsonError}
+            disabled={!!jsonError || isLoading}
             className="bg-cyan-500 text-white hover:bg-cyan-600 font-medium disabled:opacity-50"
           >
-            {variant === 'full' ? 'Create Task' : 'Create Task'}
+            {isLoading ? 'Creating...' : 'Create Task'}
           </Button>
         </DialogFooter>
       </DialogContent>

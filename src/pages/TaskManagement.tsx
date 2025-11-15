@@ -6,64 +6,54 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { useWorkflowStore } from '@/stores/workflowStore';
 import { PlusIcon, Trash2Icon } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { useConductorApi } from '@/hooks/useConductorApi';
 
 // Config Modals (used in WorkflowDesigner, but imported here for type consistency if needed)
 import { HttpTaskModal } from '@/components/modals/system-tasks';
 
-// New Create Modals (used for creating tasks from this page)
-import { GenericTaskCreateModal } from '@/components/modals/GenericTaskCreateModal';
-import { MapperTaskCreateModal } from '@/components/modals/MapperTaskCreateModal';
-import { ScheduledWaitTaskCreateModal } from '@/components/modals/ScheduledWaitTaskCreateModal';
-
 
 const workerTaskTypes = [
-  { id: 'GENERIC', name: 'Generic Task', description: 'Basic task for custom business logic', color: '#00bcd4' },
   { id: 'HTTP', name: 'HTTP Task', description: 'Make HTTP API calls', color: '#00bcd4' },
-  { id: 'MAPPER', name: 'Mapper', description: 'Maps input JSON to output JSON', color: '#00bcd4' },
-  { id: 'SCHEDULED_WAIT', name: 'Scheduled Wait', description: 'Wait for a scheduled duration', color: '#00bcd4' },
 ];
 
 export default function Tasks() { // Default export
   const { tasks, addTask, deleteTask } = useWorkflowStore();
   const { toast } = useToast();
   const [isTaskTypeSelectOpen, setIsTaskTypeSelectOpen] = useState(false);
-
-  // State for Create Modals
-  const [isGenericCreateModalOpen, setIsGenericCreateModalOpen] = useState(false);
   const [isHttpCreateModalOpen, setIsHttpCreateModalOpen] = useState(false);
-  const [isMapperCreateModalOpen, setIsMapperCreateModalOpen] = useState(false);
-  const [isScheduledWaitCreateModalOpen, setIsScheduledWaitCreateModalOpen] = useState(false);
-
 
   const handleTaskTypeSelect = (taskType: string) => {
     setIsTaskTypeSelectOpen(false);
-    switch (taskType) {
-      case 'GENERIC': setIsGenericCreateModalOpen(true); break;
-      case 'HTTP': setIsHttpCreateModalOpen(true); break;
-      case 'MAPPER': setIsMapperCreateModalOpen(true); break;
-      case 'SCHEDULED_WAIT': setIsScheduledWaitCreateModalOpen(true); break;
-      default: console.warn(`No create modal defined for task type: ${taskType}`); break;
+    if (taskType === 'HTTP') {
+      setIsHttpCreateModalOpen(true);
     }
   };
 
-  const handleSaveGenericTask = (config: any) => {
-    addTask({ id: `task-${Date.now()}`, name: config.taskId, type: 'GENERIC', description: 'Generic worker task', config });
-    toast({ title: 'Task created', description: 'Generic task created successfully.' });
-  };
+  const { createTaskDefinition } = useConductorApi();
 
-  const handleSaveHttpTask = (config: any) => {
-    addTask({ id: `task-${Date.now()}`, name: config.taskId, type: 'HTTP', description: 'HTTP worker task', config });
-    toast({ title: 'Task created', description: 'HTTP task created successfully.' });
-  };
-
-  const handleSaveMapperTask = (config: any) => {
-    addTask({ id: `task-${Date.now()}`, name: config.taskId, type: 'MAPPER', description: 'Mapper worker task', config });
-    toast({ title: 'Task created', description: 'Mapper task created successfully.' });
-  };
-
-  const handleSaveScheduledWaitTask = (config: any) => {
-    addTask({ id: `task-${Date.now()}`, name: config.taskId, type: 'SCHEDULED_WAIT', description: 'Scheduled wait worker task', config });
-    toast({ title: 'Task created', description: 'Scheduled wait task created successfully.' });
+  const handleSaveHttpTask = async (config: any) => {
+    try {
+      // Create task definition in Conductor
+      const success = await createTaskDefinition(config);
+      if (success) {
+        addTask({ id: `task-${Date.now()}`, name: config.name || config.taskId, type: 'HTTP', description: 'HTTP worker task' });
+        toast({ title: 'Success', description: 'HTTP task created successfully.' });
+      } else {
+        toast({ 
+          title: 'Error', 
+          description: 'Failed to create HTTP task. Please check the error details.',
+          variant: 'destructive'
+        });
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      console.error('Error creating HTTP task:', errorMessage);
+      toast({ 
+        title: 'Error', 
+        description: errorMessage,
+        variant: 'destructive'
+      });
+    }
   };
 
   const handleDelete = (id: string, name: string) => {
@@ -115,7 +105,6 @@ export default function Tasks() { // Default export
               </div>
               <div className="flex items-center gap-2 flex-wrap">
                 <Badge className="bg-cyan-500/20 text-cyan-400 border border-cyan-500/50 font-medium">{task.type}</Badge>
-                {task.config && <Badge className="bg-green-500/20 text-green-400 border border-green-500/50 font-medium">Configured</Badge>}
               </div>
               <div className="flex gap-2 pt-4 border-t border-border">
                 <Button size="sm" onClick={() => handleDelete(task.id, task.name)} variant="outline" className="flex-1 text-destructive border-border hover:bg-destructive/10">
@@ -128,10 +117,7 @@ export default function Tasks() { // Default export
       </div>
 
       {/* Create Modals */}
-      <GenericTaskCreateModal open={isGenericCreateModalOpen} onOpenChange={setIsGenericCreateModalOpen} onSave={handleSaveGenericTask} />
       <HttpTaskModal open={isHttpCreateModalOpen} onOpenChange={setIsHttpCreateModalOpen} onSave={handleSaveHttpTask} variant="full" />
-      <MapperTaskCreateModal open={isMapperCreateModalOpen} onOpenChange={setIsMapperCreateModalOpen} onSave={handleSaveMapperTask} />
-      <ScheduledWaitTaskCreateModal open={isScheduledWaitCreateModalOpen} onOpenChange={setIsScheduledWaitCreateModalOpen} onSave={handleSaveScheduledWaitTask} />
     </div>
   );
 }

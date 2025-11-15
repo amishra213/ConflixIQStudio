@@ -1,11 +1,13 @@
-require('dotenv').config();
-const express = require('express');
-const { ApolloServer } = require('@apollo/server');
-const { expressMiddleware } = require('@apollo/server/express4');
-const cors = require('cors');
-const typeDefs = require('./schema');
-const { resolvers, updateConductorConfig } = require('./resolvers');
-const { fileStoreRoutes } = require('./fileStoreServer');
+import dotenv from 'dotenv';
+import express from 'express';
+import { ApolloServer } from '@apollo/server';
+import { expressMiddleware } from '@apollo/server/express4';
+import cors from 'cors';
+import typeDefs from './schema.js';
+import { resolvers, updateConductorConfig } from './resolvers.js';
+import { fileStoreRoutes } from './fileStoreServer.js';
+
+dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 4000;

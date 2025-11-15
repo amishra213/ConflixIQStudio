@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogFooter,
@@ -106,7 +107,8 @@ export function SubWorkflowSystemTaskModal({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl bg-[#1a1f2e] border-[#2a3142] text-white">
         <DialogHeader>
-          <DialogTitle className="text-2xl font-semibold">Create SUB_WORKFLOW System Task</DialogTitle>
+          <DialogTitle className="text-2xl font-semibold">Create Sub-Workflow Task</DialogTitle>
+          <DialogDescription className="text-sm text-gray-400">Configure a sub-workflow task to execute nested workflows.</DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4 max-h-[70vh] overflow-y-auto">

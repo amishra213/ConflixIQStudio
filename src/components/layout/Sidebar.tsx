@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Avatar } from '@/components/ui/avatar';
 import { Separator } from '@/components/ui/separator';
 import { useThemeStore } from '@/stores/themeStore';
+import logo from '../../../resources/logo.svg';
 import { useState } from 'react';
 
 export function Sidebar() {
@@ -29,7 +30,10 @@ export function Sidebar() {
     >
       <div className="p-6 flex items-center justify-between border-b border-[#2a3142]">
         {!isCollapsed && (
-          <h1 className="text-xl font-semibold text-white tracking-tight">Conductor Studio</h1>
+          <div className="flex items-center gap-3">
+            <img src={logo} alt="Netflix Conductor Designer Logo" className="w-8 h-8" />
+            <h1 className="text-xl font-semibold text-white tracking-tight">Netflix Conductor Designer</h1>
+          </div>
         )}
         <Button
           variant="ghost"

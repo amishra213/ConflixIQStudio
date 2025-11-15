@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
     import {
       Dialog,
       DialogContent,
+      DialogDescription,
       DialogHeader,
       DialogTitle,
       DialogFooter,
@@ -266,9 +267,9 @@ import { useState, useEffect } from 'react';
               <DialogTitle className="text-2xl font-semibold text-white">
                 {initialConfig ? 'Edit Alert Configuration' : 'Create New Alert Configuration'}
               </DialogTitle>
-              <p className="text-sm text-gray-400 mt-2">
+              <DialogDescription className="text-sm text-gray-400">
                 Configure rules to trigger alerts for important events.
-              </p>
+              </DialogDescription>
             </DialogHeader>
 
             <div className="flex-1 overflow-y-auto px-6">

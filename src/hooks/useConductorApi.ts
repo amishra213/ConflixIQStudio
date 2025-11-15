@@ -13,10 +13,13 @@ export function useConductorApi(options: UseConductorApiOptions = {}) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
   const { workflows } = useWorkflowStore();
-  const { conductorApi } = useSettingsStore();
+  const { conductorApi, proxyServer } = useSettingsStore();
 
-  const baseUrl = conductorApi.endpoint || '/api';
-  const apiKey = conductorApi.apiKey;
+  // Use GraphQL proxy if enabled, otherwise use direct API
+  const baseUrl = proxyServer.enabled && proxyServer.proxyEndpoint
+    ? proxyServer.proxyEndpoint
+    : conductorApi.endpoint || '/api';
+  const apiKey = proxyServer.enabled ? proxyServer.conductorApiKey : conductorApi.apiKey;
 
   const fetchWorkflowByName = useCallback(async (name: string): Promise<WorkflowDefinition | null> => {
     setLoading(true);
@@ -237,7 +240,7 @@ export function useConductorApi(options: UseConductorApiOptions = {}) {
     }
   }, [baseUrl, apiKey]);
 
-  const fetchWorkflowExecution = useCallback(async (workflowId: string): Promise<any | null> => {
+  const fetchWorkflowExecution = useCallback(async (workflowId: string): Promise<WorkflowExecution | null> => {
     setLoading(true);
     setError(null);
     try {
@@ -260,36 +263,118 @@ export function useConductorApi(options: UseConductorApiOptions = {}) {
     }
   }, [baseUrl, apiKey]);
 
+  // Helper to convert HTTP task config to Conductor TaskDef format
+  const convertToTaskDef = useCallback((config: any) => {
+    return {
+      name: config.name || config.taskId || `task-${Date.now()}`,
+      description: config.description || config.name || 'Task definition',
+      retryCount: config.retryPolicy?.retryCount ?? 10,
+      timeoutSeconds: 0,
+      inputKeys: config.inputKeys || [],
+      outputKeys: config.outputKeys || [],
+      timeoutPolicy: config.timeoutPolicy?.timeoutAction || 'RETRY',
+      retryLogic: 'FIXED',
+      retryDelaySeconds: config.retryPolicy?.retryInterval ?? 0,
+      responseTimeoutSeconds: config.timeoutPolicy?.responseTimeoutSeconds ?? 1,
+      concurrentExecLimit: 0,
+      rateLimitPerFrequency: 0,
+      rateLimitFrequencyInSeconds: 0,
+      pollTimeoutSeconds: config.timeoutPolicy?.pollTimeoutSeconds ?? 0,
+      backoffScaleFactor: 1,
+      inputTemplate: config.inputTemplate || config.input || {},
+      ownerEmail: config.ownerEmail || 'admin@conductor.com',
+      // HTTP task specific fields
+      ...(config.httpRequest && {
+        httpRequest: {
+          uri: config.httpRequest.uri || config.http_request?.uri || '',
+          method: config.httpRequest.method || config.http_request?.method || 'GET',
+          headers: config.httpRequest.headers || config.http_request?.headers || {},
+          body: config.httpRequest.body || config.http_request?.body,
+          connectionTimeOut: config.httpRequest.connectionTimeOut || config.http_request?.connectionTimeOut || 3000,
+          readTimeOut: config.httpRequest.readTimeOut || config.http_request?.readTimeOut || 3000,
+        }
+      }),
+    };
+  }, []);
+
+  const createTaskDefinitionViaGraphQL = useCallback(async (taskDef: any): Promise<boolean> => {
+    const mutation = `
+      mutation RegisterTask($task: TaskDefinitionInput!) {
+        registerTask(task: $task) {
+          name
+        }
+      }
+    `;
+    
+    const headers: HeadersInit = {
+      'Content-Type': 'application/json',
+    };
+    if (apiKey) {
+      headers['X-Conductor-API-Key'] = apiKey;
+    }
+
+    const response = await fetch(`${proxyServer.proxyEndpoint}`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        query: mutation,
+        variables: { task: taskDef },
+      }),
+    });
+
+    const responseData = await response.json();
+    
+    if (responseData.errors) {
+      const errorMessage = responseData.errors[0]?.message || 'GraphQL error';
+      throw new Error(errorMessage);
+    }
+
+    // Check for successful response - resolver returns task object with name
+    if (!responseData.data?.registerTask?.name) {
+      throw new Error('Failed to register task');
+    }
+
+    return true;
+  }, [apiKey, proxyServer.proxyEndpoint]);
+
+  const createTaskDefinitionViaRest = useCallback(async (taskDef: any): Promise<boolean> => {
+    const headers: HeadersInit = {
+      'Content-Type': 'application/json',
+    };
+    if (apiKey) {
+      headers['X-Conductor-API-Key'] = apiKey;
+    }
+    const response = await fetch(`${baseUrl}/metadata/taskdefs`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify([taskDef]),
+    });
+    if (!response.ok) {
+      let errorMessage = `Failed to create task definition: ${response.statusText}`;
+      try {
+        const errorBody = await response.json();
+        if (errorBody?.message) {
+          errorMessage = errorBody.message;
+        } else if (typeof errorBody === 'string') {
+          errorMessage = errorBody;
+        }
+      } catch (parseError) {
+        console.debug('Failed to parse error response:', parseError);
+      }
+      throw new Error(errorMessage);
+    }
+    return true;
+  }, [baseUrl, apiKey]);
+
   const createTaskDefinition = useCallback(async (taskDef: any): Promise<boolean> => {
     setLoading(true);
     setError(null);
     try {
-      const headers: HeadersInit = {
-        'Content-Type': 'application/json',
-      };
-      if (apiKey) {
-        headers['X-Conductor-API-Key'] = apiKey;
+      const formattedTaskDef = convertToTaskDef(taskDef);
+      if (proxyServer.enabled && proxyServer.proxyEndpoint) {
+        return await createTaskDefinitionViaGraphQL(formattedTaskDef);
       }
-      const response = await fetch(`${baseUrl}/metadata/taskdefs`, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify([taskDef]),
-      });
-      if (!response.ok) {
-        let errorMessage = `Failed to create task definition: ${response.statusText}`;
-        try {
-          const errorBody = await response.json();
-          if (errorBody?.message) {
-            errorMessage = errorBody.message;
-          } else if (typeof errorBody === 'string') {
-            errorMessage = errorBody;
-          }
-        } catch (parseError) {
-          console.debug('Failed to parse error response:', parseError);
-        }
-        throw new Error(errorMessage);
-      }
-      return true;
+      return await createTaskDefinitionViaRest(formattedTaskDef);
     } catch (err) {
       console.error('Failed to create task definition:', err);
       setError(err as Error);
@@ -297,7 +382,7 @@ export function useConductorApi(options: UseConductorApiOptions = {}) {
     } finally {
       setLoading(false);
     }
-  }, [baseUrl, apiKey]);
+  }, [proxyServer, createTaskDefinitionViaGraphQL, createTaskDefinitionViaRest, convertToTaskDef]);
 
   return {
     loading,

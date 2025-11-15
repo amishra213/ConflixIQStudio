@@ -1,5 +1,5 @@
-const axios = require('axios');
-const GraphQLJSON = require('graphql-type-json');
+import axios from 'axios';
+import GraphQLJSON from 'graphql-type-json';
 
 // Global configuration that can be updated at runtime
 let conductorConfig = {
@@ -252,18 +252,31 @@ const resolvers = {
       return response.data?.data?.resumeWorkflow || null;
     },
     async registerTask(_, { task }) {
-      const client = createConductorClient();
-      const mutation = `
-        mutation RegisterTask($task: TaskDefinitionInput!) {
-          registerTask(task: $task) {
-            name
-          }
-        }
-      `;
-      const response = await client.post('/', { query: mutation, variables: { task } });
-      return response.data?.data?.registerTask || null;
+      // Use REST API endpoint for task registration
+      const client = axios.create({
+        baseURL: conductorConfig.serverUrl,
+        headers: {
+          'Content-Type': 'application/json',
+          ...(conductorConfig.apiKey && { 'X-API-Key': conductorConfig.apiKey }),
+        },
+        validateStatus: () => true,
+      });
+
+      const response = await client.post('/api/metadata/taskdefs', [task]);
+      
+      if (!response.ok && response.status >= 400) {
+        console.error('Failed to register task:', response.data);
+        throw new Error(response.data?.message || `Failed to register task: ${response.statusText}`);
+      }
+
+      // Return the registered task info
+      return {
+        name: task.name,
+        ...response.data,
+      };
     },
   },
 };
 
-module.exports = { resolvers, updateConductorConfig };
+export { resolvers, updateConductorConfig };
+

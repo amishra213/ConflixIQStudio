@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogFooter,
@@ -65,7 +66,8 @@ export function NoopSystemTaskModal({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl bg-[#1a1f2e] border-[#2a3142] text-white">
         <DialogHeader>
-          <DialogTitle className="text-2xl font-semibold">Create NOOP System Task</DialogTitle>
+          <DialogTitle className="text-2xl font-semibold">Create No-Op Task</DialogTitle>
+          <DialogDescription className="text-sm text-gray-400">Configure a no-op (no operation) task as a placeholder in your workflow.</DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4 max-h-[70vh] overflow-y-auto">

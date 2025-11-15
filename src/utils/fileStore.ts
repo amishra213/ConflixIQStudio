@@ -36,7 +36,14 @@ class FileStoreClient {
       });
 
       if (!response.ok) {
-        console.warn('FileStore load request failed with status:', response.status);
+        // Silently return empty array - filestore is optional
+        return [];
+      }
+
+      // Check if response is JSON before parsing
+      const contentType = response.headers.get('content-type');
+      if (!contentType?.includes('application/json')) {
+        // Silently return empty array - filestore API may not be available
         return [];
       }
 
@@ -46,8 +53,8 @@ class FileStoreClient {
         return result.data;
       }
       return [];
-    } catch (error) {
-      console.error('Error loading cache from filestore:', error);
+    } catch {
+      // Silently handle errors - filestore is optional and may not be running
       return [];
     }
   }
@@ -68,7 +75,14 @@ class FileStoreClient {
       });
 
       if (!response.ok) {
-        console.warn('FileStore save request failed with status:', response.status);
+        // Silently return false - filestore is optional
+        return false;
+      }
+
+      // Check if response is JSON before parsing
+      const contentType = response.headers.get('content-type');
+      if (!contentType?.includes('application/json')) {
+        // Silently return false - filestore API may not be available
         return false;
       }
 
@@ -78,8 +92,8 @@ class FileStoreClient {
         return true;
       }
       return false;
-    } catch (error) {
-      console.error('Error saving cache to filestore:', error);
+    } catch {
+      // Silently handle errors - filestore is optional and may not be running
       return false;
     }
   }
@@ -96,14 +110,21 @@ class FileStoreClient {
       });
 
       if (!response.ok) {
-        console.warn('FileStore clear request failed with status:', response.status);
+        // Silently return false - filestore is optional
+        return false;
+      }
+
+      // Check if response is JSON before parsing
+      const contentType = response.headers.get('content-type');
+      if (!contentType?.includes('application/json')) {
+        // Silently return false - filestore API may not be available
         return false;
       }
 
       const result: FileStoreResponse<void> = await response.json();
       return result.success;
-    } catch (error) {
-      console.error('Error clearing filestore cache:', error);
+    } catch {
+      // Silently handle errors - filestore is optional and may not be running
       return false;
     }
   }
@@ -119,14 +140,21 @@ class FileStoreClient {
       });
 
       if (!response.ok) {
-        console.warn('FileStore info request failed with status:', response.status);
+        // Silently return null - filestore is optional
+        return null;
+      }
+
+      // Check if response is JSON before parsing
+      const contentType = response.headers.get('content-type');
+      if (!contentType?.includes('application/json')) {
+        // Silently return null - filestore API may not be available
         return null;
       }
 
       const result: FileStoreResponse<{ size: number; lastUpdate: number }> = await response.json();
       return result.data || null;
-    } catch (error) {
-      console.error('Error getting filestore cache info:', error);
+    } catch {
+      // Silently handle errors - filestore is optional and may not be running
       return null;
     }
   }

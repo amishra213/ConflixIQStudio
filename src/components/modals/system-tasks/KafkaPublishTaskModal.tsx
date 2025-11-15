@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogFooter,
@@ -128,7 +129,8 @@ export function KafkaPublishTaskModal({ open, onOpenChange, onSave }: KafkaPubli
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl bg-[#1a1f2e] border-[#2a3142] text-white">
         <DialogHeader>
-          <DialogTitle className="text-2xl font-semibold">Create Kafka Publish System Task</DialogTitle>
+          <DialogTitle className="text-2xl font-semibold">Create Kafka Publish Task</DialogTitle>
+          <DialogDescription className="text-sm text-gray-400">Configure a Kafka publish task to send messages to Kafka topics.</DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4 max-h-[70vh] overflow-y-auto">

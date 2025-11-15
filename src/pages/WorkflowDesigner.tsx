@@ -30,6 +30,8 @@ import { useToast } from '@/hooks/use-toast';
 import { ExecuteWorkflowModal } from '@/components/modals/ExecuteWorkflowModal';
 import { HttpTaskModal } from '@/components/modals/system-tasks/HttpTaskModal';
 
+import logo from '../../resources/logo.svg';
+
 // Custom Node Component
 const CustomNode = memo(({ data, selected, id }: NodeProps) => {
   const getNodeIcon = (taskType: string) => {
@@ -533,6 +535,26 @@ export function WorkflowDesigner() {
         
         return updatedNodes;
       });
+
+      // Auto-open config modal for tasks that require configuration
+      if (task.type === 'HTTP') {
+        // Store the node for auto-opening config
+        setPendingNodeForAutoConfig({
+          id: taskRefId,
+          type: 'custom',
+          position,
+          data: {
+            label: taskRefId,
+            taskType: task.type,
+            taskName: task.name,
+            color: task.color,
+            sequenceNo: 1,
+            onEdit: handleEditNode,
+            onDelete: handleDeleteNode,
+          },
+        });
+        setIsHttpConfigModalOpen(true);
+      }
     },
     [setNodes, setEdges, handleEditNode, handleDeleteNode]
   );
@@ -781,10 +803,19 @@ export function WorkflowDesigner() {
       <div className="h-full flex flex-col bg-[#1a1f2e]">
         {/* Top Bar */}
         <div className="h-16 bg-[#1a1f2e] border-b border-[#2a3142] px-6 flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-4">
+            {/* Logo and App Name */}
+            <img
+              src={logo}
+              alt="Netflix Conductor Designer Logo"
+              className="h-8 w-8 mr-3 select-none"
+              draggable={false}
+              style={{ minWidth: 32 }}
+            />
             <div className="flex flex-col">
               <div className="flex items-center gap-3">
+                <span className="text-base font-semibold text-white">Netflix Conductor Designer</span>
+                <span className="text-base font-semibold text-white">/</span>
                 <span className="text-base font-semibold text-white">{workflowName}</span>
                 <span className="px-2 py-0.5 bg-cyan-500/20 text-cyan-400 text-xs font-medium rounded">
                   v1
@@ -798,36 +829,35 @@ export function WorkflowDesigner() {
               </div>
             </div>
           </div>
+          <div className="flex items-center gap-3">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handlePreview}
+              className="text-purple-400 border-[#2a3142] hover:bg-purple-500/10 hover:text-purple-300"
+            >
+              <EyeIcon className="w-4 h-4 mr-2" />
+              Preview Diagram
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleSave}
+              className="text-gray-400 border-[#2a3142] hover:bg-[#2a3142] hover:text-white"
+            >
+              <SaveIcon className="w-4 h-4 mr-2" />
+              Save
+            </Button>
+            <Button
+              size="sm"
+              onClick={handleExecute}
+              className="bg-cyan-500 text-white hover:bg-cyan-600 font-medium"
+            >
+              <PlayIcon className="w-4 h-4 mr-2" />
+              Execute
+            </Button>
+          </div>
         </div>
-        <div className="flex items-center gap-3">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handlePreview}
-            className="text-purple-400 border-[#2a3142] hover:bg-purple-500/10 hover:text-purple-300"
-          >
-            <EyeIcon className="w-4 h-4 mr-2" />
-            Preview Diagram
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleSave}
-            className="text-gray-400 border-[#2a3142] hover:bg-[#2a3142] hover:text-white"
-          >
-            <SaveIcon className="w-4 h-4 mr-2" />
-            Save
-          </Button>
-          <Button
-            size="sm"
-            onClick={handleExecute}
-            className="bg-cyan-500 text-white hover:bg-cyan-600 font-medium"
-          >
-            <PlayIcon className="w-4 h-4 mr-2" />
-            Execute
-          </Button>
-        </div>
-      </div>
 
         {/* Main Content */}
         <div className="flex-1 flex overflow-hidden">

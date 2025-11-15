@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogFooter,
@@ -9,7 +10,6 @@ import {
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Card } from '@/components/ui/card';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { PlayIcon, AlertCircleIcon } from 'lucide-react';
 import { Workflow } from '@/stores/workflowStore';
 
@@ -38,7 +38,7 @@ export function ExecuteWorkflowModal({
   onOpenChange,
   workflow,
   onExecute,
-}: ExecuteWorkflowModalProps) {
+}: Readonly<ExecuteWorkflowModalProps>) {
   const [inputJson, setInputJson] = useState('');
   const [jsonError, setJsonError] = useState('');
   const [isValidJson, setIsValidJson] = useState(true);
@@ -75,12 +75,19 @@ export function ExecuteWorkflowModal({
         errorMessage = error.message;
         
         // Try to extract position from error message
-        const positionMatch = errorMessage.match(/position (\d+)/i) ||
-                             errorMessage.match(/at position (\d+)/i) ||
-                             errorMessage.match(/character (\d+)/i);
+        const positionRegexes = [
+          /position (\d+)/i,
+          /at position (\d+)/i,
+          /character (\d+)/i
+        ];
+        let positionMatch: RegExpExecArray | null = null;
+        for (const regex of positionRegexes) {
+          positionMatch = regex.exec(errorMessage);
+          if (positionMatch) break;
+        }
         
         if (positionMatch) {
-          const position = parseInt(positionMatch[1]);
+          const position = Number.parseInt(positionMatch[1]);
           // Calculate line number from position
           const textBeforeError = value.substring(0, position);
           lineNumber = textBeforeError.split('\n').length;
@@ -93,9 +100,10 @@ export function ExecuteWorkflowModal({
         }
         
         // Some browsers include line number directly
-        const directLineMatch = errorMessage.match(/line (\d+)/i);
+        const directLineRegex = /line (\d+)/i;
+        const directLineMatch = directLineRegex.exec(errorMessage);
         if (directLineMatch && !lineNumber) {
-          lineNumber = parseInt(directLineMatch[1]);
+          lineNumber = Number.parseInt(directLineMatch[1]);
         }
       }
       
@@ -153,7 +161,13 @@ export function ExecuteWorkflowModal({
       try {
         parsedInput = JSON.parse(inputJson);
       } catch (error) {
-        setJsonError('Please fix JSON errors before executing');
+        let errorMessage = 'Please fix JSON errors before executing';
+        if (error instanceof Error) {
+          errorMessage = error.message;
+        }
+        setJsonError(errorMessage);
+        setIsValidJson(false);
+        setErrorLine(null);
         return;
       }
     }
@@ -189,9 +203,9 @@ export function ExecuteWorkflowModal({
           <DialogTitle className="text-2xl font-semibold text-white">
             Execute Workflow
           </DialogTitle>
-          <p className="text-sm text-gray-400 mt-2">
-            Workflow: <span className="text-cyan-400 font-medium">{workflow.name}</span>
-          </p>
+          <DialogDescription className="text-sm text-gray-400">
+            Execute the workflow with input parameters. Workflow: <span className="text-cyan-400 font-medium">{workflow.name}</span>
+          </DialogDescription>
         </DialogHeader>
 
         <div className="flex-1 overflow-y-auto px-6">
@@ -297,7 +311,7 @@ export function ExecuteWorkflowModal({
                     onScroll={handleScroll}
                     placeholder="Enter JSON input parameters..."
                     className={`flex-1 font-mono text-sm bg-[#1a1f2e] text-white p-2 focus:outline-none focus:ring-1 resize-none ${
-                      !isValidJson ? 'focus:ring-red-500' : 'focus:ring-cyan-500'
+                      isValidJson ? 'focus:ring-cyan-500' : 'focus:ring-red-500'
                     }`}
                     style={{
                       minHeight: '300px',

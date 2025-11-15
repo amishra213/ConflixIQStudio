@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogFooter,
@@ -190,16 +191,28 @@ export function SimpleTaskModal({
   };
 
   const getJsonPreview = () => {
-    const inputTemplate = inputTemplateJson.trim() ? JSON.parse(inputTemplateJson) : {};
-    const inputKeysList = inputKeys.filter(k => k.key.trim()).map(k => k.key.trim());
-    const outputKeysList = outputKeys.filter(k => k.key.trim()).map(k => k.key.trim());
+    try {
+      const inputTemplate = inputTemplateJson.trim() ? JSON.parse(inputTemplateJson) : {};
+      const inputKeysList = inputKeys.filter(k => k.key.trim()).map(k => k.key.trim());
+      const outputKeysList = outputKeys.filter(k => k.key.trim()).map(k => k.key.trim());
 
-    return {
-      ...config,
-      inputTemplate,
-      inputKeys: inputKeysList.length > 0 ? inputKeysList : [],
-      outputKeys: outputKeysList.length > 0 ? outputKeysList : [],
-    };
+      return {
+        ...config,
+        inputTemplate,
+        inputKeys: inputKeysList.length > 0 ? inputKeysList : [],
+        outputKeys: outputKeysList.length > 0 ? outputKeysList : [],
+      };
+    } catch (error) {
+      // Silently handle JSON parse errors during render - user is still typing
+      // Error is expected when user hasn't finished typing valid JSON
+      console.debug('JSON parse in progress:', (error as Error).message);
+      return {
+        ...config,
+        inputTemplate: {},
+        inputKeys: inputKeys.filter(k => k.key.trim()).map(k => k.key.trim()),
+        outputKeys: outputKeys.filter(k => k.key.trim()).map(k => k.key.trim()),
+      };
+    }
   };
 
   return (
@@ -209,6 +222,9 @@ export function SimpleTaskModal({
           <DialogTitle className="text-2xl font-semibold text-white">
             Create Task Definition
           </DialogTitle>
+          <DialogDescription className="text-sm text-gray-400">
+            Define a new task with configuration, input/output keys, policies, and templates.
+          </DialogDescription>
         </DialogHeader>
 
         <div className="flex-1 overflow-y-auto px-6">
