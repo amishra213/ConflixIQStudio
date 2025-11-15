@@ -28,11 +28,7 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { ExecuteWorkflowModal } from '@/components/modals/ExecuteWorkflowModal';
-import { GenericTaskConfigModal } from '@/components/modals/GenericTaskConfigModal';
-import { HttpTaskModal } from '@/components/modals/HttpTaskModal';
-import { MapperTaskModal } from '@/components/modals/MapperTaskModal';
-import { ScheduledWaitTaskModal } from '@/components/modals/ScheduledWaitTaskModal';
-import { WaitForSignalTaskModal } from '@/components/modals/WaitForSignalTaskModal'; // Keep for system task config
+import { HttpTaskModal } from '@/components/modals/system-tasks/HttpTaskModal';
 
 // Custom Node Component
 const CustomNode = memo(({ data, selected, id }: NodeProps) => {
@@ -120,99 +116,102 @@ const nodeTypes = {
   custom: CustomNode,
 };
 
-const systemTasks = [
-  // Worker Tasks (alphabetically sorted)
+// Worker Tasks - Currently only SIMPLE is supported by Conductor Server
+const workerTasks = [
   {
-    id: 'GENERIC',
-    name: 'Generic Task',
-    description: 'Basic task for custom business logic',
-    type: 'GENERIC',
+    id: 'SIMPLE',
+    name: 'Simple Task',
+    description: 'Execute a simple task with custom business logic',
+    type: 'SIMPLE',
     color: '#00bcd4',
   },
+];
+
+// Workflow Operators
+const operators = [
   {
-    id: 'HTTP',
-    name: 'HTTP Task',
-    description: 'Make HTTP API calls',
-    type: 'HTTP',
-    color: '#00bcd4',
+    id: 'FORK_JOIN',
+    name: 'Fork/Join',
+    description: 'Execute tasks in parallel and wait for completion',
+    type: 'FORK_JOIN',
+    color: '#9c27b0',
   },
   {
-    id: 'MAPPER',
-    name: 'Mapper',
-    description: 'Maps input JSON to output JSON',
-    type: 'MAPPER',
-    color: '#00bcd4',
+    id: 'FORK_JOIN_DYNAMIC',
+    name: 'Fork/Join Dynamic',
+    description: 'Execute dynamic number of parallel tasks',
+    type: 'FORK_JOIN_DYNAMIC',
+    color: '#9c27b0',
   },
   {
-    id: 'WAIT_FOR_SIGNAL',
-    name: 'Signal or Scheduled Wait',
-    description: 'Wait for signal or timeout, whichever comes first',
-    type: 'WAIT_FOR_SIGNAL',
-    color: '#00bcd4',
-  },
-  // System Tasks (alphabetically sorted)
-  {
-    id: 'CONVERGE',
-    name: 'Converge',
-    description: 'Wait for multiple parallel tasks to complete',
-    type: 'CONVERGE',
-    color: '#e91e63',
+    id: 'JOIN',
+    name: 'Join',
+    description: 'Wait for multiple tasks to complete',
+    type: 'JOIN',
+    color: '#9c27b0',
   },
   {
-    id: 'DECISION',
-    name: 'Decision',
+    id: 'EXCLUSIVE_JOIN',
+    name: 'Exclusive Join',
+    description: 'Wait for one of multiple tasks to complete',
+    type: 'EXCLUSIVE_JOIN',
+    color: '#9c27b0',
+  },
+  {
+    id: 'SWITCH',
+    name: 'Switch',
     description: 'Conditional branching logic',
-    type: 'DECISION',
-    color: '#00bcd4',
+    type: 'SWITCH',
+    color: '#9c27b0',
   },
   {
     id: 'DO_WHILE',
     name: 'Do While',
     description: 'Loop until condition is met',
     type: 'DO_WHILE',
-    color: '#00bcd4',
-  },
-  {
-    id: 'FORK_JOIN',
-    name: 'Fork and Converge',
-    description: 'Execute tasks in parallel and wait for completion',
-    type: 'FORK_JOIN',
-    color: '#00bcd4',
+    color: '#9c27b0',
   },
   {
     id: 'LAMBDA',
     name: 'Lambda',
     description: 'Execute inline JavaScript expressions',
     type: 'LAMBDA',
-    color: '#00bcd4',
+    color: '#9c27b0',
   },
   {
-    id: 'PASS_THROUGH',
-    name: 'Pass Through',
-    description: 'Pass input directly to output without modification',
-    type: 'PASS_THROUGH',
-    color: '#00bcd4',
+    id: 'INLINE',
+    name: 'Inline',
+    description: 'Execute inline code',
+    type: 'INLINE',
+    color: '#9c27b0',
   },
   {
     id: 'WAIT',
-    name: 'Scheduled Wait',
-    description: 'Wait for a specified duration before continuing',
+    name: 'Wait',
+    description: 'Wait for a specified duration',
     type: 'WAIT',
-    color: '#00bcd4',
+    color: '#9c27b0',
   },
   {
-    id: 'SIGNAL',
-    name: 'Signal',
-    description: 'Send signals to unblock waiting tasks in workflows',
-    type: 'SIGNAL',
-    color: '#00bcd4',
+    id: 'EVENT',
+    name: 'Event',
+    description: 'Wait for an external event',
+    type: 'EVENT',
+    color: '#9c27b0',
   },
   {
-    id: 'WAIT_UNTIL',
-    name: 'Signal Wait',
-    description: 'Wait for a signal before continuing',
-    type: 'WAIT_UNTIL',
-    color: '#00bcd4',
+    id: 'SET_VARIABLE',
+    name: 'Set Variable',
+    description: 'Set workflow variables',
+    type: 'SET_VARIABLE',
+    color: '#9c27b0',
+  },
+  {
+    id: 'SUB_WORKFLOW',
+    name: 'Sub Workflow',
+    description: 'Execute a sub-workflow',
+    type: 'SUB_WORKFLOW',
+    color: '#9c27b0',
   },
   {
     id: 'TERMINATE',
@@ -220,6 +219,52 @@ const systemTasks = [
     description: 'Terminate the workflow execution',
     type: 'TERMINATE',
     color: '#f44336',
+  },
+];
+
+// System Tasks
+const systemTasks = [
+  {
+    id: 'HTTP',
+    name: 'HTTP',
+    description: 'Make HTTP API calls',
+    type: 'HTTP',
+    color: '#ff9800',
+  },
+  {
+    id: 'KAFKA_PUBLISH',
+    name: 'Kafka Publish',
+    description: 'Publish messages to Kafka',
+    type: 'KAFKA_PUBLISH',
+    color: '#ff9800',
+  },
+  {
+    id: 'GRPC',
+    name: 'gRPC',
+    description: 'Make gRPC service calls',
+    type: 'GRPC',
+    color: '#ff9800',
+  },
+  {
+    id: 'JSON_JQ_TRANSFORM',
+    name: 'JSON JQ Transform',
+    description: 'Transform JSON using JQ expressions',
+    type: 'JSON_JQ_TRANSFORM',
+    color: '#ff9800',
+  },
+  {
+    id: 'JSON_JQ_TRANSFORM_STRING',
+    name: 'JSON JQ Transform (String)',
+    description: 'Transform JSON strings using JQ expressions',
+    type: 'JSON_JQ_TRANSFORM_STRING',
+    color: '#ff9800',
+  },
+  {
+    id: 'NOOP',
+    name: 'No-Op',
+    description: 'No operation - placeholder task',
+    type: 'NOOP',
+    color: '#ff9800',
   },
 ];
 
@@ -378,11 +423,7 @@ export function WorkflowDesigner() {
   );
 
   const [executeModalOpen, setExecuteModalOpen] = useState(false);
-  const [isGenericConfigModalOpen, setIsGenericConfigModalOpen] = useState(false);
   const [isHttpConfigModalOpen, setIsHttpConfigModalOpen] = useState(false);
-  const [isMapperConfigModalOpen, setIsMapperConfigModalOpen] = useState(false);
-  const [isWaitForSignalConfigModalOpen, setIsWaitForSignalConfigModalOpen] = useState(false); // Keep for system task config
-  const [isScheduledWaitConfigModalOpen, setIsScheduledWaitConfigModalOpen] = useState(false); // For worker task
   const [selectedNodeForConfig, setSelectedNodeForConfig] = useState<Node | null>(null);
   const [pendingNodeForAutoConfig, setPendingNodeForAutoConfig] = useState<Node | null>(null); // For auto-opening config after drag/drop
 
@@ -393,11 +434,7 @@ export function WorkflowDesigner() {
       setSelectedNodeForConfig(node);
       // Open the correct modal based on task type
       switch (node.data.taskType) {
-        case 'GENERIC': setIsGenericConfigModalOpen(true); break;
         case 'HTTP': setIsHttpConfigModalOpen(true); break;
-        case 'MAPPER': setIsMapperConfigModalOpen(true); break;
-        case 'WAIT_FOR_SIGNAL': setIsWaitForSignalConfigModalOpen(true); break;
-        case 'WAIT': setIsScheduledWaitConfigModalOpen(true); break;
         default:
           toast({
             title: 'Configuration not available',
@@ -511,12 +548,6 @@ export function WorkflowDesigner() {
             style: { stroke: '#00bcd4', strokeWidth: 2 },
           };
           setEdges((eds) => [...eds, newEdge]);
-        }
-        
-        // Open config modal for GENERIC tasks automatically
-        if (task.type === 'GENERIC') {
-          setPendingNodeForAutoConfig(newNode);
-          setIsGenericConfigModalOpen(true);
         }
         
         return updatedNodes;
@@ -735,7 +766,19 @@ export function WorkflowDesigner() {
     }
   };
 
-  const filteredTasks = systemTasks.filter(
+  const filteredWorkerTasks = workerTasks.filter(
+    (task) =>
+      task.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      task.description.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  const filteredOperators = operators.filter(
+    (task) =>
+      task.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      task.description.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  const filteredSystemTasks = systemTasks.filter(
     (task) =>
       task.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       task.description.toLowerCase().includes(searchQuery.toLowerCase())
@@ -836,87 +879,116 @@ export function WorkflowDesigner() {
                   Worker Tasks
                 </h4>
                 <div className="space-y-2">
-                  {filteredTasks
-                    .filter((task) => ['GENERIC', 'HTTP', 'MAPPER', 'WAIT_FOR_SIGNAL'].includes(task.id))
-                    .map((task) => (
-                      <div
-                        key={task.id}
-                        className="group p-3 bg-[#0f1419] border border-[#2a3142] rounded-lg cursor-pointer hover:border-cyan-500 transition-all duration-200"
-                        onClick={() => handleAddNode(task.id)}
-                        draggable
-                        onDragStart={(e) => {
-                          e.dataTransfer.setData('application/reactflow', task.id);
-                          e.dataTransfer.effectAllowed = 'move';
-                        }}
-                      >
-                        <div className="flex items-start gap-3">
+                  {filteredWorkerTasks.map((task) => (
+                    <div
+                      key={task.id}
+                      className="group p-3 bg-[#0f1419] border border-[#2a3142] rounded-lg cursor-pointer hover:border-cyan-500 transition-all duration-200"
+                      onClick={() => handleAddNode(task.id)}
+                      draggable
+                      onDragStart={(e) => {
+                        e.dataTransfer.setData('application/reactflow', task.id);
+                        e.dataTransfer.effectAllowed = 'move';
+                      }}
+                    >
+                      <div className="flex items-start gap-3">
+                        <div 
+                          className="mt-0.5 w-8 h-8 rounded flex items-center justify-center flex-shrink-0"
+                          style={{ backgroundColor: `${task.color}20` }}
+                        >
                           <div 
-                            className="mt-0.5 w-8 h-8 rounded flex items-center justify-center flex-shrink-0"
-                            style={{ backgroundColor: `${task.color}20` }}
-                          >
-                            <div 
-                              className="w-3 h-3 rounded-full"
-                              style={{ backgroundColor: task.color }}
-                            />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium text-white truncate">{task.name}</p>
-                            <p className="text-xs text-gray-400 mt-1 line-clamp-2">
-                              {task.description}
-                            </p>
-                          </div>
+                            className="w-3 h-3 rounded-full"
+                            style={{ backgroundColor: task.color }}
+                          />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-white truncate">{task.name}</p>
+                          <p className="text-xs text-gray-400 mt-1 line-clamp-2">
+                            {task.description}
+                          </p>
                         </div>
                       </div>
-                    ))}
+                    </div>
+                  ))}
                 </div>
               </div>
 
-              {/* Separator */}
-              <div className="relative">
-                <div className="absolute inset-0 flex items-center">
-                  <div className="w-full border-t border-[#2a3142]"></div>
+              {/* Operators */}
+              <div>
+                <h4 className="text-xs font-semibold text-purple-400 uppercase tracking-wider mb-3 flex items-center gap-2">
+                  <div className="w-2 h-2 bg-purple-400 rounded-full"></div>
+                  Operators
+                </h4>
+                <div className="space-y-2">
+                  {filteredOperators.map((task) => (
+                    <div
+                      key={task.id}
+                      className="group p-3 bg-[#0f1419] border border-[#2a3142] rounded-lg cursor-pointer hover:border-purple-500 transition-all duration-200"
+                      onClick={() => handleAddNode(task.id)}
+                      draggable
+                      onDragStart={(e) => {
+                        e.dataTransfer.setData('application/reactflow', task.id);
+                        e.dataTransfer.effectAllowed = 'move';
+                      }}
+                    >
+                      <div className="flex items-start gap-3">
+                        <div 
+                          className="mt-0.5 w-8 h-8 rounded flex items-center justify-center flex-shrink-0"
+                          style={{ backgroundColor: `${task.color}20` }}
+                        >
+                          <div 
+                            className="w-3 h-3 rounded-full"
+                            style={{ backgroundColor: task.color }}
+                          />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-white truncate">{task.name}</p>
+                          <p className="text-xs text-gray-400 mt-1 line-clamp-2">
+                            {task.description}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
 
               {/* System Tasks */}
               <div>
-                <h4 className="text-xs font-semibold text-purple-400 uppercase tracking-wider mb-3 flex items-center gap-2">
-                  <div className="w-2 h-2 bg-purple-400 rounded-full"></div>
+                <h4 className="text-xs font-semibold text-orange-400 uppercase tracking-wider mb-3 flex items-center gap-2">
+                  <div className="w-2 h-2 bg-orange-400 rounded-full"></div>
                   System Tasks
                 </h4>
                 <div className="space-y-2">
-                  {filteredTasks
-                    .filter((task) => !['GENERIC', 'HTTP', 'MAPPER', 'WAIT_FOR_SIGNAL'].includes(task.id))
-                    .map((task) => (
-                      <div
-                        key={task.id}
-                        className="group p-3 bg-[#0f1419] border border-[#2a3142] rounded-lg cursor-pointer hover:border-cyan-500 transition-all duration-200"
-                        onClick={() => handleAddNode(task.id)}
-                        draggable
-                        onDragStart={(e) => {
-                          e.dataTransfer.setData('application/reactflow', task.id);
-                          e.dataTransfer.effectAllowed = 'move';
-                        }}
-                      >
-                        <div className="flex items-start gap-3">
+                  {filteredSystemTasks.map((task) => (
+                    <div
+                      key={task.id}
+                      className="group p-3 bg-[#0f1419] border border-[#2a3142] rounded-lg cursor-pointer hover:border-orange-500 transition-all duration-200"
+                      onClick={() => handleAddNode(task.id)}
+                      draggable
+                      onDragStart={(e) => {
+                        e.dataTransfer.setData('application/reactflow', task.id);
+                        e.dataTransfer.effectAllowed = 'move';
+                      }}
+                    >
+                      <div className="flex items-start gap-3">
+                        <div 
+                          className="mt-0.5 w-8 h-8 rounded flex items-center justify-center flex-shrink-0"
+                          style={{ backgroundColor: `${task.color}20` }}
+                        >
                           <div 
-                            className="mt-0.5 w-8 h-8 rounded flex items-center justify-center flex-shrink-0"
-                            style={{ backgroundColor: `${task.color}20` }}
-                          >
-                            <div 
-                              className="w-3 h-3 rounded-full"
-                              style={{ backgroundColor: task.color }}
-                            />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium text-white truncate">{task.name}</p>
-                            <p className="text-xs text-gray-400 mt-1 line-clamp-2">
-                              {task.description}
-                            </p>
-                          </div>
+                            className="w-3 h-3 rounded-full"
+                            style={{ backgroundColor: task.color }}
+                          />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-white truncate">{task.name}</p>
+                          <p className="text-xs text-gray-400 mt-1 line-clamp-2">
+                            {task.description}
+                          </p>
                         </div>
                       </div>
-                    ))}
+                    </div>
+                  ))}
                 </div>
               </div>
             </div>
@@ -1408,25 +1480,6 @@ export function WorkflowDesigner() {
         onExecute={handleExecuteWorkflow}
       />
 
-      <GenericTaskConfigModal
-        open={isGenericConfigModalOpen}
-        onOpenChange={(open) => {
-          setIsGenericConfigModalOpen(open);
-          if (!open) {
-            if (pendingNodeForAutoConfig && !selectedNodeForConfig) {
-              setNodes((nds) => nds.filter((n) => n.id !== pendingNodeForAutoConfig.id));
-              setEdges((eds) => eds.filter((e) => 
-                e.source !== pendingNodeForAutoConfig.id && e.target !== pendingNodeForAutoConfig.id
-              ));
-            }
-            setPendingNodeForAutoConfig(null);
-            setSelectedNodeForConfig(null);
-          }
-        }}
-        node={selectedNodeForConfig?.data?.taskType === 'GENERIC' ? selectedNodeForConfig : pendingNodeForAutoConfig?.data?.taskType === 'GENERIC' ? pendingNodeForAutoConfig : null}
-        onSave={(config) => handleSaveTaskConfig(config, (selectedNodeForConfig || pendingNodeForAutoConfig)!.id)}
-      />
-
       <HttpTaskModal
         open={isHttpConfigModalOpen}
         onOpenChange={(open) => {
@@ -1443,63 +1496,6 @@ export function WorkflowDesigner() {
           }
         }}
         initialConfig={selectedNodeForConfig?.data?.taskType === 'HTTP' ? selectedNodeForConfig.data.config : pendingNodeForAutoConfig?.data?.taskType === 'HTTP' ? pendingNodeForAutoConfig.data.config : null}
-        onSave={(config) => handleSaveTaskConfig(config, (selectedNodeForConfig || pendingNodeForAutoConfig)!.id)}
-      />
-
-      <MapperTaskModal
-        open={isMapperConfigModalOpen}
-        onOpenChange={(open) => {
-          setIsMapperConfigModalOpen(open);
-          if (!open) {
-            if (pendingNodeForAutoConfig && !selectedNodeForConfig) {
-              setNodes((nds) => nds.filter((n) => n.id !== pendingNodeForAutoConfig.id));
-              setEdges((eds) => eds.filter((e) => 
-                e.source !== pendingNodeForAutoConfig.id && e.target !== pendingNodeForAutoConfig.id
-              ));
-            }
-            setPendingNodeForAutoConfig(null);
-            setSelectedNodeForConfig(null);
-          }
-        }}
-        initialConfig={selectedNodeForConfig?.data?.taskType === 'MAPPER' ? selectedNodeForConfig.data.config : pendingNodeForAutoConfig?.data?.taskType === 'MAPPER' ? pendingNodeForAutoConfig.data.config : null}
-        onSave={(config) => handleSaveTaskConfig(config, (selectedNodeForConfig || pendingNodeForAutoConfig)!.id)}
-      />
-
-      <WaitForSignalTaskModal // This is a system task, keep its config modal
-        open={isWaitForSignalConfigModalOpen}
-        onOpenChange={(open) => {
-          setIsWaitForSignalConfigModalOpen(open);
-          if (!open) {
-            if (pendingNodeForAutoConfig && !selectedNodeForConfig) {
-              setNodes((nds) => nds.filter((n) => n.id !== pendingNodeForAutoConfig.id));
-              setEdges((eds) => eds.filter((e) => 
-                e.source !== pendingNodeForAutoConfig.id && e.target !== pendingNodeForAutoConfig.id
-              ));
-            }
-            setPendingNodeForAutoConfig(null);
-            setSelectedNodeForConfig(null);
-          }
-        }}
-        initialConfig={selectedNodeForConfig?.data?.taskType === 'WAIT_FOR_SIGNAL' ? selectedNodeForConfig.data.config : pendingNodeForAutoConfig?.data?.taskType === 'WAIT_FOR_SIGNAL' ? pendingNodeForAutoConfig.data.config : null}
-        onSave={(config) => handleSaveTaskConfig(config, (selectedNodeForConfig || pendingNodeForAutoConfig)!.id)}
-      />
-
-      <ScheduledWaitTaskModal // Renamed from SignalOrScheduledWaitTaskModal
-        open={isScheduledWaitConfigModalOpen}
-        onOpenChange={(open) => {
-          setIsScheduledWaitConfigModalOpen(open);
-          if (!open) {
-            if (pendingNodeForAutoConfig && !selectedNodeForConfig) {
-              setNodes((nds) => nds.filter((n) => n.id !== pendingNodeForAutoConfig.id));
-              setEdges((eds) => eds.filter((e) => 
-                e.source !== pendingNodeForAutoConfig.id && e.target !== pendingNodeForAutoConfig.id
-              ));
-            }
-            setPendingNodeForAutoConfig(null);
-            setSelectedNodeForConfig(null);
-          }
-        }}
-        initialConfig={selectedNodeForConfig?.data?.taskType === 'WAIT' ? selectedNodeForConfig.data.config : pendingNodeForAutoConfig?.data?.taskType === 'WAIT' ? pendingNodeForAutoConfig.data.config : null}
         onSave={(config) => handleSaveTaskConfig(config, (selectedNodeForConfig || pendingNodeForAutoConfig)!.id)}
       />
     </>

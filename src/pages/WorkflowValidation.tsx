@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useWorkflowStore } from '@/stores/workflowStore';
 import { useSettingsStore } from '@/stores/settingsStore';
-import { ArrowLeftIcon, CheckCircleIcon, XCircleIcon, AlertTriangleIcon, PlayIcon, RefreshCwIcon, ChevronDownIcon, ChevronRightIcon, PlusIcon, EditIcon, Trash2Icon } from 'lucide-react';
+import { ArrowLeftIcon, CheckCircleIcon, XCircleIcon, AlertTriangleIcon, PlayIcon, RefreshCwIcon, ChevronDownIcon, ChevronRightIcon, Trash2Icon } from 'lucide-react';
 import { JsonViewer } from '@/components/ui/json-viewer';
 import { localWorkflowToConductor } from '@/utils/workflowToMermaid';
 import { 
@@ -15,7 +15,6 @@ import {
   TestScenario 
 } from '@/services/llmService';
 import { useToast } from '@/hooks/use-toast';
-import { ScenarioEditorModal } from '@/components/modals/ScenarioEditorModal';
 
 export function WorkflowValidation() {
   const { id } = useParams();
@@ -34,8 +33,6 @@ export function WorkflowValidation() {
   const [expandedScenarios, setExpandedScenarios] = useState<Set<string>>(new Set());
   const [isTestingAll, setIsTestingAll] = useState(false);
   const [isGeneratingAllInputs, setIsGeneratingAllInputs] = useState(false);
-  const [isScenarioModalOpen, setIsScenarioModalOpen] = useState(false);
-  const [editingScenario, setEditingScenario] = useState<TestScenario | null>(null);
 
   const workflow = workflows.find((w) => w.id === id);
 
@@ -158,40 +155,12 @@ export function WorkflowValidation() {
     });
   };
 
-  const handleAddScenario = () => {
-    setEditingScenario(null);
-    setIsScenarioModalOpen(true);
-  };
-
-  const handleEditScenario = (scenario: TestScenario, e: React.MouseEvent) => {
-    e.stopPropagation();
-    setEditingScenario(scenario);
-    setIsScenarioModalOpen(true);
-  };
-
   const handleDeleteScenario = (scenarioId: string, e: React.MouseEvent) => {
     e.stopPropagation();
     setTestScenarios(prev => prev.filter(s => s.id !== scenarioId));
     toast({
       title: 'Scenario deleted',
       description: 'Test scenario removed successfully.',
-    });
-  };
-
-  const handleSaveScenario = (scenario: TestScenario) => {
-    setTestScenarios(prev => {
-      const existingIndex = prev.findIndex(s => s.id === scenario.id);
-      if (existingIndex > -1) {
-        // Update existing scenario
-        return prev.map((s, index) => (index === existingIndex ? scenario : s));
-      } else {
-        // Add new scenario
-        return [...prev, scenario];
-      }
-    });
-    toast({
-      title: 'Scenario saved',
-      description: 'Test scenario added/updated successfully.',
     });
   };
 
@@ -359,14 +328,6 @@ export function WorkflowValidation() {
 
         <div className="flex gap-2">
           <Button
-            onClick={handleAddScenario}
-            className="bg-green-500 text-white hover:bg-green-600"
-            disabled={isGeneratingScenarios || isGeneratingAllInputs || isTestingAll}
-          >
-            <PlusIcon className="w-4 h-4 mr-2" />
-            Add Scenario
-          </Button>
-          <Button
             onClick={generateAllInputs}
             disabled={isGeneratingScenarios || isGeneratingAllInputs || isTestingAll}
             className="bg-cyan-500 text-white hover:bg-cyan-600"
@@ -528,15 +489,6 @@ export function WorkflowValidation() {
                         </div>
 
                         <div className="flex items-center gap-2">
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={(e) => handleEditScenario(scenario, e)}
-                            className="text-blue-500 hover:bg-blue-500/10 hover:text-blue-400"
-                            title="Edit Scenario"
-                          >
-                            <EditIcon className="w-4 h-4" />
-                          </Button>
                           <Button
                             size="sm"
                             variant="ghost"
@@ -731,13 +683,6 @@ export function WorkflowValidation() {
           </div>
         </>
       )}
-
-      <ScenarioEditorModal
-        open={isScenarioModalOpen}
-        onOpenChange={setIsScenarioModalOpen}
-        onSave={handleSaveScenario}
-        initialScenario={editingScenario}
-      />
     </div>
   );
 }

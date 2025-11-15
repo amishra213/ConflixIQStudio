@@ -3,21 +3,6 @@ import { useWorkflowStore } from '../../stores/workflowStore';
 import { Trash2Icon, SettingsIcon, AlignCenterIcon, MaximizeIcon } from 'lucide-react';
 import { Button } from '../ui/button';
 import { cn } from '@/lib/utils';
-import {
-  TaskConfigurationModal,
-  LambdaTaskConfigModal,
-  DecisionTaskConfigModal,
-  MapperTaskConfigModal,
-  ScheduledWaitTaskConfigModal,
-  SignalOrScheduledWaitTaskConfigModal,
-  SignalTaskConfigModal,
-  SignalWaitTaskConfigModal,
-  TerminateTaskConfigModal,
-  PassThroughTaskConfigModal,
-  DoWhileTaskConfigModal,
-  ForkAndConvergeTaskConfigModal, // Import new modal
-  FallbackJsonTaskModal,
-} from './task-modals';
 
 interface CanvasNode {
   id: string;
@@ -50,36 +35,6 @@ export default function WorkflowCanvas() {
   const [draggedNode, setDraggedNode] = useState<string | null>(null);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const [connectingFrom, setConnectingFrom] = useState<string | null>(null);
-  const [configModalOpen, setConfigModalOpen] = useState(false);
-  const [configuringNode, setConfiguringNode] = useState<CanvasNode | null>(null);
-  const [lambdaModalOpen, setLambdaModalOpen] = useState(false);
-  const [configuringLambdaNode, setConfiguringLambdaNode] = useState<CanvasNode | null>(null);
-  const [decisionModalOpen, setDecisionModalOpen] = useState(false);
-  const [configuringDecisionNode, setConfiguringDecisionNode] = useState<CanvasNode | null>(null);
-  const [configuringMapperNode, setConfiguringMapperNode] = useState<CanvasNode | null>(null);
-  const [mapperModalOpen, setMapperModalOpen] = useState(false);
-  const [configuringScheduledWaitNode, setConfiguringScheduledWaitNode] = useState<CanvasNode | null>(null);
-  const [scheduledWaitModalOpen, setScheduledWaitModalOpen] = useState(false);
-  const [configuringSignalOrScheduledWaitNode, setConfiguringSignalOrScheduledWaitNode] = useState<CanvasNode | null>(null);
-  const [signalOrScheduledWaitModalOpen, setSignalOrScheduledWaitModalOpen] = useState(false);
-  const [configuringSignalNode, setConfiguringSignalNode] = useState<CanvasNode | null>(null);
-  const [signalModalOpen, setSignalModalOpen] = useState(false);
-  const [configuringSignalWaitNode, setConfiguringSignalWaitNode] = useState<CanvasNode | null>(null);
-  const [signalWaitModalOpen, setSignalWaitModalOpen] = useState(false);
-  const [configuringPassThroughNode, setConfiguringPassThroughNode] = useState<CanvasNode | null>(null);
-  const [passThroughModalOpen, setPassThroughModalOpen] = useState(false);
-  const [configuringDoWhileNode, setConfiguringDoWhileNode] = useState<CanvasNode | null>(null);
-  const [doWhileModalOpen, setDoWhileModalOpen] = useState(false);
-  const [configuringForkAndConvergeNode, setConfiguringForkAndConvergeNode] = useState<CanvasNode | null>(null); // New state
-  const [forkAndConvergeModalOpen, setForkAndConvergeModalOpen] = useState(false); // New state
-
-  // Terminate modal state
-  const [terminateModalOpen, setTerminateModalOpen] = useState(false);
-  const [configuringTerminateNode, setConfiguringTerminateNode] = useState<CanvasNode | null>(null);
-
-  // Fallback modal state
-  const [fallbackModalOpen, setFallbackModalOpen] = useState(false);
-  const [configuringFallbackNode, setConfiguringFallbackNode] = useState<CanvasNode | null>(null);
 
   // Load persisted nodes and edges on mount
   useEffect(() => {
@@ -103,16 +58,6 @@ export default function WorkflowCanvas() {
   useEffect(() => {
     drawCanvas();
   }, [nodes, edges, selectedNode, connectingFrom]);
-
-  useEffect(() => {
-    console.log('=== State Change Detected ===');
-    console.log('configModalOpen:', configModalOpen);
-    console.log('configuringNode:', configuringNode);
-    console.log('lambdaModalOpen:', lambdaModalOpen);
-    console.log('configuringLambdaNode:', configuringLambdaNode);
-    console.log('decisionModalOpen:', decisionModalOpen);
-    console.log('configuringDecisionNode:', configuringDecisionNode);
-  }, [configModalOpen, configuringNode, lambdaModalOpen, configuringLambdaNode, decisionModalOpen, configuringDecisionNode]);
 
 
   const drawCanvas = () => {
@@ -231,76 +176,9 @@ export default function WorkflowCanvas() {
         behavior: 'smooth',
       });
     }
-
-    // Open configuration modal immediately for the new task
-    const newNodeArranged = arrangedNodes[arrangedNodes.length - 1];
-    console.log('=== Opening modal for new node ===');
-    console.log('New node:', newNodeArranged);
-    console.log('New node type:', newNodeArranged.type);
-    console.log('Sequence number:', arrangedNodes.length);
     
-    // Use setTimeout to ensure state is updated before opening modal
-    setTimeout(() => {
-      console.log('=== Inside setTimeout - opening modal ===');
-      console.log('Task type check:', newNodeArranged.type);
-      
-      if (newNodeArranged.type === 'LAMBDA') {
-        console.log('Setting Lambda modal state');
-        setConfiguringLambdaNode(newNodeArranged);
-        setLambdaModalOpen(true);
-      } else if (newNodeArranged.type === 'DECISION') {
-        console.log('Setting Decision modal state');
-        setConfiguringDecisionNode(newNodeArranged);
-        setDecisionModalOpen(true);
-      } else if (newNodeArranged.type === 'MAPPER') {
-        console.log('Setting Mapper modal state');
-        setConfiguringMapperNode(newNodeArranged);
-        setMapperModalOpen(true);
-      } else if (newNodeArranged.type === 'SCHEDULED_WAIT') {
-        console.log('Setting Scheduled Wait modal state');
-        setConfiguringScheduledWaitNode(newNodeArranged);
-        setScheduledWaitModalOpen(true);
-      } else if (newNodeArranged.type === 'SIGNAL_OR_SCHEDULED_WAIT') {
-        console.log('Setting Signal or Scheduled Wait modal state');
-        setConfiguringSignalOrScheduledWaitNode(newNodeArranged);
-        setSignalOrScheduledWaitModalOpen(true);
-      } else if (newNodeArranged.type === 'SIGNAL') {
-        console.log('Setting Signal modal state');
-        setConfiguringSignalNode(newNodeArranged);
-        setSignalModalOpen(true);
-      } else if (newNodeArranged.type === 'SIGNAL_WAIT') {
-        console.log('Setting Signal Wait modal state');
-        setConfiguringSignalWaitNode(newNodeArranged);
-        setSignalWaitModalOpen(true);
-      } else if (newNodeArranged.type === 'TERMINATE') {
-        console.log('Setting Terminate modal state');
-        setConfiguringTerminateNode(newNodeArranged);
-        setTerminateModalOpen(true);
-      } else if (newNodeArranged.type === 'PASS_THROUGH') {
-        console.log('Setting Pass Through modal state');
-        setConfiguringPassThroughNode(newNodeArranged);
-        setPassThroughModalOpen(true);
-      } else if (newNodeArranged.type === 'DO_WHILE') {
-        console.log('Setting Do While modal state');
-        setConfiguringDoWhileNode(newNodeArranged);
-        setDoWhileModalOpen(true);
-      } else if (newNodeArranged.type === 'FORK_AND_CONVERGE') { // New Fork and Converge task type
-        console.log('Setting Fork and Converge modal state');
-        setConfiguringForkAndConvergeNode(newNodeArranged);
-        setForkAndConvergeModalOpen(true);
-      } else if (['GENERIC', 'HTTP'].includes(newNodeArranged.type)) {
-        console.log('Setting Generic/HTTP modal state');
-        console.log('Setting configuringNode to:', newNodeArranged);
-        console.log('Setting configModalOpen to: true');
-        console.log('Modal state set - configModalOpen: true, configuringNode:', newNodeArranged);
-        setConfiguringNode(newNodeArranged);
-        setConfigModalOpen(true);
-      } else {
-        console.log('No specialized modal found - using fallback JSON modal for type:', newNodeArranged.type);
-        setConfiguringFallbackNode(newNodeArranged);
-        setFallbackModalOpen(true);
-      }
-    }, 100);
+    // Modal configuration is now handled by dedicated modal components
+    // imported in parent container from components/modals folder
   };
 
   const handleDragOver = (e: React.DragEvent) => {
@@ -320,9 +198,13 @@ export default function WorkflowCanvas() {
       } else {
         const node = nodes.find(n => n.id === nodeId);
         if (node) {
-          console.log('No specialized modal found - using fallback JSON modal for type:', node.type);
-          setConfiguringFallbackNode(node);
-          setFallbackModalOpen(true);
+          // Auto-connect nodes when shift-clicking
+          const newEdge: CanvasEdge = {
+            from: connectingFrom,
+            to: nodeId
+          };
+          setEdges([...edges, newEdge]);
+          setConnectingFrom(null);
         }
       }
     } else {
@@ -376,286 +258,14 @@ export default function WorkflowCanvas() {
     
     if (node) {
       setSelectedNode(nodeId);
-      
-      // Reset all modal states first to ensure only one is open
-      setConfigModalOpen(false);
-      setConfiguringNode(null);
-      setLambdaModalOpen(false);
-      setConfiguringLambdaNode(null);
-      setDecisionModalOpen(false);
-      setConfiguringDecisionNode(null);
-      setMapperModalOpen(false);
-      setConfiguringMapperNode(null);
-      setScheduledWaitModalOpen(false);
-      setConfiguringScheduledWaitNode(null);
-      setSignalOrScheduledWaitModalOpen(false);
-      setConfiguringSignalOrScheduledWaitNode(null);
-      setSignalModalOpen(false);
-      setConfiguringSignalNode(null);
-      setSignalWaitModalOpen(false);
-      setConfiguringSignalWaitNode(null);
-      setTerminateModalOpen(false);
-      setConfiguringTerminateNode(null);
-      setPassThroughModalOpen(false);
-      setConfiguringPassThroughNode(null);
-      setDoWhileModalOpen(false);
-      setConfiguringDoWhileNode(null);
-      setForkAndConvergeModalOpen(false);
-      setConfiguringForkAndConvergeNode(null);
-      setFallbackModalOpen(false);
-      setConfiguringFallbackNode(null);
-
-      // Then open the correct modal
-      if (node.type === 'LAMBDA') {
-        console.log('Opening Lambda modal');
-        setConfiguringLambdaNode(node);
-        setLambdaModalOpen(true);
-      } else if (node.type === 'DECISION') {
-        console.log('Opening Decision modal');
-        setConfiguringDecisionNode(node);
-        setDecisionModalOpen(true);
-      } else if (node.type === 'MAPPER') {
-        console.log('Opening Mapper modal');
-        setConfiguringMapperNode(node);
-        setMapperModalOpen(true);
-      } else if (node.type === 'SCHEDULED_WAIT') {
-        console.log('Opening Scheduled Wait modal');
-        setConfiguringScheduledWaitNode(node);
-        setScheduledWaitModalOpen(true);
-      } else if (node.type === 'SIGNAL_OR_SCHEDULED_WAIT') {
-        console.log('Opening Signal or Scheduled Wait modal');
-        setConfiguringSignalOrScheduledWaitNode(node);
-        setSignalOrScheduledWaitModalOpen(true);
-      } else if (node.type === 'SIGNAL') {
-        console.log('Opening Signal modal');
-        setConfiguringSignalNode(node);
-        setSignalModalOpen(true);
-      } else if (node.type === 'SIGNAL_WAIT') {
-        console.log('Opening Signal Wait modal');
-        setConfiguringSignalWaitNode(node);
-        setSignalWaitModalOpen(true);
-      } else if (node.type === 'TERMINATE') {
-        console.log('Opening Terminate modal');
-        setConfiguringTerminateNode(node);
-        setTerminateModalOpen(true);
-      } else if (node.type === 'PASS_THROUGH') {
-        console.log('Opening Pass Through modal');
-        setConfiguringPassThroughNode(node);
-        setPassThroughModalOpen(true);
-      } else if (node.type === 'DO_WHILE') {
-        console.log('Opening Do While modal');
-        setConfiguringDoWhileNode(node);
-        setDoWhileModalOpen(true);
-      } else if (node.type === 'FORK_AND_CONVERGE') {
-        console.log('Opening Fork and Converge modal');
-        setConfiguringForkAndConvergeNode(node);
-        setForkAndConvergeModalOpen(true);
-      } else if (['GENERIC', 'HTTP'].includes(node.type)) {
-        console.log('Opening Generic/HTTP modal for type:', node.type);
-        setConfiguringNode(node);
-        setConfigModalOpen(true);
-      } else {
-        console.log('No specialized modal found - using fallback JSON modal for type:', node.type);
-        setConfiguringFallbackNode(node);
-        setFallbackModalOpen(true);
-      }
+      // Modal configuration is now handled by dedicated modal components
+      // imported in parent container from components/modals folder
     } else {
       console.error('Node not found!');
     }
   };
 
-  const handleSaveNodeConfig = (config: any) => {
-    if (configuringNode) {
-      const updatedNodes = nodes.map(node =>
-        node.id === configuringNode.id
-          ? { ...node, config }
-          : node
-      );
-      setNodes(updatedNodes);
-    }
-  };
 
-  const handleSaveLambdaNodeConfig = (config: any) => {
-    if (configuringLambdaNode) {
-      const updatedNodes = nodes.map(node =>
-        node.id === configuringLambdaNode.id
-          ? { ...node, config }
-          : node
-      );
-      setNodes(updatedNodes);
-    }
-  };
-
-  const handleSaveDecisionNodeConfig = (config: any) => {
-    console.log('=== handleSaveDecisionNodeConfig ===');
-    console.log('Configuring Decision Node:', configuringDecisionNode);
-    console.log('Config to save:', config);
-    
-    if (configuringDecisionNode) {
-      const updatedNodes = nodes.map(node => {
-        if (node.id === configuringDecisionNode.id) {
-          console.log('Updating node with config:', config);
-          return { ...node, config };
-        }
-        return node;
-      });
-      
-      console.log('Updated nodes:', updatedNodes);
-      setNodes(updatedNodes);
-    }
-  };
-
-  const handleSaveMapperNodeConfig = (config: any) => {
-    console.log('=== handleSaveMapperNodeConfig ===');
-    console.log('Configuring Mapper Node:', configuringMapperNode);
-    console.log('Config to save:', config);
-    
-    if (configuringMapperNode) {
-      const updatedNodes = nodes.map(node => {
-        if (node.id === configuringMapperNode.id) {
-          console.log('Updating node with config:', config);
-          return { ...node, config };
-        }
-        return node;
-      });
-      
-      console.log('Updated nodes:', updatedNodes);
-      setNodes(updatedNodes);
-    }
-  };
-
-  const handleSaveScheduledWaitNodeConfig = (config: any) => {
-    console.log('=== handleSaveScheduledWaitNodeConfig ===');
-    console.log('Configuring Scheduled Wait Node:', configuringScheduledWaitNode);
-    console.log('Config to save:', config);
-    
-    if (configuringScheduledWaitNode) {
-      const updatedNodes = nodes.map(node => {
-        if (node.id === configuringScheduledWaitNode.id) {
-          console.log('Updating node with config:', config);
-          return { ...node, config };
-        }
-        return node;
-      });
-      
-      console.log('Updated nodes:', updatedNodes);
-      setNodes(updatedNodes);
-    }
-  };
-
-  const handleSaveSignalOrScheduledWaitNodeConfig = (config: any) => {
-    console.log('=== handleSaveSignalOrScheduledWaitNodeConfig ===');
-    console.log('Configuring Signal or Scheduled Wait Node:', configuringSignalOrScheduledWaitNode);
-    console.log('Config to save:', config);
-    
-    if (configuringSignalOrScheduledWaitNode) {
-      const updatedNodes = nodes.map(node => {
-        if (node.id === configuringSignalOrScheduledWaitNode.id) {
-          console.log('Updating node with config:', config);
-          return { ...node, config };
-        }
-        return node;
-      });
-      
-      console.log('Updated nodes:', updatedNodes);
-      setNodes(updatedNodes);
-    }
-  };
-
-  const handleSaveSignalNodeConfig = (config: any) => {
-    console.log('=== handleSaveSignalNodeConfig ===');
-    console.log('Configuring Signal Node:', configuringSignalNode);
-    console.log('Config to save:', config);
-    
-    if (configuringSignalNode) {
-      const updatedNodes = nodes.map(node => {
-        if (node.id === configuringSignalNode.id) {
-          console.log('Updating node with config:', config);
-          return { ...node, config };
-        }
-        return node;
-      });
-      
-      console.log('Updated nodes:', updatedNodes);
-      setNodes(updatedNodes);
-    }
-  };
-
-  const handleSaveSignalWaitNodeConfig = (config: any) => {
-    console.log('=== handleSaveSignalWaitNodeConfig called ===');
-    console.log('Configuring Signal Wait Node:', configuringSignalWaitNode);
-    console.log('Config to save:', config);
-    
-    if (configuringSignalWaitNode) {
-      const updatedNodes = nodes.map(node => {
-        if (node.id === configuringSignalWaitNode.id) {
-          console.log('Updating node with config:', config);
-          return { ...node, config };
-        }
-        return node;
-      });
-      
-      console.log('Updated nodes:', updatedNodes);
-      setNodes(updatedNodes);
-    }
-  };
-
-  const handleSaveTerminateNodeConfig = (config: any) => {
-    console.log('=== handleSaveTerminateNodeConfig called ===');
-    console.log('Configuring Terminate Node:', configuringTerminateNode);
-    console.log('Config to save:', config);
-    
-    if (configuringTerminateNode) {
-      const updatedNodes = nodes.map(node => {
-        if (node.id === configuringTerminateNode.id) {
-          console.log('Updating node with config:', config);
-          return { ...node, config };
-        }
-        return node;
-      });
-      
-      console.log('Updated nodes:', updatedNodes);
-      setNodes(updatedNodes);
-    }
-  };
-
-  const handleSavePassThroughNodeConfig = (config: any) => {
-    console.log('=== handleSavePassThroughNodeConfig called ===');
-    console.log('Configuring Pass Through Node:', configuringPassThroughNode);
-    console.log('Config to save:', config);
-    
-    if (configuringPassThroughNode) {
-      const updatedNodes = nodes.map(node => {
-        if (node.id === configuringPassThroughNode.id) {
-          console.log('Updating node with config:', config);
-          return { ...node, config };
-        }
-        return node;
-      });
-      
-      console.log('Updated nodes:', updatedNodes);
-      setNodes(updatedNodes);
-    }
-  };
-
-  const handleSaveDoWhileNodeConfig = (config: any) => {
-    console.log('=== handleSaveDoWhileNodeConfig called ===');
-    console.log('Configuring Do While Node:', configuringDoWhileNode);
-    console.log('Config to save:', config);
-    
-    if (configuringDoWhileNode) {
-      const updatedNodes = nodes.map(node => {
-        if (node.id === configuringDoWhileNode.id) {
-          console.log('Updating node with config:', config);
-          return { ...node, config };
-        }
-        return node;
-      });
-      
-      console.log('Updated nodes:', updatedNodes);
-      setNodes(updatedNodes);
-    }
-  };
 
   const handleAutoArrange = () => {
     if (nodes.length === 0) return;
@@ -695,12 +305,7 @@ export default function WorkflowCanvas() {
     });
   };
 
-  console.log('=== WorkflowCanvas RENDER ===');
-  console.log('Rendering with configModalOpen:', configModalOpen);
-  console.log('Rendering with configuringNode:', configuringNode);
-
   return (
-    <>
     <div
       ref={canvasRef}
       className="relative h-full w-full bg-background rounded-lg border border-border overflow-auto"
@@ -856,212 +461,5 @@ export default function WorkflowCanvas() {
       </div>
 
     </div>
-
-    {console.log('=== Rendering Modal Components ===')}
-    {console.log('About to render TaskConfigurationModal with open:', configModalOpen && configuringNode !== null)}
-    
-    <TaskConfigurationModal
-      open={configModalOpen && configuringNode !== null}
-      onClose={() => {
-        console.log('Closing task configuration modal');
-        setConfigModalOpen(false);
-        setConfiguringNode(null);
-      }}
-      onSave={handleSaveNodeConfig}
-      taskType={configuringNode?.type || 'GENERIC'}
-      taskName={configuringNode?.name || 'Generic Task'}
-      initialConfig={configuringNode?.config}
-      sequenceNo={configuringNode ? nodes.findIndex(n => n.id === configuringNode.id) + 1 : 1}
-    />
-
-    {console.log('About to render LambdaTaskConfigModal with open:', lambdaModalOpen && configuringLambdaNode !== null)}
-    
-    <LambdaTaskConfigModal
-      open={lambdaModalOpen && configuringLambdaNode !== null}
-      onClose={() => {
-        console.log('Closing Lambda task configuration modal');
-        setLambdaModalOpen(false);
-        setConfiguringLambdaNode(null);
-      }}
-      onSave={handleSaveLambdaNodeConfig}
-      taskName={configuringLambdaNode?.name || 'Lambda Task'}
-      initialConfig={configuringLambdaNode?.config}
-      sequenceNo={configuringLambdaNode ? nodes.findIndex(n => n.id === configuringLambdaNode.id) + 1 : 1}
-    />
-
-    {console.log('About to render DecisionTaskConfigModal with open:', decisionModalOpen && configuringDecisionNode !== null)}
-    
-    <DecisionTaskConfigModal
-      open={decisionModalOpen && configuringDecisionNode !== null}
-      onClose={() => {
-        console.log('Closing Decision task configuration modal');
-        setDecisionModalOpen(false);
-        setConfiguringDecisionNode(null);
-      }}
-      onSave={handleSaveDecisionNodeConfig}
-      taskName={configuringDecisionNode?.name || 'Decision Task'}
-      initialConfig={configuringDecisionNode?.config}
-      sequenceNo={configuringDecisionNode ? nodes.findIndex(n => n.id === configuringDecisionNode.id) + 1 : 1}
-    />
-
-    {console.log('About to render MapperTaskConfigModal with open:', mapperModalOpen && configuringMapperNode !== null)}
-    
-    <MapperTaskConfigModal
-      open={mapperModalOpen && configuringMapperNode !== null}
-      onClose={() => {
-        console.log('Closing Mapper task configuration modal');
-        setMapperModalOpen(false);
-        setConfiguringMapperNode(null);
-      }}
-      onSave={handleSaveMapperNodeConfig}
-      taskName={configuringMapperNode?.name || 'Mapper Task'}
-      initialConfig={configuringMapperNode?.config}
-      sequenceNo={configuringMapperNode ? nodes.findIndex(n => n.id === configuringMapperNode.id) + 1 : 1}
-    />
-
-    {console.log('About to render ScheduledWaitTaskConfigModal with open:', scheduledWaitModalOpen && configuringScheduledWaitNode !== null)}
-    
-    <ScheduledWaitTaskConfigModal
-      open={scheduledWaitModalOpen && configuringScheduledWaitNode !== null}
-      onClose={() => {
-        console.log('Closing Scheduled Wait task configuration modal');
-        setScheduledWaitModalOpen(false);
-        setConfiguringScheduledWaitNode(null);
-      }}
-      onSave={handleSaveScheduledWaitNodeConfig}
-      taskName={configuringScheduledWaitNode?.name || 'Scheduled Wait Task'}
-      initialConfig={configuringScheduledWaitNode?.config}
-      sequenceNo={configuringScheduledWaitNode ? nodes.findIndex(n => n.id === configuringScheduledWaitNode.id) + 1 : 1}
-    />
-
-    {console.log('About to render SignalOrScheduledWaitTaskConfigModal with open:', signalOrScheduledWaitModalOpen && configuringSignalOrScheduledWaitNode !== null)}
-    
-      <SignalOrScheduledWaitTaskConfigModal
-        open={signalOrScheduledWaitModalOpen && configuringSignalOrScheduledWaitNode !== null}
-        onClose={() => {
-          console.log('Closing Signal or Scheduled Wait task configuration modal');
-          setSignalOrScheduledWaitModalOpen(false);
-          setConfiguringSignalOrScheduledWaitNode(null);
-        }}
-        onSave={handleSaveSignalOrScheduledWaitNodeConfig}
-        taskName={configuringSignalOrScheduledWaitNode?.name || 'Signal or Scheduled Wait Task'}
-        initialConfig={configuringSignalOrScheduledWaitNode?.config}
-        sequenceNo={configuringSignalOrScheduledWaitNode ? nodes.findIndex(n => n.id === configuringSignalOrScheduledWaitNode.id) + 1 : 1}
-      />
-
-      {console.log('About to render SignalTaskConfigModal with open:', signalModalOpen && configuringSignalNode !== null)}
-      
-      <SignalTaskConfigModal
-        open={signalModalOpen && configuringSignalNode !== null}
-        onClose={() => {
-          console.log('Closing Signal task configuration modal');
-          setSignalModalOpen(false);
-          setConfiguringSignalNode(null);
-        }}
-        onSave={handleSaveSignalNodeConfig}
-        taskName={configuringSignalNode?.name || 'Signal Task'}
-        initialConfig={configuringSignalNode?.config}
-        sequenceNo={configuringSignalNode ? nodes.findIndex(n => n.id === configuringSignalNode.id) + 1 : 1}
-      />
-
-      {console.log('About to render SignalWaitTaskConfigModal with open:', signalWaitModalOpen && configuringSignalWaitNode !== null)}
-      
-      <SignalWaitTaskConfigModal
-        open={signalWaitModalOpen && configuringSignalWaitNode !== null}
-        onClose={() => {
-          console.log('Closing Signal Wait task configuration modal');
-          setSignalWaitModalOpen(false);
-          setConfiguringSignalWaitNode(null);
-        }}
-        onSave={handleSaveSignalWaitNodeConfig}
-        taskName={configuringSignalWaitNode?.name || 'Signal Wait Task'}
-        initialConfig={configuringSignalWaitNode?.config}
-        sequenceNo={configuringSignalWaitNode ? nodes.findIndex(n => n.id === configuringSignalWaitNode.id) + 1 : 1}
-      />
-
-      {/* Terminate Modal */}
-      <TerminateTaskConfigModal
-        open={terminateModalOpen && configuringTerminateNode !== null}
-        onClose={() => {
-          setTerminateModalOpen(false);
-          setConfiguringTerminateNode(null);
-        }}
-        onSave={handleSaveTerminateNodeConfig}
-        taskName={configuringTerminateNode?.name || 'Terminate Task'}
-        initialConfig={configuringTerminateNode?.config}
-        sequenceNo={configuringTerminateNode ? nodes.findIndex(n => n.id === configuringTerminateNode.id) + 1 : 1}
-      />
-
-      {/* Pass Through Modal */}
-      <PassThroughTaskConfigModal
-        open={passThroughModalOpen && configuringPassThroughNode !== null}
-        onClose={() => {
-          setPassThroughModalOpen(false);
-          setConfiguringPassThroughNode(null);
-        }}
-        onSave={handleSavePassThroughNodeConfig}
-        taskName={configuringPassThroughNode?.name || 'Pass Through Task'}
-        initialConfig={configuringPassThroughNode?.config}
-        sequenceNo={configuringPassThroughNode ? nodes.findIndex(n => n.id === configuringPassThroughNode.id) + 1 : 1}
-      />
-
-      {/* Do While Modal */}
-      <DoWhileTaskConfigModal
-        open={doWhileModalOpen && configuringDoWhileNode !== null}
-        onClose={() => {
-          setDoWhileModalOpen(false);
-          setConfiguringDoWhileNode(null);
-        }}
-        onSave={handleSaveDoWhileNodeConfig}
-        taskName={configuringDoWhileNode?.name || 'Do While Task'}
-        initialConfig={configuringDoWhileNode?.config}
-        sequenceNo={configuringDoWhileNode ? nodes.findIndex(n => n.id === configuringDoWhileNode.id) + 1 : 1}
-      />
-
-      {/* Fork and Converge Modal */}
-      <ForkAndConvergeTaskConfigModal
-        open={forkAndConvergeModalOpen && configuringForkAndConvergeNode !== null}
-        onClose={() => {
-          setForkAndConvergeModalOpen(false);
-          setConfiguringForkAndConvergeNode(null);
-        }}
-        onSave={(config: any) => {
-          if (configuringForkAndConvergeNode) {
-            const updatedNodes = nodes.map(node =>
-              node.id === configuringForkAndConvergeNode.id
-                ? { ...node, config }
-                : node
-            );
-            setNodes(updatedNodes);
-          }
-        }}
-        taskName={configuringForkAndConvergeNode?.name || 'Fork and Converge Task'}
-        initialConfig={configuringForkAndConvergeNode?.config}
-        sequenceNo={configuringForkAndConvergeNode ? nodes.findIndex(n => n.id === configuringForkAndConvergeNode.id) + 1 : 1}
-      />
-
-      {/* Fallback JSON Modal */}
-      <FallbackJsonTaskModal
-        open={fallbackModalOpen && configuringFallbackNode !== null}
-        onClose={() => {
-          setFallbackModalOpen(false);
-          setConfiguringFallbackNode(null);
-        }}
-        onSave={(config: any) => {
-          if (configuringFallbackNode) {
-            const updatedNodes = nodes.map(node =>
-              node.id === configuringFallbackNode.id
-                ? { ...node, config }
-                : node
-            );
-            setNodes(updatedNodes);
-          }
-        }}
-        taskType={configuringFallbackNode?.type || 'GENERIC'}
-        taskName={configuringFallbackNode?.name || 'Generic Task'}
-        initialConfig={configuringFallbackNode?.config}
-        sequenceNo={configuringFallbackNode ? nodes.findIndex(n => n.id === configuringFallbackNode.id) + 1 : 1}
-      />
-    </>
   );
 }

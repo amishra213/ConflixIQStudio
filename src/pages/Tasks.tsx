@@ -2,37 +2,23 @@ import { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { useWorkflowStore } from '@/stores/workflowStore';
 import { PlusIcon, Trash2Icon, RefreshCw, CheckCircle2, Clock } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useConductorApi } from '@/hooks/useConductorApi';
 import { useTaskStore } from '@/stores/taskStore';
-import { GenericTaskConfigModal } from '@/components/modals/GenericTaskConfigModal';
-import { HttpTaskModal } from '@/components/modals/HttpTaskModal';
-import { MapperTaskModal } from '@/components/modals/MapperTaskModal';
-import { WaitForSignalTaskModal } from '@/components/modals/WaitForSignalTaskModal';
+import { SimpleTaskModal } from '@/components/modals/SimpleTaskModal';
 import type { TaskDefinition } from '@/types/taskDefinition';
-
-const workerTaskTypes = [
-  { id: 'GENERIC', name: 'Generic Task', description: 'Basic task for custom business logic', color: '#00bcd4' },
-  { id: 'HTTP', name: 'HTTP Task', description: 'Make HTTP API calls', color: '#00bcd4' },
-  { id: 'MAPPER', name: 'Mapper', description: 'Maps input JSON to output JSON', color: '#00bcd4' },
-  { id: 'WAIT_FOR_SIGNAL', name: 'Signal or Scheduled Wait', description: 'Wait for signal or timeout', color: '#00bcd4' },
-];
+import type { SimpleTaskDefinition } from '@/components/modals/SimpleTaskModal';
 
 export function Tasks() {
   const { tasks, addTask, deleteTask } = useWorkflowStore();
   const { markAsDraft, markAllAsPublished, syncToFileStore, loadFromFileStore } = useTaskStore();
   const { toast } = useToast();
-  const { fetchAllTaskDefinitions } = useConductorApi({ enableFallback: false });
+  const { fetchAllTaskDefinitions, createTaskDefinition } = useConductorApi({ enableFallback: false });
 
-  // Worker Tasks state
-  const [isTaskTypeSelectOpen, setIsTaskTypeSelectOpen] = useState(false);
-  const [isGenericModalOpen, setIsGenericModalOpen] = useState(false);
-  const [isHttpModalOpen, setIsHttpModalOpen] = useState(false);
-  const [isMapperModalOpen, setIsMapperModalOpen] = useState(false);
-  const [isWaitForSignalModalOpen, setIsWaitForSignalModalOpen] = useState(false);
+  // Simple Task Definition Modal state
+  const [isSimpleTaskModalOpen, setIsSimpleTaskModalOpen] = useState(false);
 
   // All Task Definitions state
   const [allTasks, setAllTasks] = useState<TaskDefinition[]>([]);
@@ -96,71 +82,27 @@ export function Tasks() {
     }
   };
 
-  const handleTaskTypeSelect = (taskType: string) => {
-    setIsTaskTypeSelectOpen(false);
-    switch (taskType) {
-      case 'GENERIC':
-        setIsGenericModalOpen(true);
-        break;
-      case 'HTTP':
-        setIsHttpModalOpen(true);
-        break;
-      case 'MAPPER':
-        setIsMapperModalOpen(true);
-        break;
-      case 'WAIT_FOR_SIGNAL':
-        setIsWaitForSignalModalOpen(true);
-        break;
+  const handleSaveSimpleTask = async (config: SimpleTaskDefinition) => {
+    try {
+      const success = await createTaskDefinition(config);
+      if (success) {
+        const taskName = config.name;
+        addTask({
+          id: `task-${Date.now()}`,
+          name: taskName,
+          type: 'SIMPLE',
+          description: config.description || 'Simple task definition',
+        });
+        // Mark as draft since it's a newly created task definition
+        markAsDraft(taskName);
+        toast({ title: 'Success', description: `Task definition "${taskName}" created successfully.` });
+      } else {
+        toast({ title: 'Error', description: 'Failed to create task definition. Please check your Conductor API settings.' });
+      }
+    } catch (error) {
+      console.error('Error saving task definition:', error);
+      toast({ title: 'Error', description: error instanceof Error ? error.message : 'Failed to create task definition.' });
     }
-  };
-
-  const handleSaveGenericTask = (config: any) => {
-    const taskName = config.taskId;
-    addTask({
-      id: `task-${Date.now()}`,
-      name: taskName,
-      type: 'GENERIC',
-      description: 'Generic worker task',
-    });
-    // Mark as draft since it's a newly created worker task
-    markAsDraft(taskName);
-    toast({ title: 'Task created', description: 'Generic task created successfully.' });
-  };
-
-  const handleSaveHttpTask = (config: any) => {
-    const taskName = config.taskId;
-    addTask({
-      id: `task-${Date.now()}`,
-      name: taskName,
-      type: 'HTTP',
-      description: 'HTTP worker task',
-    });
-    markAsDraft(taskName);
-    toast({ title: 'Task created', description: 'HTTP task created successfully.' });
-  };
-
-  const handleSaveMapperTask = (config: any) => {
-    const taskName = config.taskId;
-    addTask({
-      id: `task-${Date.now()}`,
-      name: taskName,
-      type: 'MAPPER',
-      description: 'Mapper worker task',
-    });
-    markAsDraft(taskName);
-    toast({ title: 'Task created', description: 'Mapper task created successfully.' });
-  };
-
-  const handleSaveWaitForSignalTask = (config: any) => {
-    const taskName = config.taskId;
-    addTask({
-      id: `task-${Date.now()}`,
-      name: taskName,
-      type: 'WAIT_FOR_SIGNAL',
-      description: 'Wait for signal worker task',
-    });
-    markAsDraft(taskName);
-    toast({ title: 'Task created', description: 'Wait for signal task created successfully.' });
   };
 
   const handleDelete = (id: string, name: string) => {
@@ -199,41 +141,13 @@ export function Tasks() {
               <RefreshCw className="w-4 h-4 mr-2" />
               Sync to FileStore
             </Button>
-            <Dialog open={isTaskTypeSelectOpen} onOpenChange={setIsTaskTypeSelectOpen}>
-              <DialogTrigger asChild>
-                <Button className="bg-cyan-500 text-white hover:bg-cyan-600 shadow-sm font-medium">
-                  <PlusIcon className="w-5 h-5 mr-2" />
-                  Create Worker Task
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="bg-[#1a1f2e] text-white border-[#2a3142] max-w-2xl">
-                <DialogHeader>
-                  <DialogTitle className="text-white text-xl">Select Worker Task Type</DialogTitle>
-                </DialogHeader>
-                <div className="grid grid-cols-2 gap-4 py-4">
-                  {workerTaskTypes.map((taskType) => (
-                    <Card
-                      key={taskType.id}
-                      className="p-4 bg-[#0f1419] border-[#2a3142] cursor-pointer hover:border-cyan-500 transition-all duration-200"
-                      onClick={() => handleTaskTypeSelect(taskType.id)}
-                    >
-                      <div className="flex items-start gap-3">
-                        <div 
-                          className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0"
-                          style={{ backgroundColor: `${taskType.color}20` }}
-                        >
-                          <div className="w-4 h-4 rounded-full" style={{ backgroundColor: taskType.color }} />
-                        </div>
-                        <div className="flex-1">
-                          <h3 className="text-sm font-semibold text-white mb-1">{taskType.name}</h3>
-                          <p className="text-xs text-gray-400">{taskType.description}</p>
-                        </div>
-                      </div>
-                    </Card>
-                  ))}
-                </div>
-              </DialogContent>
-            </Dialog>
+            <Button 
+              onClick={() => setIsSimpleTaskModalOpen(true)}
+              className="bg-cyan-500 text-white hover:bg-cyan-600 shadow-sm font-medium"
+            >
+              <PlusIcon className="w-5 h-5 mr-2" />
+              Create Task
+            </Button>
           </div>
         </div>
 
@@ -246,7 +160,7 @@ export function Tasks() {
               </div>
               <h3 className="text-2xl font-semibold text-white">No tasks yet</h3>
               <p className="text-base text-gray-400">
-                Create a worker task or click "Get Task List" to load task definitions from your Conductor instance.
+                Create a task definition or click "Get Task List" to load task definitions from your Conductor instance.
               </p>
             </div>
           </Card>
@@ -267,7 +181,7 @@ export function Tasks() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#2a3142]">
-                  {/* Worker Tasks */}
+                  {/* Local Worker Tasks */}
                   {tasks.map((task) => (
                     <tr 
                       key={task.id} 
@@ -408,32 +322,10 @@ export function Tasks() {
         )}
       </div>
 
-      <GenericTaskConfigModal
-        open={isGenericModalOpen}
-        onOpenChange={setIsGenericModalOpen}
-        node={null}
-        onSave={handleSaveGenericTask}
-      />
-
-      <HttpTaskModal
-        open={isHttpModalOpen}
-        onOpenChange={setIsHttpModalOpen}
-        onSave={handleSaveHttpTask}
-        initialConfig={null}
-      />
-
-      <MapperTaskModal
-        open={isMapperModalOpen}
-        onOpenChange={setIsMapperModalOpen}
-        onSave={handleSaveMapperTask}
-        initialConfig={null}
-      />
-
-      <WaitForSignalTaskModal
-        open={isWaitForSignalModalOpen}
-        onOpenChange={setIsWaitForSignalModalOpen}
-        onSave={handleSaveWaitForSignalTask}
-        initialConfig={null}
+      <SimpleTaskModal
+        open={isSimpleTaskModalOpen}
+        onOpenChange={setIsSimpleTaskModalOpen}
+        onSave={handleSaveSimpleTask}
       />
     </div>
   );

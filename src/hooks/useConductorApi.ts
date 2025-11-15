@@ -214,6 +214,91 @@ export function useConductorApi(options: UseConductorApiOptions = {}) {
     }
   }, [baseUrl, apiKey]);
 
+  const syncWorkflows = useCallback(async (): Promise<any[]> => {
+    setLoading(true);
+    setError(null);
+    try {
+      const headers: HeadersInit = {};
+      if (apiKey) {
+        headers['X-Conductor-API-Key'] = apiKey;
+      }
+      const response = await fetch(`${baseUrl}/metadata/workflow`, { headers });
+      if (!response.ok) {
+        throw new Error(`Failed to sync workflows: ${response.statusText}`);
+      }
+      const data = await response.json();
+      return Array.isArray(data) ? data : [];
+    } catch (err) {
+      console.error('Failed to sync workflows from Conductor API:', err);
+      setError(err as Error);
+      return [];
+    } finally {
+      setLoading(false);
+    }
+  }, [baseUrl, apiKey]);
+
+  const fetchWorkflowExecution = useCallback(async (workflowId: string): Promise<any | null> => {
+    setLoading(true);
+    setError(null);
+    try {
+      const headers: HeadersInit = {};
+      if (apiKey) {
+        headers['X-Conductor-API-Key'] = apiKey;
+      }
+      const response = await fetch(`${baseUrl}/workflow/${workflowId}`, { headers });
+      if (!response.ok) {
+        throw new Error(`Failed to fetch workflow execution: ${response.statusText}`);
+      }
+      const data = await response.json();
+      return data;
+    } catch (err) {
+      console.error('Failed to fetch workflow execution from Conductor API:', err);
+      setError(err as Error);
+      return null;
+    } finally {
+      setLoading(false);
+    }
+  }, [baseUrl, apiKey]);
+
+  const createTaskDefinition = useCallback(async (taskDef: any): Promise<boolean> => {
+    setLoading(true);
+    setError(null);
+    try {
+      const headers: HeadersInit = {
+        'Content-Type': 'application/json',
+      };
+      if (apiKey) {
+        headers['X-Conductor-API-Key'] = apiKey;
+      }
+      const response = await fetch(`${baseUrl}/metadata/taskdefs`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify([taskDef]),
+      });
+      if (!response.ok) {
+        let errorMessage = `Failed to create task definition: ${response.statusText}`;
+        try {
+          const errorBody = await response.json();
+          if (errorBody?.message) {
+            errorMessage = errorBody.message;
+          } else if (typeof errorBody === 'string') {
+            errorMessage = errorBody;
+          }
+        } catch (parseError) {
+          console.debug('Failed to parse error response:', parseError);
+        }
+        throw new Error(errorMessage);
+      }
+      return true;
+    } catch (err) {
+      console.error('Failed to create task definition:', err);
+      setError(err as Error);
+      return false;
+    } finally {
+      setLoading(false);
+    }
+  }, [baseUrl, apiKey]);
+
   return {
     loading,
     error,
@@ -223,5 +308,8 @@ export function useConductorApi(options: UseConductorApiOptions = {}) {
     fetchExecution,
     startWorkflow,
     fetchAllTaskDefinitions,
+    syncWorkflows,
+    fetchWorkflowExecution,
+    createTaskDefinition,
   };
 }

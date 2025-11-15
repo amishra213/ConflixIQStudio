@@ -8,15 +8,10 @@ import { PlusIcon, Trash2Icon } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 // Config Modals (used in WorkflowDesigner, but imported here for type consistency if needed)
-import { GenericTaskConfigModal } from '@/components/modals/GenericTaskConfigModal';
-import { HttpTaskModal } from '@/components/modals/HttpTaskModal';
-import { MapperTaskModal } from '@/components/modals/MapperTaskModal';
-import { WaitForSignalTaskModal } from '@/components/modals/WaitForSignalTaskModal'; // This is a system task config modal
-import { ScheduledWaitTaskModal } from '@/components/modals/ScheduledWaitTaskModal'; // This is a worker task config modal
+import { HttpTaskModal } from '@/components/modals/system-tasks';
 
 // New Create Modals (used for creating tasks from this page)
 import { GenericTaskCreateModal } from '@/components/modals/GenericTaskCreateModal';
-import { HttpTaskCreateModal } from '@/components/modals/HttpTaskCreateModal';
 import { MapperTaskCreateModal } from '@/components/modals/MapperTaskCreateModal';
 import { ScheduledWaitTaskCreateModal } from '@/components/modals/ScheduledWaitTaskCreateModal';
 
@@ -134,7 +129,7 @@ export default function Tasks() { // Default export
 
       {/* Create Modals */}
       <GenericTaskCreateModal open={isGenericCreateModalOpen} onOpenChange={setIsGenericCreateModalOpen} onSave={handleSaveGenericTask} />
-      <HttpTaskCreateModal open={isHttpCreateModalOpen} onOpenChange={setIsHttpCreateModalOpen} onSave={handleSaveHttpTask} />
+      <HttpTaskModal open={isHttpCreateModalOpen} onOpenChange={setIsHttpCreateModalOpen} onSave={handleSaveHttpTask} variant="full" />
       <MapperTaskCreateModal open={isMapperCreateModalOpen} onOpenChange={setIsMapperCreateModalOpen} onSave={handleSaveMapperTask} />
       <ScheduledWaitTaskCreateModal open={isScheduledWaitCreateModalOpen} onOpenChange={setIsScheduledWaitCreateModalOpen} onSave={handleSaveScheduledWaitTask} />
     </div>
