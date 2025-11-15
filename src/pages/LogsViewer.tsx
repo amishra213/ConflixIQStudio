@@ -250,6 +250,16 @@ export default function LogsViewer() {
                       <div
                         className="flex items-start justify-between gap-4 cursor-pointer"
                         onClick={() => setExpandedLog(isExpanded ? null : log.id)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            setExpandedLog(isExpanded ? null : log.id);
+                          }
+                        }}
+                        role="button"
+                        tabIndex={0}
+                        aria-expanded={isExpanded}
+                        aria-label={`${isExpanded ? 'Collapse' : 'Expand'} log entry for ${log.operation}`}
                       >
                         <div className="flex-1 space-y-2">
                           <div className="flex items-center gap-3">

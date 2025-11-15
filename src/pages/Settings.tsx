@@ -6,29 +6,84 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/hooks/use-toast';
-import { SaveIcon, SettingsIcon } from 'lucide-react';
+import { SaveIcon, SettingsIcon, ServerIcon, CheckCircle2Icon, AlertCircleIcon } from 'lucide-react';
 import { useSettingsStore } from '@/stores/settingsStore';
 
 export function Settings() {
   const { toast } = useToast();
   const {
     conductorApi,
+    proxyServer,
     openAiLlm,
     enableNotifications,
     autoSaveWorkflows,
     setConductorApiEndpoint,
     setConductorApiKey,
+    setProxyServerEnabled,
+    setProxyEndpoint,
+    setConductorServerUrl,
+    setConductorServerApiKey,
+    setProxyPort,
     setOpenAiApiEndpoint,
     setOpenAiApiKey,
     setEnableNotifications,
     setAutoSaveWorkflows,
   } = useSettingsStore();
 
+  const [testingConnection, setTestingConnection] = useState(false);
+  const [connectionStatus, setConnectionStatus] = useState<'idle' | 'success' | 'error'>('idle');
+
   const handleSave = () => {
     toast({
       title: 'Settings saved',
       description: 'Your settings have been saved successfully.',
     });
+  };
+
+  const handleTestProxyConnection = async () => {
+    setTestingConnection(true);
+    setConnectionStatus('idle');
+    
+    try {
+      // Test the proxy server configuration endpoint
+      const configPayload = {
+        conductorServerUrl: proxyServer.conductorServerUrl,
+        conductorApiKey: proxyServer.conductorApiKey,
+      };
+
+      const response = await fetch(`${proxyServer.proxyEndpoint.replace('/graphql', '')}/api/config`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(configPayload),
+      });
+
+      if (response.ok) {
+        setConnectionStatus('success');
+        toast({
+          title: 'Connection successful',
+          description: 'Successfully connected to the proxy server and configured Conductor connection.',
+        });
+      } else {
+        setConnectionStatus('error');
+        const errorData = await response.json();
+        toast({
+          title: 'Connection failed',
+          description: errorData.error || 'Failed to configure proxy server',
+          variant: 'destructive',
+        });
+      }
+    } catch (error) {
+      setConnectionStatus('error');
+      toast({
+        title: 'Connection error',
+        description: error instanceof Error ? error.message : 'Failed to connect to proxy server',
+        variant: 'destructive',
+      });
+    } finally {
+      setTestingConnection(false);
+    }
   };
 
   return (
@@ -39,12 +94,120 @@ export function Settings() {
       </div>
 
       <div className="max-w-3xl space-y-6">
-        {/* Conductor API Configuration */}
+        {/* GraphQL Proxy Server Configuration */}
+        <Card className="p-6 bg-card border-border shadow-sm">
+          <div className="flex items-center gap-3 mb-6">
+            <ServerIcon className="w-5 h-5 text-blue-500" />
+            <h2 className="text-xl font-semibold text-foreground">GraphQL Proxy Server</h2>
+          </div>
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <Label htmlFor="proxy-enabled" className="text-foreground">Enable Proxy Server</Label>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Use proxy server to bypass CORS issues
+                </p>
+              </div>
+              <Switch
+                id="proxy-enabled"
+                checked={proxyServer.enabled}
+                onCheckedChange={setProxyServerEnabled}
+              />
+            </div>
+            {proxyServer.enabled && (
+              <>
+                <Separator className="bg-border" />
+                <div>
+                  <Label htmlFor="proxy-endpoint" className="text-foreground">Proxy Endpoint</Label>
+                  <Input
+                    id="proxy-endpoint"
+                    value={proxyServer.proxyEndpoint}
+                    onChange={(e) => setProxyEndpoint(e.target.value)}
+                    placeholder="http://localhost:4000/graphql"
+                    className="mt-2 bg-background text-foreground border-border"
+                  />
+                  <p className="text-sm text-muted-foreground mt-1">
+                    GraphQL endpoint of your proxy server
+                  </p>
+                </div>
+                <div>
+                  <Label htmlFor="proxy-port" className="text-foreground">Proxy Port</Label>
+                  <Input
+                    id="proxy-port"
+                    type="number"
+                    value={proxyServer.proxyPort || 4000}
+                    onChange={(e) => setProxyPort(Number.parseInt(e.target.value, 10) || 4000)}
+                    className="mt-2 bg-background text-foreground border-border"
+                  />
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Port on which proxy server is running
+                  </p>
+                </div>
+                <Separator className="bg-border" />
+                <div>
+                  <Label htmlFor="conductor-server-url" className="text-foreground">Conductor Server URL</Label>
+                  <Input
+                    id="conductor-server-url"
+                    value={proxyServer.conductorServerUrl}
+                    onChange={(e) => setConductorServerUrl(e.target.value)}
+                    placeholder="http://localhost:8080"
+                    className="mt-2 bg-background text-foreground border-border"
+                  />
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Conductor server URL (used by proxy to connect)
+                  </p>
+                </div>
+                <div>
+                  <Label htmlFor="conductor-server-api-key" className="text-foreground">Conductor API Key (Optional)</Label>
+                  <Input
+                    id="conductor-server-api-key"
+                    type="password"
+                    value={proxyServer.conductorApiKey}
+                    onChange={(e) => setConductorServerApiKey(e.target.value)}
+                    placeholder="Enter Conductor API key if required"
+                    className="mt-2 bg-background text-foreground border-border"
+                  />
+                  <p className="text-sm text-muted-foreground mt-1">
+                    API key for Conductor server authentication
+                  </p>
+                </div>
+                <Separator className="bg-border" />
+                <div className="flex items-center gap-3">
+                  <Button
+                    onClick={handleTestProxyConnection}
+                    disabled={testingConnection}
+                    variant="outline"
+                    className="flex-1"
+                  >
+                    {testingConnection ? 'Testing...' : 'Test Connection'}
+                  </Button>
+                  {connectionStatus === 'success' && (
+                    <div className="flex items-center gap-2 text-green-600">
+                      <CheckCircle2Icon className="w-5 h-5" />
+                      <span className="text-sm font-medium">Connected</span>
+                    </div>
+                  )}
+                  {connectionStatus === 'error' && (
+                    <div className="flex items-center gap-2 text-red-600">
+                      <AlertCircleIcon className="w-5 h-5" />
+                      <span className="text-sm font-medium">Failed</span>
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
+          </div>
+        </Card>
+
+        {/* Conductor API Configuration (Legacy) */}
         <Card className="p-6 bg-card border-border shadow-sm">
           <div className="flex items-center gap-3 mb-6">
             <SettingsIcon className="w-5 h-5 text-primary" />
-            <h2 className="text-xl font-semibold text-foreground">Conductor API Configuration</h2>
+            <h2 className="text-xl font-semibold text-foreground">Conductor API Configuration (Direct)</h2>
           </div>
+          <p className="text-sm text-muted-foreground mb-4">
+            Direct REST API configuration (used when proxy server is disabled)
+          </p>
           <div className="space-y-4">
             <div>
               <Label htmlFor="conductor-api-endpoint" className="text-foreground">API Endpoint</Label>

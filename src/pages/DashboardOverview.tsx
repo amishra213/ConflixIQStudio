@@ -25,7 +25,7 @@ export default function DashboardOverview() {
   const navigate = useNavigate();
   const containerRef = useRef<HTMLDivElement>(null);
   const { workflows } = useWorkflowStore();
-  const { conductorSettings } = useSettingsStore();
+  const { settings } = useSettingsStore();
 
   // Mock execution data - in real app, this would come from Conductor API
   const executionStats = {
@@ -57,7 +57,7 @@ export default function DashboardOverview() {
   }, []);
 
   const getConnectionStatus = () => {
-    if (conductorSettings.isConnected) {
+    if (settings.isConnected) {
       return {
         label: 'Connected',
         color: 'text-success',
@@ -88,7 +88,7 @@ export default function DashboardOverview() {
       </div>
 
       {/* Connection Status Banner */}
-      {!conductorSettings.isConnected && (
+      {!settings.isConnected && (
         <Card className="dashboard-card border-warning bg-warning/10">
           <CardContent className="p-6">
             <div className="flex items-start justify-between gap-4">
@@ -155,7 +155,7 @@ export default function DashboardOverview() {
         </Card>
 
         {/* Connection Status Card */}
-        <Card className={cn("dashboard-card border-border bg-card", !conductorSettings.isConnected && "cursor-pointer hover:shadow-lg transition-shadow")} onClick={() => !conductorSettings.isConnected && navigate('/settings')}>
+        <Card className={cn("dashboard-card border-border bg-card", !settings.isConnected && "cursor-pointer hover:shadow-lg transition-shadow")} onClick={() => !settings.isConnected && navigate('/settings')}>
           <CardContent className="p-6">
             <div className="flex items-center justify-between mb-4">
               <div className={cn("flex h-12 w-12 items-center justify-center rounded-lg", connectionStatus.bgColor)}>
@@ -169,7 +169,7 @@ export default function DashboardOverview() {
             <div>
               <p className="text-sm text-muted-foreground mb-1">Conductor Server</p>
               <p className="text-sm font-medium text-foreground truncate">
-                {conductorSettings.serverUrl || 'Not configured'}
+                {settings.serverUrl || 'Not configured'}
               </p>
             </div>
           </CardContent>

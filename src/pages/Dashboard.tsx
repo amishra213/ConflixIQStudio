@@ -110,34 +110,35 @@ export function Dashboard() {
         <Card className="p-6 bg-[#1a1f2e] border-[#2a3142] shadow-sm">
           <h3 className="text-xl font-semibold text-white mb-6">Recent Executions</h3>
           <div className="space-y-4">
-            {executions.slice(0, 5).map((execution) => (
-              <div key={execution.id} className="flex items-start gap-3">
-                <div className="mt-1">
-                  {execution.status === 'completed' && <CheckCircle2Icon className="w-5 h-5 text-success" />}
-                  {execution.status === 'failed' && <XCircleIcon className="w-5 h-5 text-destructive" />}
-                  {execution.status === 'running' && (
-                    <ActivityIcon className="w-5 h-5 text-primary animate-pulse" />
-                  )}
+            {executions.slice(0, 5).map((execution) => {
+              let badgeClassName = 'bg-primary text-primary-foreground font-medium';
+              if (execution.status === 'completed') {
+                badgeClassName = 'bg-success text-white font-medium';
+              } else if (execution.status === 'failed') {
+                badgeClassName = 'bg-destructive text-white font-medium';
+              }
+
+              return (
+                <div key={execution.id} className="flex items-start gap-3">
+                  <div className="mt-1">
+                    {execution.status === 'completed' && <CheckCircle2Icon className="w-5 h-5 text-success" />}
+                    {execution.status === 'failed' && <XCircleIcon className="w-5 h-5 text-destructive" />}
+                    {execution.status === 'running' && (
+                      <ActivityIcon className="w-5 h-5 text-primary animate-pulse" />
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-white truncate">{execution.workflowName}</p>
+                    <p className="text-xs text-gray-400">
+                      {new Date(execution.startTime).toLocaleTimeString()}
+                    </p>
+                  </div>
+                  <Badge className={badgeClassName}>
+                    {execution.status}
+                  </Badge>
                 </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-white truncate">{execution.workflowName}</p>
-                  <p className="text-xs text-gray-400">
-                    {new Date(execution.startTime).toLocaleTimeString()}
-                  </p>
-                </div>
-                <Badge
-                  className={
-                    execution.status === 'completed'
-                      ? 'bg-success text-white font-medium'
-                      : execution.status === 'failed'
-                      ? 'bg-destructive text-white font-medium'
-                      : 'bg-primary text-primary-foreground font-medium'
-                  }
-                >
-                  {execution.status}
-                </Badge>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </Card>
       </div>

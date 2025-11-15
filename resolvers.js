@@ -1,26 +1,40 @@
 const axios = require('axios');
 const GraphQLJSON = require('graphql-type-json');
 
-const CONDUCTOR_SERVER_URL = process.env.VITE_CONDUCTOR_SERVER_URL;
-const CONDUCTOR_API_KEY = process.env.VITE_CONDUCTOR_API_KEY;
+// Global configuration that can be updated at runtime
+let conductorConfig = {
+  serverUrl: process.env.VITE_CONDUCTOR_SERVER_URL || 'http://localhost:8080',
+  apiKey: process.env.VITE_CONDUCTOR_API_KEY || '',
+};
 
-if (!CONDUCTOR_SERVER_URL) {
-  console.error('CONDUCTOR_SERVER_URL is not defined in .env');
-  process.exit(1);
+// Function to create a new client with current config
+function createConductorClient() {
+  return axios.create({
+    baseURL: `${conductorConfig.serverUrl}/graphql`,
+    headers: {
+      'Content-Type': 'application/json',
+      ...(conductorConfig.apiKey && { 'X-API-Key': conductorConfig.apiKey }),
+    },
+    validateStatus: () => true, // Don't throw on any status code
+  });
 }
 
-const conductorGraphQLClient = axios.create({
-  baseURL: `${CONDUCTOR_SERVER_URL}/graphql`,
-  headers: {
-    'Content-Type': 'application/json',
-    ...(CONDUCTOR_API_KEY && { 'X-API-Key': CONDUCTOR_API_KEY }),
-  },
-});
+// Function to update the global configuration
+function updateConductorConfig(serverUrl, apiKey) {
+  if (serverUrl) {
+    conductorConfig.serverUrl = serverUrl;
+  }
+  if (apiKey !== undefined) {
+    conductorConfig.apiKey = apiKey;
+  }
+  console.log(`Updated Conductor Config - URL: ${conductorConfig.serverUrl}, Has API Key: ${!!conductorConfig.apiKey}`);
+}
 
 const resolvers = {
   JSON: GraphQLJSON,
   Query: {
     async workflows(_, { limit, offset }) {
+      const client = createConductorClient();
       const query = `
         query GetWorkflows($limit: Int, $offset: Int) {
           workflows(limit: $limit, offset: $offset) {
@@ -49,10 +63,11 @@ const resolvers = {
           }
         }
       `;
-      const response = await conductorGraphQLClient.post('/', { query, variables: { limit, offset } });
-      return response.data.data.workflows;
+      const response = await client.post('/', { query, variables: { limit, offset } });
+      return response.data?.data?.workflows || [];
     },
     async workflow(_, { name, version }) {
+      const client = createConductorClient();
       const query = `
         query GetWorkflowByName($name: String!, $version: Int) {
           workflow(name: $name, version: $version) {
@@ -80,10 +95,11 @@ const resolvers = {
           }
         }
       `;
-      const response = await conductorGraphQLClient.post('/', { query, variables: { name, version } });
-      return response.data.data.workflow;
+      const response = await client.post('/', { query, variables: { name, version } });
+      return response.data?.data?.workflow || null;
     },
     async workflowExecutions(_, { workflowName, limit }) {
+      const client = createConductorClient();
       const query = `
         query GetWorkflowExecutions($workflowName: String!, $limit: Int) {
           workflowExecutions(workflowName: $workflowName, limit: $limit) {
@@ -104,10 +120,11 @@ const resolvers = {
           }
         }
       `;
-      const response = await conductorGraphQLClient.post('/', { query, variables: { workflowName, limit } });
-      return response.data.data.workflowExecutions;
+      const response = await client.post('/', { query, variables: { workflowName, limit } });
+      return response.data?.data?.workflowExecutions || [];
     },
     async taskDefinitions() {
+      const client = createConductorClient();
       const query = `
         query GetTaskDefinitions {
           taskDefinitions {
@@ -126,10 +143,11 @@ const resolvers = {
           }
         }
       `;
-      const response = await conductorGraphQLClient.post('/', { query });
-      return response.data.data.taskDefinitions;
+      const response = await client.post('/', { query });
+      return response.data?.data?.taskDefinitions || [];
     },
     async searchWorkflows(_, { query, limit }) {
+      const client = createConductorClient();
       const graphqlQuery = `
         query SearchWorkflows($query: String!, $limit: Int) {
           searchWorkflows(query: $query, limit: $limit) {
@@ -142,12 +160,13 @@ const resolvers = {
           }
         }
       `;
-      const response = await conductorGraphQLClient.post('/', { query: graphqlQuery, variables: { query, limit } });
-      return response.data.data.searchWorkflows;
+      const response = await client.post('/', { query: graphqlQuery, variables: { query, limit } });
+      return response.data?.data?.searchWorkflows || [];
     },
   },
   Mutation: {
     async createWorkflow(_, { workflow }) {
+      const client = createConductorClient();
       const mutation = `
         mutation CreateWorkflow($workflow: WorkflowInput!) {
           createWorkflow(workflow: $workflow) {
@@ -156,10 +175,11 @@ const resolvers = {
           }
         }
       `;
-      const response = await conductorGraphQLClient.post('/', { query: mutation, variables: { workflow } });
-      return response.data.data.createWorkflow;
+      const response = await client.post('/', { query: mutation, variables: { workflow } });
+      return response.data?.data?.createWorkflow || null;
     },
     async updateWorkflow(_, { workflow }) {
+      const client = createConductorClient();
       const mutation = `
         mutation UpdateWorkflow($workflow: WorkflowInput!) {
           updateWorkflow(workflow: $workflow) {
@@ -168,10 +188,11 @@ const resolvers = {
           }
         }
       `;
-      const response = await conductorGraphQLClient.post('/', { query: mutation, variables: { workflow } });
-      return response.data.data.updateWorkflow;
+      const response = await client.post('/', { query: mutation, variables: { workflow } });
+      return response.data?.data?.updateWorkflow || null;
     },
     async startWorkflow(_, { name, version, input }) {
+      const client = createConductorClient();
       const mutation = `
         mutation StartWorkflow($name: String!, $version: Int, $input: JSON) {
           startWorkflow(name: $name, version: $version, input: $input) {
@@ -179,10 +200,11 @@ const resolvers = {
           }
         }
       `;
-      const response = await conductorGraphQLClient.post('/', { query: mutation, variables: { name, version, input } });
-      return response.data.data.startWorkflow;
+      const response = await client.post('/', { query: mutation, variables: { name, version, input } });
+      return response.data?.data?.startWorkflow || null;
     },
     async terminateWorkflow(_, { workflowId, reason }) {
+      const client = createConductorClient();
       const mutation = `
         mutation TerminateWorkflow($workflowId: String!, $reason: String) {
           terminateWorkflow(workflowId: $workflowId, reason: $reason) {
@@ -190,10 +212,11 @@ const resolvers = {
           }
         }
       `;
-      const response = await conductorGraphQLClient.post('/', { query: mutation, variables: { workflowId, reason } });
-      return response.data.data.terminateWorkflow;
+      const response = await client.post('/', { query: mutation, variables: { workflowId, reason } });
+      return response.data?.data?.terminateWorkflow || null;
     },
     async restartWorkflow(_, { workflowId }) {
+      const client = createConductorClient();
       const mutation = `
         mutation RestartWorkflow($workflowId: String!) {
           restartWorkflow(workflowId: $workflowId) {
@@ -201,10 +224,11 @@ const resolvers = {
           }
         }
       `;
-      const response = await conductorGraphQLClient.post('/', { query: mutation, variables: { workflowId } });
-      return response.data.data.restartWorkflow;
+      const response = await client.post('/', { query: mutation, variables: { workflowId } });
+      return response.data?.data?.restartWorkflow || null;
     },
     async pauseWorkflow(_, { workflowId }) {
+      const client = createConductorClient();
       const mutation = `
         mutation PauseWorkflow($workflowId: String!) {
           pauseWorkflow(workflowId: $workflowId) {
@@ -212,10 +236,11 @@ const resolvers = {
           }
         }
       `;
-      const response = await conductorGraphQLClient.post('/', { query: mutation, variables: { workflowId } });
-      return response.data.data.pauseWorkflow;
+      const response = await client.post('/', { query: mutation, variables: { workflowId } });
+      return response.data?.data?.pauseWorkflow || null;
     },
     async resumeWorkflow(_, { workflowId }) {
+      const client = createConductorClient();
       const mutation = `
         mutation ResumeWorkflow($workflowId: String!) {
           resumeWorkflow(workflowId: $workflowId) {
@@ -223,10 +248,11 @@ const resolvers = {
           }
         }
       `;
-      const response = await conductorGraphQLClient.post('/', { query: mutation, variables: { workflowId } });
-      return response.data.data.resumeWorkflow;
+      const response = await client.post('/', { query: mutation, variables: { workflowId } });
+      return response.data?.data?.resumeWorkflow || null;
     },
     async registerTask(_, { task }) {
+      const client = createConductorClient();
       const mutation = `
         mutation RegisterTask($task: TaskDefinitionInput!) {
           registerTask(task: $task) {
@@ -234,10 +260,10 @@ const resolvers = {
           }
         }
       `;
-      const response = await conductorGraphQLClient.post('/', { query: mutation, variables: { task } });
-      return response.data.data.registerTask;
+      const response = await client.post('/', { query: mutation, variables: { task } });
+      return response.data?.data?.registerTask || null;
     },
   },
 };
 
-module.exports = resolvers;
+module.exports = { resolvers, updateConductorConfig };
