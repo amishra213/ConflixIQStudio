@@ -1,22 +1,29 @@
-import { useQuery, useMutation, ApolloError } from '@apollo/client';
+import { useQuery, useMutation } from '@apollo/client/react';
 import { GET_TASK_DEFINITIONS } from '@/lib/graphql/queries';
 import { REGISTER_TASK } from '@/lib/graphql/mutations';
 import { useSettingsStore } from '@/stores/settingsStore';
 
 export const useTaskDefinitions = () => {
-  const { conductorSettings } = useSettingsStore();
+  const { proxyServer, conductorApi } = useSettingsStore();
+  
+  // Determine if connected: either proxy is enabled or Conductor API endpoint is configured
+  const isConnected = proxyServer.enabled || !!conductorApi.endpoint;
   
   // Return early if not connected to avoid Apollo hook call outside of provider
-  if (!conductorSettings.isConnected) {
+  if (!isConnected) {
     return {
       taskDefinitions: [],
       loading: false,
-      error: new ApolloError({ errorMessage: 'Not connected to Conductor server. Please configure connection in Settings.' }),
+      error: { message: 'Not connected to Conductor server. Please configure connection in Settings.' },
       refetch: async () => ({ data: undefined }),
     };
   }
   
-  const { data, loading, error, refetch } = useQuery(GET_TASK_DEFINITIONS, {
+  interface TaskDefinitionsData {
+    taskDefinitions: any[]; // Replace 'any' with your actual TaskDefinition type if available
+  }
+
+  const { data, loading, error, refetch } = useQuery<TaskDefinitionsData>(GET_TASK_DEFINITIONS, {
     fetchPolicy: 'network-only',
   });
 
@@ -29,14 +36,17 @@ export const useTaskDefinitions = () => {
 };
 
 export const useRegisterTask = () => {
-  const { conductorSettings } = useSettingsStore();
+  const { proxyServer, conductorApi } = useSettingsStore();
+  
+  // Determine if connected: either proxy is enabled or Conductor API endpoint is configured
+  const isConnected = proxyServer.enabled || !!conductorApi.endpoint;
   
   // Return early if not connected to avoid Apollo hook call outside of provider  
-  if (!conductorSettings.isConnected) {
+  if (!isConnected) {
     return {
       registerTask: async () => ({ data: undefined }),
       loading: false,
-      error: new ApolloError({ errorMessage: 'Not connected to Conductor server. Please configure connection in Settings.' }),
+      error: { message: 'Not connected to Conductor server. Please configure connection in Settings.' },
     };
   }
   

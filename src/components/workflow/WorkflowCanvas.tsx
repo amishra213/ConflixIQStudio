@@ -23,17 +23,15 @@ interface CanvasEdge {
 export default function WorkflowCanvas() {
   const canvasRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<SVGSVGElement>(null);
-  const { 
-    canvasNodes, 
-    canvasEdges, 
-    setCanvasNodes, 
-    setCanvasEdges 
+  const {
+    canvasNodes,
+    canvasEdges,
+    setCanvasNodes,
+    setCanvasEdges
   } = useWorkflowStore();
   const [nodes, setNodes] = useState<CanvasNode[]>(canvasNodes);
   const [edges, setEdges] = useState<CanvasEdge[]>(canvasEdges);
   const [selectedNode, setSelectedNode] = useState<string | null>(null);
-  const [draggedNode, setDraggedNode] = useState<string | null>(null);
-  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const [connectingFrom, setConnectingFrom] = useState<string | null>(null);
 
   // Load persisted nodes and edges on mount
@@ -66,10 +64,10 @@ export default function WorkflowCanvas() {
     const svg = svgRef.current;
     svg.innerHTML = '';
 
-    edges.forEach((edge) => {
+    for (const edge of edges) {
       const fromNode = nodes.find((n) => n.id === edge.from);
       const toNode = nodes.find((n) => n.id === edge.to);
-      if (!fromNode || !toNode) return;
+      if (!fromNode || !toNode) continue;
 
       const fromX = fromNode.x + fromNode.width;
       const fromY = fromNode.y + fromNode.height / 2;
@@ -85,7 +83,7 @@ export default function WorkflowCanvas() {
       path.setAttribute('fill', 'none');
       path.setAttribute('marker-end', 'url(#arrowhead)');
       svg.appendChild(path);
-    });
+    }
 
     const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
     const marker = document.createElementNS('http://www.w3.org/2000/svg', 'marker');
@@ -156,17 +154,20 @@ export default function WorkflowCanvas() {
     setNodes(arrangedNodes);
 
     if (arrangedNodes.length > 1) {
-      const lastNode = arrangedNodes[arrangedNodes.length - 2];
-      const newEdge: CanvasEdge = {
-        from: lastNode.id,
-        to: newNode.id
-      };
-      setEdges([...edges, newEdge]);
+      const lastNode = arrangedNodes.at(-2);
+      if (lastNode) {
+        const newEdge: CanvasEdge = {
+          from: lastNode.id,
+          to: newNode.id
+        };
+        setEdges([...edges, newEdge]);
+      }
     }
 
     // Auto-scroll to show the new task
     if (canvasRef.current) {
-      const newNodeArranged = arrangedNodes[arrangedNodes.length - 1];
+      const newNodeArranged = arrangedNodes.at(-1);
+      if (!newNodeArranged) return;
       const containerWidth = canvasRef.current.clientWidth;
       const containerHeight = canvasRef.current.clientHeight;
       
@@ -208,32 +209,8 @@ export default function WorkflowCanvas() {
         }
       }
     } else {
-      const node = nodes.find(n => n.id === nodeId);
-      if (node) {
-        setDraggedNode(nodeId);
-        setDragOffset({
-          x: e.clientX - node.x,
-          y: e.clientY - node.y
-        });
-      }
       setSelectedNode(nodeId);
     }
-  };
-
-  const handleMouseMove = (e: React.MouseEvent) => {
-    if (draggedNode && canvasRef.current) {
-      const rect = canvasRef.current.getBoundingClientRect();
-      const x = e.clientX - rect.left - dragOffset.x;
-      const y = e.clientY - rect.top - dragOffset.y;
-
-      setNodes(nodes.map(node =>
-        node.id === draggedNode ? { ...node, x, y } : node
-      ));
-    }
-  };
-
-  const handleMouseUp = () => {
-    setDraggedNode(null);
   };
 
   const handleDeleteNode = (nodeId: string) => {
@@ -306,17 +283,16 @@ export default function WorkflowCanvas() {
   };
 
   return (
-    <div
+    <section
       ref={canvasRef}
       className="relative h-full w-full bg-background rounded-lg border border-border overflow-auto"
       onDrop={handleDrop}
       onDragOver={handleDragOver}
-      onMouseMove={handleMouseMove}
-      onMouseUp={handleMouseUp}
       style={{
         minHeight: '100%',
         minWidth: '100%',
       }}
+      aria-label="Workflow Canvas"
     >
       <div className="relative" style={{ minHeight: '1000px', minWidth: '1500px' }}>
       <svg
@@ -371,13 +347,11 @@ export default function WorkflowCanvas() {
       </div>
 
         {nodes.map((node, index) => (
-          <div
+          <button
             key={node.id}
-            role="button"
-            tabIndex={0}
             aria-label={`Task: ${node.name}`}
             className={cn(
-              'absolute flex flex-col items-center justify-center rounded-lg border-2 cursor-move transition-all',
+              'absolute flex flex-col items-center justify-center rounded-lg border-2 cursor-pointer transition-all',
               selectedNode === node.id
                 ? 'border-primary shadow-lg shadow-primary/20'
                 : 'border-border',
@@ -391,13 +365,7 @@ export default function WorkflowCanvas() {
               height: node.height,
               zIndex: selectedNode === node.id ? 10 : 1
             }}
-            onMouseDown={(e) => handleNodeMouseDown(node.id, e)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault();
-                setSelectedNode(node.id);
-              }
-            }}
+            onClick={(e) => handleNodeMouseDown(node.id, e)}
           >
             <div className="absolute -top-2 -left-2 flex h-6 w-6 items-center justify-center rounded-full bg-primary text-primary-foreground text-xs font-bold shadow-md border-2 border-background">
               {index + 1}
@@ -406,60 +374,50 @@ export default function WorkflowCanvas() {
             <p className="text-xs text-muted-foreground">{node.type === 'SIMPLE' ? 'GENERIC' : node.type}</p>
 
             {selectedNode === node.id && (
-              <>
-                <div className="absolute -top-8 right-0 flex gap-1 z-10">
-                  <Button
-                    size="icon"
-                    variant="outline"
-                    className="h-6 w-6 bg-card border-border hover:bg-accent"
-                    aria-label="Configure task"
-                    title="Configure task"
-                    onMouseDown={(e) => {
-                      e.stopPropagation();
-                    }}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleConfigureNode(node.id, e);
-                    }}
-                  >
-                    <SettingsIcon className="h-3 w-3" strokeWidth={1.5} />
-                  </Button>
-                  <Button
-                    size="icon"
-                    variant="destructive"
-                    className="h-6 w-6"
-                    aria-label="Delete task"
-                    title="Delete task"
-                    onMouseDown={(e) => {
-                      e.stopPropagation();
-                    }}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleDeleteNode(node.id);
-                    }}
-                  >
-                    <Trash2Icon className="h-3 w-3" strokeWidth={1.5} />
-                  </Button>
-                </div>
-                <div 
-                  className="absolute -bottom-1 left-1/2 -translate-x-1/2 h-1 bg-primary rounded-full cursor-ew-resize"
-                  style={{ width: 'calc(100% - 8px)' }}
+              <div className="absolute -top-8 right-0 flex gap-1 z-10">
+                <Button
+                  size="icon"
+                  variant="outline"
+                  className="h-6 w-6 bg-card border-border hover:bg-accent"
+                  aria-label="Configure task"
+                  title="Configure task"
                   onMouseDown={(e) => {
                     e.stopPropagation();
-                    // Horizontal resize handle - can be implemented if needed
                   }}
-                />
-              </>
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleConfigureNode(node.id, e);
+                  }}
+                >
+                  <SettingsIcon className="h-3 w-3" strokeWidth={1.5} />
+                </Button>
+                <Button
+                  size="icon"
+                  variant="destructive"
+                  className="h-6 w-6"
+                  aria-label="Delete task"
+                  title="Delete task"
+                  onMouseDown={(e) => {
+                    e.stopPropagation();
+                  }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleDeleteNode(node.id);
+                  }}
+                >
+                  <Trash2Icon className="h-3 w-3" strokeWidth={1.5} />
+                </Button>
+              </div>
             )}
             {node.config && (
               <div className="absolute -bottom-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-success border-2 border-background">
                 <SettingsIcon className="h-2 w-2 text-success-foreground" strokeWidth={2} />
               </div>
             )}
-          </div>
+          </button>
         ))}
       </div>
 
-    </div>
+    </section>
   );
 }

@@ -71,6 +71,8 @@ export interface Execution {
   startTime: string;
   endTime?: string;
   duration?: number;
+  input?: any;
+  output?: any;
   tasks: {
     taskId: string;
     taskName: string;
@@ -82,12 +84,30 @@ export interface Execution {
   }[];
 }
 
+export interface CanvasNode {
+  id: string;
+  type: string;
+  name: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  config?: any;
+}
+
+export interface CanvasEdge {
+  from: string;
+  to: string;
+}
+
 interface WorkflowStore {
   workflows: Workflow[];
   tasks: Task[];
   executions: Execution[];
   selectedWorkflow: Workflow | null;
   selectedExecution: Execution | null;
+  canvasNodes: CanvasNode[];
+  canvasEdges: CanvasEdge[];
   addWorkflow: (workflow: Workflow) => void;
   updateWorkflow: (id: string, workflow: Partial<Workflow>) => void;
   deleteWorkflow: (id: string) => void;
@@ -97,10 +117,87 @@ interface WorkflowStore {
   deleteTask: (id: string) => void;
   addExecution: (execution: Execution) => void;
   setSelectedExecution: (execution: Execution | null) => void;
+  setCanvasNodes: (nodes: CanvasNode[]) => void;
+  setCanvasEdges: (edges: CanvasEdge[]) => void;
   executeWorkflow: (workflowId: string, input?: any) => Execution;
 }
 
-export const useWorkflowStore = create<WorkflowStore>((set) => ({
+export const useWorkflowStore = create<WorkflowStore>((set) => {
+  // Helper function to get task status
+  const getTaskStatus = (isSuccess: boolean, taskIndex: number): 'completed' | 'failed' => {
+    if (isSuccess) {
+      return 'completed';
+    }
+    return taskIndex === 0 ? 'completed' : 'failed';
+  };
+
+  // Helper function to create task output
+  const createTaskOutput = (isSuccess: boolean, taskIndex: number): any => {
+    if (isSuccess) {
+      return {
+        processed: true,
+        result: `Task ${taskIndex + 1} completed successfully`,
+        timestamp: new Date().toISOString(),
+        data: {
+          taskId: `task_${taskIndex}`,
+          executionTime: Math.floor(Math.random() * 1000) + 100,
+          recordsProcessed: Math.floor(Math.random() * 100) + 1
+        }
+      };
+    }
+    return {
+      error: 'Task failed',
+      errorCode: 'TASK_ERROR',
+      message: `Task ${taskIndex + 1} encountered an error`,
+      timestamp: new Date().toISOString()
+    };
+  };
+
+  // Helper function to map task with completion data
+  const mapCompletedTask = (task: any, index: number, isSuccess: boolean): any => ({
+    ...task,
+    status: getTaskStatus(isSuccess, index),
+    endTime: new Date().toISOString(),
+    input: task.input || {
+      workflowInput: {},
+      taskIndex: index,
+      timestamp: new Date().toISOString()
+    },
+    output: createTaskOutput(isSuccess, index)
+  });
+
+  // Helper function to map completed execution
+  const mapCompletedExecution = (exec: Execution, executionId: string, isSuccess: boolean): Execution => {
+    if (exec.id !== executionId) {
+      return exec;
+    }
+
+    const executionStatus = isSuccess ? 'completed' : 'failed';
+    const executionOutput = isSuccess
+      ? { status: 'success', result: 'Workflow completed successfully' }
+      : { status: 'error', message: 'Workflow failed' };
+
+    const completedTasks = exec.tasks.map((task, index) => mapCompletedTask(task, index, isSuccess));
+
+    return {
+      ...exec,
+      status: executionStatus,
+      endTime: new Date().toISOString(),
+      duration: Math.floor(Math.random() * 5000) + 1000,
+      output: executionOutput,
+      tasks: completedTasks
+    };
+  };
+
+  // Helper function to complete execution simulation
+  const completeExecutionSimulation = (executionId: string): void => {
+    const isSuccess = Math.random() > 0.2;
+    set((state) => ({
+      executions: state.executions.map((exec) => mapCompletedExecution(exec, executionId, isSuccess))
+    }));
+  };
+
+  return {
   workflows: [
     {
       id: '1',
@@ -318,6 +415,8 @@ export const useWorkflowStore = create<WorkflowStore>((set) => ({
   ],
   selectedWorkflow: null,
   selectedExecution: null,
+  canvasNodes: [],
+  canvasEdges: [],
   addWorkflow: (workflow) => set((state) => ({ workflows: [...state.workflows, workflow] })),
   updateWorkflow: (id, workflow) =>
     set((state) => ({
@@ -340,6 +439,8 @@ export const useWorkflowStore = create<WorkflowStore>((set) => ({
     })),
   addExecution: (execution) => set((state) => ({ executions: [execution, ...state.executions] })),
   setSelectedExecution: (execution) => set({ selectedExecution: execution }),
+  setCanvasNodes: (nodes) => set({ canvasNodes: nodes }),
+  setCanvasEdges: (edges) => set({ canvasEdges: edges }),
   executeWorkflow: (workflowId, input = {}) => {
     const state = useWorkflowStore.getState();
     const workflow = state.workflows.find((w) => w.id === workflowId);
@@ -389,49 +490,10 @@ export const useWorkflowStore = create<WorkflowStore>((set) => ({
 
     // Simulate execution completion after 3 seconds
     setTimeout(() => {
-      const isSuccess = Math.random() > 0.2;
-      set((state) => ({
-        executions: state.executions.map((exec) =>
-          exec.id === newExecution.id
-            ? {
-                ...exec,
-                status: isSuccess ? 'completed' : 'failed',
-                endTime: new Date().toISOString(),
-                duration: Math.floor(Math.random() * 5000) + 1000,
-                output: isSuccess ? { status: 'success', result: 'Workflow completed successfully' } : { status: 'error', message: 'Workflow failed' },
-                tasks: exec.tasks.map((task, index) => ({
-                  ...task,
-                  status: isSuccess ? 'completed' : (index === 0 ? 'completed' : 'failed'),
-                  endTime: new Date().toISOString(),
-                  input: task.input || { 
-                    workflowInput: input,
-                    taskIndex: index,
-                    timestamp: new Date().toISOString()
-                  },
-                  output: isSuccess 
-                    ? { 
-                        processed: true, 
-                        result: `Task ${index + 1} completed successfully`,
-                        timestamp: new Date().toISOString(),
-                        data: {
-                          taskId: task.taskId,
-                          executionTime: Math.floor(Math.random() * 1000) + 100,
-                          recordsProcessed: Math.floor(Math.random() * 100) + 1
-                        }
-                      } 
-                    : { 
-                        error: 'Task failed', 
-                        errorCode: 'TASK_ERROR',
-                        message: `Task ${index + 1} encountered an error`,
-                        timestamp: new Date().toISOString()
-                      },
-                })),
-              }
-            : exec
-        ),
-      }));
+      completeExecutionSimulation(newExecution.id);
     }, 3000);
 
     return newExecution;
   },
-}));
+  };
+});

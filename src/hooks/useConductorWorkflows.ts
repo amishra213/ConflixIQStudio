@@ -1,14 +1,16 @@
-import { useQuery, useMutation } from '@apollo/client';
+import { useQuery, useMutation } from '@apollo/client/react';
 import { GET_WORKFLOWS, GET_WORKFLOW_BY_NAME, GET_WORKFLOW_EXECUTIONS } from '@/lib/graphql/queries';
 import { CREATE_WORKFLOW, UPDATE_WORKFLOW, START_WORKFLOW, TERMINATE_WORKFLOW } from '@/lib/graphql/mutations';
 import { useSettingsStore } from '@/stores/settingsStore';
 
 export const useConductorWorkflows = () => {
-  const { conductorSettings } = useSettingsStore();
+  const { proxyServer, conductorApi } = useSettingsStore();
+  const isConnected = proxyServer.enabled || !!conductorApi.endpoint;
   
-  const { data: workflowsData, loading: workflowsLoading, error: workflowsError, refetch: refetchWorkflows } = useQuery(GET_WORKFLOWS, {
+  type WorkflowsQueryResult = { workflows: any[] }; // Replace 'any' with your actual workflow type if available
+  const { data: workflowsData, loading: workflowsLoading, error: workflowsError, refetch: refetchWorkflows } = useQuery<WorkflowsQueryResult>(GET_WORKFLOWS, {
     variables: { limit: 100, offset: 0 },
-    skip: !conductorSettings.isConnected,
+    skip: !isConnected,
   });
 
   const [createWorkflow, { loading: createLoading }] = useMutation(CREATE_WORKFLOW);
@@ -30,11 +32,13 @@ export const useConductorWorkflows = () => {
 };
 
 export const useWorkflowDetails = (name: string, version?: number) => {
-  const { conductorSettings } = useSettingsStore();
+  const { proxyServer, conductorApi } = useSettingsStore();
+  const isConnected = proxyServer.enabled || !!conductorApi.endpoint;
   
-  const { data, loading, error, refetch } = useQuery(GET_WORKFLOW_BY_NAME, {
+  type WorkflowByNameQueryResult = { workflow: any }; // Replace 'any' with your actual workflow type if available
+  const { data, loading, error, refetch } = useQuery<WorkflowByNameQueryResult>(GET_WORKFLOW_BY_NAME, {
     variables: { name, version },
-    skip: !name || !conductorSettings.isConnected,
+    skip: !name || !isConnected,
   });
 
   return {
@@ -46,11 +50,13 @@ export const useWorkflowDetails = (name: string, version?: number) => {
 };
 
 export const useWorkflowExecutions = (workflowName: string, limit: number = 50) => {
-  const { conductorSettings } = useSettingsStore();
+  const { proxyServer, conductorApi } = useSettingsStore();
+  const isConnected = proxyServer.enabled || !!conductorApi.endpoint;
   
-  const { data, loading, error, refetch } = useQuery(GET_WORKFLOW_EXECUTIONS, {
+  type WorkflowExecutionsQueryResult = { workflowExecutions: any[] }; // Replace 'any' with your actual execution type if available
+  const { data, loading, error, refetch } = useQuery<WorkflowExecutionsQueryResult>(GET_WORKFLOW_EXECUTIONS, {
     variables: { workflowName, limit },
-    skip: !workflowName || !conductorSettings.isConnected,
+    skip: !workflowName || !isConnected,
   });
 
   return {

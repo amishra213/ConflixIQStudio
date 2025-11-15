@@ -33,20 +33,12 @@ import { HttpTaskModal } from '@/components/modals/system-tasks/HttpTaskModal';
 // Custom Node Component
 const CustomNode = memo(({ data, selected, id }: NodeProps) => {
   const getNodeIcon = (taskType: string) => {
-    switch (taskType) {
-      case 'HTTP':
-        return '🌐';
-      case 'LAMBDA':
-        return '⚡';
-      case 'DECISION':
-        return '🔀';
-      case 'CONVERGE':
-        return '🔗';
-      case 'FORK_JOIN':
-        return '🔱';
-      default:
-        return '📋';
-    }
+    if (taskType === 'HTTP') return '🌐';
+    if (taskType === 'LAMBDA') return '⚡';
+    if (taskType === 'DECISION') return '🔀';
+    if (taskType === 'CONVERGE') return '🔗';
+    if (taskType === 'FORK_JOIN') return '🔱';
+    return '📋';
   };
 
   return (
@@ -268,6 +260,33 @@ const systemTasks = [
   },
 ];
 
+function formatDate(date: Date): string {
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  const year = date.getFullYear();
+  return `${month}-${day}-${year}`;
+}
+
+function formatDateForInput(dateStr: string): string {
+  if (!dateStr) return '';
+  try {
+    const [month, day, year] = dateStr.split('-');
+    return `${year}-${month}-${day}`;
+  } catch {
+    return '';
+  }
+}
+
+function formatDateFromInput(dateStr: string): string {
+  if (!dateStr) return '';
+  try {
+    const [year, month, day] = dateStr.split('-');
+    return `${month}-${day}-${year}`;
+  } catch {
+    return '';
+  }
+}
+
 export function WorkflowDesigner() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -352,43 +371,6 @@ export function WorkflowDesigner() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [nodes, edges, workflow?.id]); // Only depend on workflow.id, not the entire workflow object
 
-  function formatDate(date: Date): string {
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    const year = date.getFullYear();
-    return `${month}-${day}-${year}`;
-  }
-
-  function parseDateString(dateStr: string): string {
-    if (!dateStr) return '';
-    try {
-      const [month, day, year] = dateStr.split('-');
-      return `${year}-${month}-${day}`;
-    } catch {
-      return '';
-    }
-  }
-
-  function formatDateForInput(dateStr: string): string {
-    if (!dateStr) return '';
-    try {
-      const [month, day, year] = dateStr.split('-');
-      return `${year}-${month}-${day}`;
-    } catch {
-      return '';
-    }
-  }
-
-  function formatDateFromInput(dateStr: string): string {
-    if (!dateStr) return '';
-    try {
-      const [year, month, day] = dateStr.split('-');
-      return `${month}-${day}-${year}`;
-    } catch {
-      return '';
-    }
-  }
-
   const onConnect = useCallback(
     (params: Connection | Edge) => {
       // Get source and target nodes
@@ -433,16 +415,15 @@ export function WorkflowDesigner() {
     if (node) {
       setSelectedNodeForConfig(node);
       // Open the correct modal based on task type
-      switch (node.data.taskType) {
-        case 'HTTP': setIsHttpConfigModalOpen(true); break;
-        default:
-          toast({
-            title: 'Configuration not available',
-            description: `No specific configuration modal for task type: ${node.data.taskType}`,
-            variant: 'destructive',
-          });
-          setSelectedNodeForConfig(null);
-          break;
+      if (node.data.taskType === 'HTTP') {
+        setIsHttpConfigModalOpen(true);
+      } else {
+        toast({
+          title: 'Configuration not available',
+          description: `No specific configuration modal for task type: ${node.data.taskType}`,
+          variant: 'destructive',
+        });
+        setSelectedNodeForConfig(null);
       }
     }
   }, [nodes, toast]);
@@ -538,7 +519,7 @@ export function WorkflowDesigner() {
         
         // Auto-connect to the last node if exists
         if (nds.length > 0) {
-          const lastNode = nds[nds.length - 1];
+          const lastNode = nds.at(-1)!;
           const newEdge: Edge = {
             id: `${lastNode.id}-${newNode.id}`,
             source: lastNode.id,
@@ -562,7 +543,7 @@ export function WorkflowDesigner() {
 
     setNodes((nds) => {
       // Calculate position based on existing nodes with better spacing
-      const lastNode = nds[nds.length - 1];
+      const lastNode = nds.at(-1);
       const xPosition = lastNode ? lastNode.position.x : 100;
       const yPosition = lastNode ? lastNode.position.y + 150 : 100;
       const sequenceNo = nds.length + 1;
@@ -689,21 +670,8 @@ export function WorkflowDesigner() {
     }
   };
 
-  const handleSave = () => {
-    if (workflow) {
-      updateWorkflow(workflow.id, {
-        name: workflowName,
-        description: workflowSettings.description,
-        settings: workflowSettings,
-        nodes: nodes,
-        edges: edges,
-      });
-      toast({
-        title: 'Workflow saved',
-        description: 'Your workflow has been saved successfully.',
-      });
-      return true;
-    } else {
+  const handleSave = (): boolean => {
+    if (!workflow) {
       // Create new workflow if accessed from standalone designer
       const newWorkflow = {
         id: workflowSettings.workflowId,
@@ -721,8 +689,22 @@ export function WorkflowDesigner() {
         description: 'Your workflow has been created successfully.',
       });
       navigate(`/workflows/${newWorkflow.id}`);
-      return true;
+      return false;
     }
+
+    // Update existing workflow
+    updateWorkflow(workflow.id, {
+      name: workflowName,
+      description: workflowSettings.description,
+      settings: workflowSettings,
+      nodes: nodes,
+      edges: edges,
+    });
+    toast({
+      title: 'Workflow saved',
+      description: 'Your workflow has been saved successfully.',
+    });
+    return true;
   };
 
   const handleExecute = () => {
@@ -783,6 +765,16 @@ export function WorkflowDesigner() {
       task.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       task.description.toLowerCase().includes(searchQuery.toLowerCase())
   );
+
+  const getInitialConfig = () => {
+    if (selectedNodeForConfig?.data?.taskType === 'HTTP') {
+      return selectedNodeForConfig.data.config;
+    }
+    if (pendingNodeForAutoConfig?.data?.taskType === 'HTTP') {
+      return pendingNodeForAutoConfig.data.config;
+    }
+    return null;
+  };
 
   return (
     <>
@@ -880,9 +872,9 @@ export function WorkflowDesigner() {
                 </h4>
                 <div className="space-y-2">
                   {filteredWorkerTasks.map((task) => (
-                    <div
+                    <button
                       key={task.id}
-                      className="group p-3 bg-[#0f1419] border border-[#2a3142] rounded-lg cursor-pointer hover:border-cyan-500 transition-all duration-200"
+                      className="w-full group p-3 bg-[#0f1419] border border-[#2a3142] rounded-lg cursor-pointer hover:border-cyan-500 transition-all duration-200 text-left"
                       onClick={() => handleAddNode(task.id)}
                       draggable
                       onDragStart={(e) => {
@@ -907,7 +899,7 @@ export function WorkflowDesigner() {
                           </p>
                         </div>
                       </div>
-                    </div>
+                    </button>
                   ))}
                 </div>
               </div>
@@ -920,9 +912,9 @@ export function WorkflowDesigner() {
                 </h4>
                 <div className="space-y-2">
                   {filteredOperators.map((task) => (
-                    <div
+                    <button
                       key={task.id}
-                      className="group p-3 bg-[#0f1419] border border-[#2a3142] rounded-lg cursor-pointer hover:border-purple-500 transition-all duration-200"
+                      className="w-full group p-3 bg-[#0f1419] border border-[#2a3142] rounded-lg cursor-pointer hover:border-purple-500 transition-all duration-200 text-left"
                       onClick={() => handleAddNode(task.id)}
                       draggable
                       onDragStart={(e) => {
@@ -947,7 +939,7 @@ export function WorkflowDesigner() {
                           </p>
                         </div>
                       </div>
-                    </div>
+                    </button>
                   ))}
                 </div>
               </div>
@@ -960,9 +952,9 @@ export function WorkflowDesigner() {
                 </h4>
                 <div className="space-y-2">
                   {filteredSystemTasks.map((task) => (
-                    <div
+                    <button
                       key={task.id}
-                      className="group p-3 bg-[#0f1419] border border-[#2a3142] rounded-lg cursor-pointer hover:border-orange-500 transition-all duration-200"
+                      className="w-full group p-3 bg-[#0f1419] border border-[#2a3142] rounded-lg cursor-pointer hover:border-orange-500 transition-all duration-200 text-left"
                       onClick={() => handleAddNode(task.id)}
                       draggable
                       onDragStart={(e) => {
@@ -987,7 +979,7 @@ export function WorkflowDesigner() {
                           </p>
                         </div>
                       </div>
-                    </div>
+                    </button>
                   ))}
                 </div>
               </div>
@@ -1077,16 +1069,17 @@ export function WorkflowDesigner() {
                 </div>
 
                 {/* Canvas */}
-                <div 
+                <section 
                   className="flex-1 relative"
                   onDrop={onDrop}
                   onDragOver={onDragOver}
+                  aria-label="Workflow canvas"
                 >
                     {nodes.length === 0 ? (
                       <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                         <div className="text-center max-w-md">
                           <div className="w-16 h-16 bg-[#2a3142] rounded-full mx-auto mb-4 flex items-center justify-center">
-                            <svg className="w-8 h-8 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <svg className="w-8 h-8 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
                             </svg>
                           </div>
@@ -1124,8 +1117,8 @@ export function WorkflowDesigner() {
                         />
                       </ReactFlow>
                     )}
-                  </div>
-                </div>
+                </section>
+              </div>
               )}
 
             {activeTab === 'summary' && (
@@ -1304,7 +1297,7 @@ export function WorkflowDesigner() {
                           <Input
                             type="number"
                             value={workflowSettings.timeoutSeconds}
-                            onChange={(e) => setWorkflowSettings({ ...workflowSettings, timeoutSeconds: parseInt(e.target.value) || 3600 })}
+                            onChange={(e) => setWorkflowSettings({ ...workflowSettings, timeoutSeconds: Number.parseInt(e.target.value) || 3600 })}
                             className="mt-2 bg-[#0f1419] text-white border-[#2a3142]"
                           />
                         </div>
@@ -1329,7 +1322,7 @@ export function WorkflowDesigner() {
                           value={workflowSettings.inputParameters.join(', ')}
                           onChange={(e) => setWorkflowSettings({ 
                             ...workflowSettings, 
-                            inputParameters: e.target.value.split(',').map(p => p.trim()).filter(p => p) 
+                            inputParameters: e.target.value.split(',').map(p => p.trim()).filter(Boolean) 
                           })}
                           placeholder="param1, param2, param3"
                           className="mt-2 bg-[#0f1419] text-white border-[#2a3142]"
@@ -1343,8 +1336,8 @@ export function WorkflowDesigner() {
                             try {
                               const parsed = JSON.parse(e.target.value);
                               setWorkflowSettings({ ...workflowSettings, outputParameters: parsed });
-                            } catch (err) {
-                              // Invalid JSON, don't update
+                            } catch {
+                              // Invalid JSON - silently ignore to allow editing
                             }
                           }}
                           className="mt-2 bg-[#0f1419] text-white border-[#2a3142] font-mono text-sm"
@@ -1495,8 +1488,11 @@ export function WorkflowDesigner() {
             setSelectedNodeForConfig(null);
           }
         }}
-        initialConfig={selectedNodeForConfig?.data?.taskType === 'HTTP' ? selectedNodeForConfig.data.config : pendingNodeForAutoConfig?.data?.taskType === 'HTTP' ? pendingNodeForAutoConfig.data.config : null}
-        onSave={(config) => handleSaveTaskConfig(config, (selectedNodeForConfig || pendingNodeForAutoConfig)!.id)}
+        initialConfig={getInitialConfig()}
+        onSave={(config) => {
+          const targetNode = selectedNodeForConfig || pendingNodeForAutoConfig;
+          handleSaveTaskConfig(config, targetNode!.id);
+        }}
       />
     </>
   );
