@@ -6,7 +6,6 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Card } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { PlusIcon, Trash2Icon } from "lucide-react";
 
@@ -14,32 +13,12 @@ export interface WorkflowTaskConfig {
   name: string;
   taskReferenceName: string;
   type: "SIMPLE";
-  description?: string;
-  inputParameters?: Record<string, any>;
-  optional?: boolean;
-  startDelay?: number;
-  retryCount?: number;
-  retryLogic?: "FIXED" | "LINEAR" | "EXPONENTIAL";
-  retryDelaySeconds?: number;
-  backoffRate?: number;
-  rateLimitPerFrequency?: number;
-  rateLimitFrequencyInSeconds?: number;
-  timeoutSeconds?: number;
-  timeoutPolicy?: "TIME_OUT_WF" | "TIME_OUT_TASK" | "RETRY";
-  responseTimeoutSeconds?: number;
-  queueName?: string;
-  sink?: string;
-  monitorMask?: number;
-  asyncComplete?: boolean;
-  isolationGroupId?: string;
-  executionNameSpace?: string;
-  inputTemplate?: Record<string, any>;
-  taskDefinition?: {
-    name: string;
-    description?: string;
-    retryCount?: number;
-    timeoutSeconds?: number;
-  };
+  inputParameters: Record<string, any>;
+  rateLimitPerFrequency: number;
+  rateLimitFrequencyInSeconds: number;
+  optional: boolean;
+  startDelay: number;
+  asyncComplete: boolean;
 }
 
 export interface SimpleTaskModalProps {
@@ -63,24 +42,11 @@ export function SimpleTaskModal({
   const [isLoading, setIsLoading] = useState(false);
   const [taskName, setTaskName] = useState("");
   const [taskRefName, setTaskRefName] = useState("");
-  const [description, setDescription] = useState("");
   const [optional, setOptional] = useState(false);
   const [startDelay, setStartDelay] = useState(0);
-  const [retryCount, setRetryCount] = useState(3);
-  const [retryLogic, setRetryLogic] = useState<"FIXED" | "LINEAR" | "EXPONENTIAL">("FIXED");
-  const [retryDelaySeconds, setRetryDelaySeconds] = useState(5);
-  const [backoffRate, setBackoffRate] = useState(2);
-  const [rateLimitPerFrequency, setRateLimitPerFrequency] = useState(10);
-  const [rateLimitFrequencyInSeconds, setRateLimitFrequencyInSeconds] = useState(1);
-  const [timeoutSeconds, setTimeoutSeconds] = useState(120);
-  const [timeoutPolicy, setTimeoutPolicy] = useState<"TIME_OUT_WF" | "TIME_OUT_TASK" | "RETRY">("TIME_OUT_WF");
-  const [responseTimeoutSeconds, setResponseTimeoutSeconds] = useState(60);
-  const [queueName, setQueueName] = useState("");
-  const [sink, setSink] = useState("");
-  const [monitorMask, setMonitorMask] = useState(0);
   const [asyncComplete, setAsyncComplete] = useState(false);
-  const [isolationGroupId, setIsolationGroupId] = useState("");
-  const [executionNameSpace, setExecutionNameSpace] = useState("default");
+  const [rateLimitPerFrequency, setRateLimitPerFrequency] = useState(0);
+  const [rateLimitFrequencyInSeconds, setRateLimitFrequencyInSeconds] = useState(1);
   const [inputParams, setInputParams] = useState<InputParam[]>([]);
   const [jsonEditable, setJsonEditable] = useState("");
   const [jsonValidationError, setJsonValidationError] = useState("");
@@ -88,28 +54,16 @@ export function SimpleTaskModal({
   useEffect(() => {
     if (open) {
       const timestamp = Date.now();
-      setTaskName(`task_${timestamp}`); // Auto-generate task name
+      setTaskName(`task_${timestamp}`);
       setTaskRefName(`task_ref_${timestamp}`);
-      setDescription("");
       setOptional(false);
       setStartDelay(0);
-      setRetryCount(3);
-      setRetryLogic("FIXED");
-      setRetryDelaySeconds(5);
-      setBackoffRate(2);
-      setRateLimitPerFrequency(10);
-      setRateLimitFrequencyInSeconds(1);
-      setTimeoutSeconds(120);
-      setTimeoutPolicy("TIME_OUT_WF");
-      setResponseTimeoutSeconds(60);
-      setQueueName("");
-      setSink("");
-      setMonitorMask(0);
       setAsyncComplete(false);
-      setIsolationGroupId("");
-      setExecutionNameSpace("default");
+      setRateLimitPerFrequency(0);
+      setRateLimitFrequencyInSeconds(1);
       setInputParams([]);
       setJsonValidationError("");
+      setJsonEditable("");
     }
   }, [open]);
 
@@ -123,6 +77,20 @@ export function SimpleTaskModal({
 
   const handleInputParamChange = (id: string, field: "key" | "value", newValue: string) => {
     setInputParams(inputParams.map(p => (p.id === id ? { ...p, [field]: newValue } : p)));
+  };
+
+  const buildInputParameters = () => {
+    const inputParameters: Record<string, any> = {};
+    for (const param of inputParams) {
+      if (param.key.trim()) {
+        try {
+          inputParameters[param.key] = param.value.trim() ? JSON.parse(param.value) : param.value;
+        } catch {
+          inputParameters[param.key] = param.value;
+        }
+      }
+    }
+    return inputParameters;
   };
 
   const handleSave = async () => {
@@ -145,47 +113,16 @@ export function SimpleTaskModal({
     }
 
     try {
-      const inputParameters: Record<string, any> = {};
-      for (const param of inputParams) {
-        if (param.key.trim()) {
-          try {
-            inputParameters[param.key] = param.value.trim() ? JSON.parse(param.value) : param.value;
-          } catch {
-            inputParameters[param.key] = param.value;
-          }
-        }
-      }
-
       const finalConfig: WorkflowTaskConfig = {
         name: taskName,
         taskReferenceName: taskRefName,
         type: "SIMPLE",
-        description: description || undefined,
-        inputParameters: Object.keys(inputParameters).length > 0 ? inputParameters : undefined,
+        inputParameters: buildInputParameters(),
+        rateLimitPerFrequency,
+        rateLimitFrequencyInSeconds,
         optional,
-        startDelay: startDelay > 0 ? startDelay : undefined,
-        retryCount: retryCount > 0 ? retryCount : undefined,
-        retryLogic,
-        retryDelaySeconds: retryDelaySeconds > 0 ? retryDelaySeconds : undefined,
-        backoffRate: backoffRate > 0 ? backoffRate : undefined,
-        rateLimitPerFrequency: rateLimitPerFrequency > 0 ? rateLimitPerFrequency : undefined,
-        rateLimitFrequencyInSeconds: rateLimitFrequencyInSeconds > 0 ? rateLimitFrequencyInSeconds : undefined,
-        timeoutSeconds: timeoutSeconds > 0 ? timeoutSeconds : undefined,
-        timeoutPolicy,
-        responseTimeoutSeconds: responseTimeoutSeconds > 0 ? responseTimeoutSeconds : undefined,
-        queueName: queueName || undefined,
-        sink: sink || undefined,
-        monitorMask: monitorMask > 0 ? monitorMask : undefined,
-        asyncComplete: asyncComplete || undefined,
-        isolationGroupId: isolationGroupId || undefined,
-        executionNameSpace: executionNameSpace || undefined,
-        inputTemplate: {},
-        taskDefinition: {
-          name: taskName,
-          description: description || undefined,
-          retryCount: retryCount > 0 ? retryCount : undefined,
-          timeoutSeconds: timeoutSeconds > 0 ? timeoutSeconds : undefined,
-        },
+        startDelay,
+        asyncComplete,
       };
 
       setIsLoading(true);
@@ -202,48 +139,17 @@ export function SimpleTaskModal({
     }
   };
 
-  const getJsonPreview = () => {
-    const inputParameters: Record<string, any> = {};
-    for (const param of inputParams) {
-      if (param.key.trim()) {
-        try {
-          inputParameters[param.key] = param.value.trim() ? JSON.parse(param.value) : param.value;
-        } catch {
-          inputParameters[param.key] = param.value;
-        }
-      }
-    }
-
+  const getJsonPreview = (): WorkflowTaskConfig => {
     return {
       name: taskName,
       taskReferenceName: taskRefName,
       type: "SIMPLE",
-      description: description || undefined,
-      inputParameters: Object.keys(inputParameters).length > 0 ? inputParameters : {},
-      optional,
-      startDelay,
-      retryCount,
-      retryLogic,
-      retryDelaySeconds,
-      backoffRate,
+      inputParameters: buildInputParameters(),
       rateLimitPerFrequency,
       rateLimitFrequencyInSeconds,
-      timeoutSeconds,
-      timeoutPolicy,
-      responseTimeoutSeconds,
-      queueName,
-      sink,
-      monitorMask,
+      optional,
+      startDelay,
       asyncComplete,
-      isolationGroupId,
-      executionNameSpace,
-      inputTemplate: {},
-      taskDefinition: {
-        name: taskName,
-        description: description || undefined,
-        retryCount,
-        timeoutSeconds,
-      },
     };
   };
 
@@ -280,7 +186,7 @@ export function SimpleTaskModal({
         <DialogHeader className="px-6 pt-6 pb-4 border-b border-[#2a3142] flex-shrink-0">
           <DialogTitle className="text-2xl font-semibold text-white">Create Simple Task</DialogTitle>
           <DialogDescription className="text-sm text-gray-400">
-            Configure a simple task for your workflow with all necessary parameters.
+            Configure a simple task for your workflow. Specify inputs and rate limiting parameters.
           </DialogDescription>
         </DialogHeader>
 
@@ -289,8 +195,7 @@ export function SimpleTaskModal({
             <TabsList className="bg-[#0f1419]">
               <TabsTrigger value="basic">Basic Info</TabsTrigger>
               <TabsTrigger value="inputs">Input Parameters</TabsTrigger>
-              <TabsTrigger value="policies">Policies</TabsTrigger>
-              <TabsTrigger value="advanced">Advanced</TabsTrigger>
+              <TabsTrigger value="settings">Settings</TabsTrigger>
               <TabsTrigger value="preview">JSON Preview</TabsTrigger>
             </TabsList>
 
@@ -306,6 +211,7 @@ export function SimpleTaskModal({
                       placeholder="e.g., send_email"
                       className="mt-2 bg-[#1a1f2e] text-white border-[#2a3142]"
                     />
+                    <p className="text-xs text-gray-400 mt-1">Unique name for this task definition</p>
                   </div>
                   <div>
                     <Label className="text-white">Task Reference Name *</Label>
@@ -317,15 +223,6 @@ export function SimpleTaskModal({
                     />
                     <p className="text-xs text-gray-400 mt-1">Unique identifier for referencing this task within the workflow</p>
                   </div>
-                  <div>
-                    <Label className="text-white">Description</Label>
-                    <Textarea
-                      value={description}
-                      onChange={(e) => setDescription(e.target.value)}
-                      placeholder="Describe what this task does"
-                      className="mt-2 bg-[#1a1f2e] text-white border-[#2a3142] min-h-[100px]"
-                    />
-                  </div>
                 </div>
               </Card>
             </TabsContent>
@@ -335,7 +232,7 @@ export function SimpleTaskModal({
                 <div className="flex items-center justify-between mb-4">
                   <div>
                     <h3 className="text-lg font-semibold text-white">Input Parameters</h3>
-                    <p className="text-sm text-gray-400 mt-1">Define inputs and their values</p>
+                    <p className="text-sm text-gray-400 mt-1">Define name-value pairs that will be passed as input to the task</p>
                   </div>
                   <Button
                     onClick={handleAddInputParam}
@@ -347,34 +244,40 @@ export function SimpleTaskModal({
                   </Button>
                 </div>
 
-                <div className="space-y-3 max-h-[300px] overflow-y-auto pr-2">
+                <div className="space-y-3 max-h-[400px] overflow-y-auto pr-2">
                   {inputParams.length === 0 ? (
                     <p className="text-sm text-gray-500 italic py-4">No input parameters defined</p>
                   ) : (
                     inputParams.map((param) => (
-                      <Card key={param.id} className="p-3 bg-[#1a1f2e] border-[#2a3142]">
+                      <Card key={param.id} className="p-4 bg-[#1a1f2e] border-[#2a3142]">
                         <div className="space-y-2">
-                          <Input
-                            value={param.key}
-                            onChange={(e) => handleInputParamChange(param.id, "key", e.target.value)}
-                            placeholder="Parameter name (e.g., email)"
-                            className="bg-[#0f1419] text-white border-[#2a3142] h-8 text-sm"
-                          />
-                          <div className="flex gap-2">
-                            <Textarea
-                              value={param.value}
-                              onChange={(e) => handleInputParamChange(param.id, "value", e.target.value)}
-                              placeholder='Value or reference (e.g., "$workflow.input.email")'
-                              className="flex-1 bg-[#0f1419] text-white border-[#2a3142] h-16 text-sm font-mono"
+                          <div>
+                            <Label className="text-xs text-gray-400">Parameter Name</Label>
+                            <Input
+                              value={param.key}
+                              onChange={(e) => handleInputParamChange(param.id, "key", e.target.value)}
+                              placeholder="e.g., recipientEmail"
+                              className="mt-1 bg-[#0f1419] text-white border-[#2a3142] h-8 text-sm"
                             />
-                            <Button
-                              onClick={() => handleRemoveInputParam(param.id)}
-                              variant="ghost"
-                              size="sm"
-                              className="text-red-500 hover:bg-red-500/10 hover:text-red-400 h-8 w-8 p-0 mt-auto"
-                            >
-                              <Trash2Icon className="w-4 h-4" />
-                            </Button>
+                          </div>
+                          <div>
+                            <Label className="text-xs text-gray-400">Parameter Value</Label>
+                            <div className="flex gap-2">
+                              <Textarea
+                                value={param.value}
+                                onChange={(e) => handleInputParamChange(param.id, "value", e.target.value)}
+                                placeholder='Value, JSON, or reference (e.g., "$workflow.input.email")'
+                                className="flex-1 bg-[#0f1419] text-white border-[#2a3142] h-16 text-sm font-mono"
+                              />
+                              <Button
+                                onClick={() => handleRemoveInputParam(param.id)}
+                                variant="ghost"
+                                size="sm"
+                                className="text-red-500 hover:bg-red-500/10 hover:text-red-400 h-8 w-8 p-0 mt-auto"
+                              >
+                                <Trash2Icon className="w-4 h-4" />
+                              </Button>
+                            </div>
                           </div>
                         </div>
                       </Card>
@@ -384,63 +287,74 @@ export function SimpleTaskModal({
               </Card>
             </TabsContent>
 
-            <TabsContent value="policies" className="space-y-4">
+            <TabsContent value="settings" className="space-y-4">
               <Card className="p-6 bg-[#0f1419] border-[#2a3142]">
-                <h3 className="text-lg font-semibold text-white mb-4">Retry & Timeout Policies</h3>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label className="text-white">Retry Count</Label>
-                    <Input type="number" value={retryCount} onChange={(e) => setRetryCount(Number(e.target.value) || 0)} className="mt-2 bg-[#1a1f2e] text-white border-[#2a3142]" min="0" />
-                  </div>
-                  <div>
-                    <Label className="text-white">Retry Logic</Label>
-                    <Select value={retryLogic} onValueChange={(value: any) => setRetryLogic(value)}>
-                      <SelectTrigger className="mt-2 bg-[#1a1f2e] text-white border-[#2a3142]">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent className="bg-[#1a1f2e] text-white border-[#2a3142]">
-                        <SelectItem value="FIXED">FIXED</SelectItem>
-                        <SelectItem value="LINEAR">LINEAR</SelectItem>
-                        <SelectItem value="EXPONENTIAL">EXPONENTIAL</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label className="text-white">Timeout Seconds</Label>
-                    <Input type="number" value={timeoutSeconds} onChange={(e) => setTimeoutSeconds(Number(e.target.value) || 0)} className="mt-2 bg-[#1a1f2e] text-white border-[#2a3142]" min="0" />
-                  </div>
-                  <div>
-                    <Label className="text-white">Timeout Policy</Label>
-                    <Select value={timeoutPolicy} onValueChange={(value: any) => setTimeoutPolicy(value)}>
-                      <SelectTrigger className="mt-2 bg-[#1a1f2e] text-white border-[#2a3142]">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent className="bg-[#1a1f2e] text-white border-[#2a3142]">
-                        <SelectItem value="TIME_OUT_WF">TIME_OUT_WF</SelectItem>
-                        <SelectItem value="TIME_OUT_TASK">TIME_OUT_TASK</SelectItem>
-                        <SelectItem value="RETRY">RETRY</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-              </Card>
-            </TabsContent>
-
-            <TabsContent value="advanced" className="space-y-4">
-              <Card className="p-6 bg-[#0f1419] border-[#2a3142]">
-                <h3 className="text-lg font-semibold text-white mb-4">Advanced Settings</h3>
+                <h3 className="text-lg font-semibold text-white mb-4">Task Settings</h3>
                 <div className="space-y-4">
-                  <div className="flex items-center gap-3">
-                    <input type="checkbox" id="optional" checked={optional} onChange={(e) => setOptional(e.target.checked)} className="w-4 h-4 rounded border-[#2a3142]" />
-                    <Label htmlFor="optional" className="text-white cursor-pointer">
-                      Optional (failure does not cause workflow failure)
-                    </Label>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label className="text-white">Rate Limit Per Frequency</Label>
+                      <Input
+                        type="number"
+                        value={rateLimitPerFrequency}
+                        onChange={(e) => setRateLimitPerFrequency(Number(e.target.value) || 0)}
+                        className="mt-2 bg-[#1a1f2e] text-white border-[#2a3142]"
+                        min="0"
+                      />
+                      <p className="text-xs text-gray-400 mt-1">Maximum task executions per frequency window (0 = unlimited)</p>
+                    </div>
+                    <div>
+                      <Label className="text-white">Rate Limit Frequency (seconds)</Label>
+                      <Input
+                        type="number"
+                        value={rateLimitFrequencyInSeconds}
+                        onChange={(e) => setRateLimitFrequencyInSeconds(Number(e.target.value) || 1)}
+                        className="mt-2 bg-[#1a1f2e] text-white border-[#2a3142]"
+                        min="1"
+                      />
+                      <p className="text-xs text-gray-400 mt-1">Time window in seconds for rate limiting</p>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-3">
-                    <input type="checkbox" id="async" checked={asyncComplete} onChange={(e) => setAsyncComplete(e.target.checked)} className="w-4 h-4 rounded border-[#2a3142]" />
-                    <Label htmlFor="async" className="text-white cursor-pointer">
-                      Async Complete
-                    </Label>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label className="text-white">Start Delay (seconds)</Label>
+                      <Input
+                        type="number"
+                        value={startDelay}
+                        onChange={(e) => setStartDelay(Number(e.target.value) || 0)}
+                        className="mt-2 bg-[#1a1f2e] text-white border-[#2a3142]"
+                        min="0"
+                      />
+                      <p className="text-xs text-gray-400 mt-1">Delay before task execution begins</p>
+                    </div>
+                  </div>
+
+                  <div className="space-y-3 pt-2 border-t border-[#2a3142]">
+                    <div className="flex items-center gap-3">
+                      <input
+                        type="checkbox"
+                        id="optional"
+                        checked={optional}
+                        onChange={(e) => setOptional(e.target.checked)}
+                        className="w-4 h-4 rounded border-[#2a3142] cursor-pointer"
+                      />
+                      <Label htmlFor="optional" className="text-white cursor-pointer">
+                        Optional (task failure does not fail the workflow)
+                      </Label>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <input
+                        type="checkbox"
+                        id="async"
+                        checked={asyncComplete}
+                        onChange={(e) => setAsyncComplete(e.target.checked)}
+                        className="w-4 h-4 rounded border-[#2a3142] cursor-pointer"
+                      />
+                      <Label htmlFor="async" className="text-white cursor-pointer">
+                        Async Complete (task completes asynchronously)
+                      </Label>
+                    </div>
                   </div>
                 </div>
               </Card>
@@ -451,7 +365,7 @@ export function SimpleTaskModal({
                 <div className="flex items-center justify-between mb-4">
                   <div>
                     <h3 className="text-lg font-semibold text-white">JSON Preview</h3>
-                    <p className="text-sm text-gray-400 mt-1">View and edit the generated JSON configuration</p>
+                    <p className="text-sm text-gray-400 mt-1">View the generated task configuration</p>
                   </div>
                   <Button
                     onClick={handleCopyJson}
@@ -468,18 +382,12 @@ export function SimpleTaskModal({
                     onChange={(e) => handleJsonChange(e.target.value)}
                     className="font-mono text-xs bg-[#1a1f2e] text-white border-[#2a3142] min-h-[400px] max-h-[500px] overflow-y-auto"
                     placeholder="JSON will appear here..."
+                    readOnly
                   />
                   {jsonValidationError && (
                     <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-lg">
                       <p className="text-sm text-red-400">
                         <span className="font-semibold">JSON Error:</span> {jsonValidationError}
-                      </p>
-                    </div>
-                  )}
-                  {!jsonValidationError && jsonEditable && (
-                    <div className="p-3 bg-green-500/10 border border-green-500/30 rounded-lg">
-                      <p className="text-sm text-green-400">
-                        <span className="font-semibold">Valid JSON</span>
                       </p>
                     </div>
                   )}
@@ -490,10 +398,19 @@ export function SimpleTaskModal({
         </div>
 
         <DialogFooter className="border-t border-[#2a3142] px-6 py-4 flex-shrink-0">
-          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isLoading} className="text-gray-400 border-[#2a3142] hover:bg-[#2a3142] hover:text-white">
+          <Button
+            variant="outline"
+            onClick={() => onOpenChange(false)}
+            disabled={isLoading}
+            className="text-gray-400 border-[#2a3142] hover:bg-[#2a3142] hover:text-white"
+          >
             Cancel
           </Button>
-          <Button onClick={handleSave} disabled={isLoading} className="bg-cyan-500 text-white hover:bg-cyan-600 font-medium disabled:opacity-50">
+          <Button
+            onClick={handleSave}
+            disabled={isLoading}
+            className="bg-cyan-500 text-white hover:bg-cyan-600 font-medium disabled:opacity-50"
+          >
             {isLoading ? "Saving..." : "Save Configuration"}
           </Button>
         </DialogFooter>
@@ -501,3 +418,4 @@ export function SimpleTaskModal({
     </Dialog>
   );
 }
+

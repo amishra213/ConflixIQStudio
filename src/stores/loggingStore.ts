@@ -75,7 +75,7 @@ export const useLoggingStore = create<LoggingState>()(
 
         const newLog: LogEntry = {
           ...log,
-          id: `log_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+          id: `log_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`,
           timestamp: new Date().toISOString(),
           requestHeaders: loggingSettings.logHeaders ? log.requestHeaders : undefined,
           responseHeaders: loggingSettings.logHeaders ? log.responseHeaders : undefined,
@@ -109,7 +109,7 @@ export const useLoggingStore = create<LoggingState>()(
         link.download = `conductor-logs-${new Date().toISOString()}.json`;
         document.body.appendChild(link);
         link.click();
-        document.body.removeChild(link);
+        link.remove();
         URL.revokeObjectURL(url);
       },
 

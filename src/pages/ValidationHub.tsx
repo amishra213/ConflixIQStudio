@@ -22,7 +22,7 @@ export function ValidationHub() {
 
   const filteredWorkflows = workflows.filter((workflow) =>
     workflow.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    workflow.description.toLowerCase().includes(searchQuery.toLowerCase())
+    (workflow.description?.toLowerCase().includes(searchQuery.toLowerCase()) ?? false)
   );
 
   const handleValidateWorkflow = (workflowId: string) => {

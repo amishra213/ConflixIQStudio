@@ -57,6 +57,7 @@ const initialAlerts: AlertConfig[] = [
         ],
         description: 'Order stage validation',
         joinType: 'AND',
+        id: 0
       },
     ],
     version: 1,
@@ -106,6 +107,7 @@ const initialAlerts: AlertConfig[] = [
         ],
         description: 'Order expiration check',
         joinType: 'AND',
+        id: 0
       },
     ],
     version: 1,

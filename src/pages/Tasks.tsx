@@ -13,12 +13,13 @@ import type { SimpleTaskDefinitionConfig } from '@/components/modals/SimpleTaskD
 
 export function Tasks() {
   const { tasks, addTask, deleteTask } = useWorkflowStore();
-  const { markAsDraft, markAllAsPublished, syncToFileStore, loadFromFileStore } = useTaskStore();
+  const { markAsPublished, markAllAsPublished, syncToFileStore, loadFromFileStore, getTaskStatus } = useTaskStore();
   const { toast } = useToast();
   const { fetchAllTaskDefinitions, createTaskDefinition } = useConductorApi({ enableFallback: false });
 
   // Simple Task Definition Modal state
   const [isSimpleTaskModalOpen, setIsSimpleTaskModalOpen] = useState(false);
+  const [editingTask, setEditingTask] = useState<TaskDefinition | null>(null);
 
   // All Task Definitions state
   const [allTasks, setAllTasks] = useState<TaskDefinition[]>([]);
@@ -87,15 +88,28 @@ export function Tasks() {
       const success = await createTaskDefinition(config);
       if (success) {
         const taskName = config.name;
-        addTask({
-          id: `task-${Date.now()}`,
-          name: taskName,
-          type: 'SIMPLE',
-          description: config.description || 'Simple task definition',
-        });
-        // Mark as draft since it's a newly created task definition
-        markAsDraft(taskName);
-        toast({ title: 'Success', description: `Task definition "${taskName}" created successfully.` });
+        
+        if (editingTask) {
+          // Update existing task
+          toast({ title: 'Success', description: `Task definition "${taskName}" updated successfully.` });
+          // Mark as published since it was successfully saved to Conductor server
+          markAsPublished(taskName);
+          // Reload the task list to get updated data
+          await loadAllTasks();
+        } else {
+          // Create new task
+          addTask({
+            id: `task-${Date.now()}`,
+            name: taskName,
+            type: 'SIMPLE',
+            description: config.description || 'Simple task definition',
+          });
+          // Mark as published since it was successfully saved to Conductor server
+          markAsPublished(taskName);
+          toast({ title: 'Success', description: `Task definition "${taskName}" created and published successfully.` });
+        }
+        
+        setEditingTask(null);
       } else {
         toast({ title: 'Error', description: 'Failed to create task definition. Please check your Conductor API settings.' });
       }
@@ -103,6 +117,11 @@ export function Tasks() {
       console.error('Error saving task definition:', error);
       toast({ title: 'Error', description: error instanceof Error ? error.message : 'Failed to create task definition.' });
     }
+  };
+
+  const handleEditTask = (task: any) => {
+    setEditingTask(task);
+    setIsSimpleTaskModalOpen(true);
   };
 
   const handleDelete = (id: string, name: string) => {
@@ -182,7 +201,10 @@ export function Tasks() {
                 </thead>
                 <tbody className="divide-y divide-[#2a3142]">
                   {/* Local Worker Tasks */}
-                  {tasks.map((task) => (
+                  {tasks.map((task) => {
+                    const taskStatus = getTaskStatus(task.name);
+                    const isPublished = taskStatus?.status === 'published';
+                    return (
                     <tr 
                       key={task.id} 
                       className="hover:bg-[#2a3142]/30 transition-colors duration-150"
@@ -213,8 +235,12 @@ export function Tasks() {
                         <span className="text-gray-500 text-sm">-</span>
                       </td>
                       <td className="px-6 py-4 text-center">
-                        <div className="flex items-center justify-center" title="Draft">
-                          <Clock className="w-5 h-5 text-yellow-400" />
+                        <div className="flex items-center justify-center" title={isPublished ? "Published" : "Draft"}>
+                          {isPublished ? (
+                            <CheckCircle2 className="w-5 h-5 text-green-400" />
+                          ) : (
+                            <Clock className="w-5 h-5 text-yellow-400" />
+                          )}
                         </div>
                       </td>
                       <td className="px-6 py-4 text-center">
@@ -222,6 +248,7 @@ export function Tasks() {
                           <Button
                             size="sm"
                             variant="ghost"
+                            onClick={() => handleEditTask(task)}
                             className="text-blue-500 hover:bg-blue-500/10 hover:text-blue-400"
                             title="Edit Task"
                           >
@@ -241,7 +268,8 @@ export function Tasks() {
                         </div>
                       </td>
                     </tr>
-                  ))}
+                    );
+                  })}
                   
                   {/* API Task Definitions */}
                   {allTasks.map((task) => (
@@ -296,6 +324,7 @@ export function Tasks() {
                           <Button
                             size="sm"
                             variant="ghost"
+                            onClick={() => handleEditTask(task)}
                             className="text-blue-500 hover:bg-blue-500/10 hover:text-blue-400"
                             title="Edit Task"
                           >
@@ -324,8 +353,14 @@ export function Tasks() {
 
       <SimpleTaskCreateModal
         open={isSimpleTaskModalOpen}
-        onOpenChange={setIsSimpleTaskModalOpen}
+        onOpenChange={(open) => {
+          setIsSimpleTaskModalOpen(open);
+          if (!open) {
+            setEditingTask(null);
+          }
+        }}
         onSave={handleSaveSimpleTask}
+        initialConfig={editingTask}
       />
     </div>
   );

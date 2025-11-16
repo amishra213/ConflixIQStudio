@@ -158,9 +158,19 @@ export function Workflows() {
     setExecuteModalOpen(true);
   };
 
-  const handleValidateClick = (workflow: Workflow, e: React.MouseEvent) => {
+  const handleValidateClick = (e: React.MouseEvent) => {
     e.stopPropagation();
-    navigate('/validation-hub');
+    navigate('/validation');
+  };
+
+  const getStatusBadgeClass = (status: string): string => {
+    if (status === 'active') {
+      return 'bg-green-500/20 text-green-400 border border-green-500/50 font-medium';
+    }
+    if (status === 'paused') {
+      return 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/50 font-medium';
+    }
+    return 'bg-gray-500/20 text-gray-400 border border-gray-500/50 font-medium';
   };
 
   const handleExecuteWorkflow = (workflowId: string, input: any) => {
@@ -281,13 +291,7 @@ export function Workflows() {
                     </td>
                     <td className="px-6 py-4">
                       <Badge
-                        className={
-                          workflow.status === 'active'
-                            ? 'bg-green-500/20 text-green-400 border border-green-500/50 font-medium'
-                            : workflow.status === 'paused'
-                            ? 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/50 font-medium'
-                            : 'bg-gray-500/20 text-gray-400 border border-gray-500/50 font-medium'
-                        }
+                        className={getStatusBadgeClass(workflow.status)}
                       >
                         {workflow.status.toUpperCase()}
                       </Badge>
@@ -301,7 +305,7 @@ export function Workflows() {
                       <span className="text-sm text-gray-400">v1</span>
                     </td>
                     <td className="px-6 py-4">
-                      <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                      <div className="flex items-center gap-2" role="toolbar" aria-label="Workflow actions">
                         <Button
                           size="sm"
                           variant="ghost"
@@ -323,7 +327,7 @@ export function Workflows() {
                         <Button
                           size="sm"
                           variant="ghost"
-                          onClick={(e) => handleValidateClick(workflow, e)}
+                          onClick={handleValidateClick}
                           className="text-blue-500 hover:bg-blue-500/10 hover:text-blue-400"
                           title="Validate Workflow"
                         >

@@ -55,11 +55,23 @@ export interface WorkflowSettings {
 export interface Workflow {
   id: string;
   name: string;
-  description: string;
+  description?: string;
+  version?: number;
+  schemaVersion?: number;
+  ownerEmail?: string;
   nodes: WorkflowNode[];
   edges: WorkflowEdge[];
   createdAt: string;
   status: 'draft' | 'active' | 'paused';
+  restartable?: boolean;
+  timeoutSeconds?: number;
+  timeoutPolicy?: 'TIME_OUT_WF' | 'ALERT_ONLY';
+  workflowStatusListenerEnabled?: boolean;
+  failureWorkflow?: string;
+  inputParameters?: string[];
+  outputParameters?: Record<string, any>;
+  inputTemplate?: Record<string, any>;
+  tasks?: any[]; // OSS Conductor task definitions
   settings?: WorkflowSettings;
 }
 

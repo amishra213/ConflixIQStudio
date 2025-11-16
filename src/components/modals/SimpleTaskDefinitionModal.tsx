@@ -43,12 +43,14 @@ interface SimpleTaskCreateModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSave: (config: SimpleTaskDefinitionConfig) => void;
+  initialConfig?: any;
 }
 
 export function SimpleTaskCreateModal({
   open,
   onOpenChange,
   onSave,
+  initialConfig,
 }: Readonly<SimpleTaskCreateModalProps>) {
   const [config, setConfig] = useState<SimpleTaskDefinitionConfig>(() => ({
     name: '',
@@ -77,33 +79,62 @@ export function SimpleTaskCreateModal({
 
   useEffect(() => {
     if (open) {
-      const timestamp = Date.now();
-      setConfig({
-        name: `new_simple_task_${timestamp}`,
-        description: 'Worker task that sends email notifications',
-        retryCount: 3,
-        retryLogic: 'FIXED',
-        retryDelaySeconds: 5,
-        timeoutSeconds: 120,
-        timeoutPolicy: 'TIME_OUT_WF',
-        responseTimeoutSeconds: 60,
-        ownerEmail: 'team-notifications@example.com',
-        inputKeys: ['email', 'subject', 'body'],
-        outputKeys: ['status', 'messageId'],
-        rateLimitPerFrequency: 10,
-        rateLimitFrequencyInSeconds: 1,
-        pollTimeoutSeconds: 10,
-        concurrentExecLimit: 50,
-        queueName: 'email_queue',
-        retryDelayMultiplier: 1,
-        backoffRate: 1,
-        isolationGroupId: 'email_group',
-        executionNameSpace: 'default',
-        priority: 1,
-        ownerApp: 'notification-service',
-      });
+      if (initialConfig) {
+        // Load existing config for editing
+        setConfig({
+          name: initialConfig.name || '',
+          description: initialConfig.description || '',
+          retryCount: initialConfig.retryCount || 3,
+          retryLogic: initialConfig.retryLogic || 'FIXED',
+          retryDelaySeconds: initialConfig.retryDelaySeconds || 5,
+          timeoutSeconds: initialConfig.timeoutSeconds || 120,
+          timeoutPolicy: initialConfig.timeoutPolicy || 'TIME_OUT_WF',
+          responseTimeoutSeconds: initialConfig.responseTimeoutSeconds || 60,
+          ownerEmail: initialConfig.ownerEmail || '',
+          inputKeys: initialConfig.inputKeys || [],
+          outputKeys: initialConfig.outputKeys || [],
+          rateLimitPerFrequency: initialConfig.rateLimitPerFrequency || 10,
+          rateLimitFrequencyInSeconds: initialConfig.rateLimitFrequencyInSeconds || 1,
+          pollTimeoutSeconds: initialConfig.pollTimeoutSeconds || 10,
+          concurrentExecLimit: initialConfig.concurrentExecLimit || 50,
+          queueName: initialConfig.queueName || '',
+          retryDelayMultiplier: initialConfig.retryDelayMultiplier || 1,
+          backoffRate: initialConfig.backoffRate || 1,
+          isolationGroupId: initialConfig.isolationGroupId || '',
+          executionNameSpace: initialConfig.executionNameSpace || '',
+          priority: initialConfig.priority || 1,
+          ownerApp: initialConfig.ownerApp || '',
+        });
+      } else {
+        // Create new task with default values
+        const timestamp = Date.now();
+        setConfig({
+          name: `new_simple_task_${timestamp}`,
+          description: 'Worker task that sends email notifications',
+          retryCount: 3,
+          retryLogic: 'FIXED',
+          retryDelaySeconds: 5,
+          timeoutSeconds: 120,
+          timeoutPolicy: 'TIME_OUT_WF',
+          responseTimeoutSeconds: 60,
+          ownerEmail: 'team-notifications@example.com',
+          inputKeys: ['email', 'subject', 'body'],
+          outputKeys: ['status', 'messageId'],
+          rateLimitPerFrequency: 10,
+          rateLimitFrequencyInSeconds: 1,
+          pollTimeoutSeconds: 10,
+          concurrentExecLimit: 50,
+          queueName: 'email_queue',
+          retryDelayMultiplier: 1,
+          backoffRate: 1,
+          isolationGroupId: 'email_group',
+          executionNameSpace: 'default',
+          priority: 1,
+          ownerApp: 'notification-service',
+        });
+      }
     }
-  }, [open]);
+  }, [open, initialConfig]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -136,7 +167,7 @@ export function SimpleTaskCreateModal({
       <DialogContent className="max-w-4xl h-[85vh] bg-[#1a1f2e] border-[#2a3142] text-white flex flex-col p-0">
         <DialogHeader className="px-6 pt-6 pb-4 border-b border-[#2a3142] flex-shrink-0">
           <DialogTitle className="text-2xl font-semibold text-white">
-            Create Simple Task Definition
+            {initialConfig ? 'Edit Task Definition' : 'Create Simple Task Definition'}
           </DialogTitle>
         </DialogHeader>
 
@@ -441,7 +472,7 @@ export function SimpleTaskCreateModal({
             onClick={handleSave}
             className="bg-cyan-500 text-white hover:bg-cyan-600 font-medium"
           >
-            Create Task Definition
+            {initialConfig ? 'Update Task Definition' : 'Create Task Definition'}
           </Button>
         </DialogFooter>
       </DialogContent>

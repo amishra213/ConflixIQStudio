@@ -19,6 +19,6 @@ export const useThemeStore = create<ThemeStore>((set) => ({
 }));
 
 // Initialize dark mode on load
-if (typeof window !== 'undefined') {
+if (globalThis.window !== undefined) {
   document.documentElement.classList.add('dark');
 }

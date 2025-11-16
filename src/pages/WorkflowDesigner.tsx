@@ -576,36 +576,11 @@ export function WorkflowDesigner() {
     });
   }, [setNodes, setEdges, toast]);
 
-  const handleSaveTaskConfig = useCallback((config: any, nodeId: string) => {
-    setNodes((nds) =>
-      nds.map((node) =>
-        node.id === nodeId
-          ? {
-              ...node,
-              data: {
-                ...node.data,
-                config: config,
-                label: config.taskReferenceName || config.name,
-              },
-            }
-          : node
-      )
-    );
-
-    toast({
-      title: 'Configuration saved',
-      description: 'Task configuration has been updated.',
-    });
-
-    setSelectedNodeForConfig(null);
-    setPendingNodeForAutoConfig(null);
-  }, [setNodes, toast]);
-
   const handleSaveHttpTaskConfig = useCallback((config: any) => {
     const targetNode = selectedNodeForConfig || pendingNodeForAutoConfig;
     if (targetNode?.id) {
-      setNodes((nds) =>
-        nds.map((node) =>
+      setNodes((nds) => {
+        const updatedNodes = nds.map((node) =>
           node.id === targetNode.id
             ? {
                 ...node,
@@ -616,8 +591,21 @@ export function WorkflowDesigner() {
                 },
               }
             : node
-        )
-      );
+        );
+
+        // Update workflow tasks array with all configured tasks
+        if (workflow) {
+          const sortedNodes = [...updatedNodes];
+          sortedNodes.sort((a, b) => (a.data.sequenceNo || 0) - (b.data.sequenceNo || 0));
+          const workflowTasks = sortedNodes
+            .map(node => node.data.config)
+            .filter(Boolean); // Remove nodes without config
+          
+          updateWorkflow(workflow.id, { tasks: workflowTasks });
+        }
+
+        return updatedNodes;
+      });
 
       toast({
         title: 'Configuration saved',
@@ -628,42 +616,70 @@ export function WorkflowDesigner() {
     setSelectedNodeForConfig(null);
     setPendingNodeForAutoConfig(null);
     setIsHttpConfigModalOpen(false);
-  }, [selectedNodeForConfig, pendingNodeForAutoConfig, setNodes, toast]);
+  }, [selectedNodeForConfig, pendingNodeForAutoConfig, setNodes, toast, workflow, updateWorkflow]);
+
+  // Helper to update a single node with new config
+  const updateNodeWithConfig = (node: any, targetNodeId: string, config: any) => {
+    if (node.id === targetNodeId) {
+      return {
+        ...node,
+        data: {
+          ...node.data,
+          config: config,
+          label: config.taskReferenceName || config.name,
+        },
+      };
+    }
+    return node;
+  };
+
+  // Helper to extract workflow tasks from nodes
+  const extractWorkflowTasks = (nodes: any[]) => {
+    const sortedNodes = [...nodes];
+    sortedNodes.sort((a, b) => (a.data.sequenceNo || 0) - (b.data.sequenceNo || 0));
+    return sortedNodes
+      .map(node => node.data.config)
+      .filter(Boolean); // Remove nodes without config
+  };
+
+  // Helper to handle the config save logic
+  const saveTaskConfigLogic = (
+    config: any,
+    taskType: string,
+    setModalOpen: (open: boolean) => void
+  ) => {
+    const targetNode = selectedNodeForConfig || pendingNodeForAutoConfig;
+    if (!targetNode?.id) return;
+
+    setNodes((nds) => {
+      const updatedNodes = nds.map((node) => updateNodeWithConfig(node, targetNode.id, config));
+
+      // Update workflow tasks array with all configured tasks
+      if (workflow) {
+        const workflowTasks = extractWorkflowTasks(updatedNodes);
+        updateWorkflow(workflow.id, { tasks: workflowTasks });
+      }
+
+      return updatedNodes;
+    });
+
+    toast({
+      title: 'Configuration saved',
+      description: `${taskType} task configuration has been updated.`,
+    });
+
+    setSelectedNodeForConfig(null);
+    setPendingNodeForAutoConfig(null);
+    setModalOpen(false);
+  };
 
   // Generic save handler for task configs
   const createTaskConfigHandler = useCallback((
     taskType: string,
     setModalOpen: (open: boolean) => void
-  ) => {
-    return (config: any) => {
-      const targetNode = selectedNodeForConfig || pendingNodeForAutoConfig;
-      if (targetNode?.id) {
-        setNodes((nds) =>
-          nds.map((node) =>
-            node.id === targetNode.id
-              ? {
-                  ...node,
-                  data: {
-                    ...node.data,
-                    config: config,
-                    label: config.taskReferenceName || config.name,
-                  },
-                }
-              : node
-          )
-        );
-
-        toast({
-          title: 'Configuration saved',
-          description: `${taskType} task configuration has been updated.`,
-        });
-      }
-
-      setSelectedNodeForConfig(null);
-      setPendingNodeForAutoConfig(null);
-      setModalOpen(false);
-    };
-  }, [selectedNodeForConfig, pendingNodeForAutoConfig, setNodes, toast]);
+  ) => (config: any) => {
+    saveTaskConfigLogic(config, taskType, setModalOpen);
+  }, [selectedNodeForConfig, pendingNodeForAutoConfig, setNodes, toast, workflow, updateWorkflow]);
 
   const handleSaveKafkaTaskConfig = useCallback((config: KafkaPublishTaskConfig) =>
     createTaskConfigHandler('Kafka Publish', setIsKafkaPublishModalOpen)(config),
@@ -789,7 +805,7 @@ export function WorkflowDesigner() {
         return nds; // Node not found, don't update
       }
 
-      return nds.map((node) =>
+      const updatedNodes = nds.map((node) =>
         node.id === targetNodeId
           ? {
               ...node,
@@ -801,12 +817,25 @@ export function WorkflowDesigner() {
             }
           : node
       );
+
+      // Update workflow tasks array with the configured tasks
+      if (workflow) {
+        const sortedNodes = [...updatedNodes];
+        sortedNodes.sort((a, b) => (a.data.sequenceNo || 0) - (b.data.sequenceNo || 0));
+        const workflowTasks = sortedNodes
+          .map(node => node.data.config)
+          .filter(Boolean); // Remove nodes without config
+        
+        updateWorkflow(workflow.id, { tasks: workflowTasks });
+      }
+
+      return updatedNodes;
     });
 
     setSelectedNodeForConfig(null);
     setPendingNodeForAutoConfig(null);
     setIsSimpleTaskModalOpen(false);
-  }, [selectedNodeForConfig, pendingNodeForAutoConfig, setNodes]);
+  }, [selectedNodeForConfig, pendingNodeForAutoConfig, setNodes, workflow, updateWorkflow]);
 
   const onDragOver = useCallback((event: React.DragEvent) => {
     event.preventDefault();
