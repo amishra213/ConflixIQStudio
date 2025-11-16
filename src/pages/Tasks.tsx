@@ -7,9 +7,9 @@ import { PlusIcon, Trash2Icon, RefreshCw, CheckCircle2, Clock } from 'lucide-rea
 import { useToast } from '@/hooks/use-toast';
 import { useConductorApi } from '@/hooks/useConductorApi';
 import { useTaskStore } from '@/stores/taskStore';
-import { SimpleTaskModal } from '@/components/modals/SimpleTaskModal';
+import { SimpleTaskCreateModal } from '@/components/modals/SimpleTaskDefinitionModal';
 import type { TaskDefinition } from '@/types/taskDefinition';
-import type { SimpleTaskDefinition } from '@/components/modals/SimpleTaskModal';
+import type { SimpleTaskDefinitionConfig } from '@/components/modals/SimpleTaskDefinitionModal';
 
 export function Tasks() {
   const { tasks, addTask, deleteTask } = useWorkflowStore();
@@ -82,7 +82,7 @@ export function Tasks() {
     }
   };
 
-  const handleSaveSimpleTask = async (config: SimpleTaskDefinition) => {
+  const handleSaveSimpleTask = async (config: SimpleTaskDefinitionConfig) => {
     try {
       const success = await createTaskDefinition(config);
       if (success) {
@@ -322,7 +322,7 @@ export function Tasks() {
         )}
       </div>
 
-      <SimpleTaskModal
+      <SimpleTaskCreateModal
         open={isSimpleTaskModalOpen}
         onOpenChange={setIsSimpleTaskModalOpen}
         onSave={handleSaveSimpleTask}

@@ -31,8 +31,7 @@ export function Sidebar() {
       <div className="p-6 flex items-center justify-between border-b border-[#2a3142]">
         {!isCollapsed && (
           <div className="flex items-center gap-3">
-            <img src={logo} alt="Netflix Conductor Designer Logo" className="w-8 h-8" />
-            <h1 className="text-xl font-semibold text-white tracking-tight">Netflix Conductor Designer</h1>
+            <img src={logo} alt="Logo" className="w-8 h-8" />
           </div>
         )}
         <Button

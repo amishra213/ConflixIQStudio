@@ -29,6 +29,18 @@ import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { ExecuteWorkflowModal } from '@/components/modals/ExecuteWorkflowModal';
 import { HttpTaskModal } from '@/components/modals/system-tasks/HttpTaskModal';
+import { KafkaPublishTaskModal, KafkaPublishTaskConfig } from '@/components/modals/system-tasks/KafkaPublishTaskModal';
+import { GrpcTaskModal, GrpcTaskConfig } from '@/components/modals/system-tasks/GrpcTaskModal';
+import { JsonJqTransformTaskModal, JsonJqTransformTaskConfig } from '@/components/modals/system-tasks/JsonJqTransformTaskModal';
+import { JsonJqTransformStringTaskModal, JsonJqTransformStringTaskConfig } from '@/components/modals/system-tasks/JsonJqTransformStringTaskModal';
+import { NoopSystemTaskModal, NoopSystemTaskConfig } from '@/components/modals/system-tasks/NoopSystemTaskModal';
+import { EventSystemTaskModal, EventSystemTaskConfig } from '@/components/modals/system-tasks/EventSystemTaskModal';
+import { WaitSystemTaskModal, WaitSystemTaskConfig } from '@/components/modals/system-tasks/WaitSystemTaskModal';
+import { SetVariableSystemTaskModal, SetVariableSystemTaskConfig } from '@/components/modals/system-tasks/SetVariableSystemTaskModal';
+import { SubWorkflowSystemTaskModal, SubWorkflowSystemTaskConfig } from '@/components/modals/system-tasks/SubWorkflowSystemTaskModal';
+import { TerminateSystemTaskModal, TerminateSystemTaskConfig } from '@/components/modals/system-tasks/TerminateSystemTaskModal';
+import { InlineSystemTaskModal, InlineSystemTaskConfig } from '@/components/modals/system-tasks/InlineSystemTaskModal';
+import { SimpleTaskModal, WorkflowTaskConfig } from '@/components/modals/SimpleTaskModal';
 
 import logo from '../../resources/logo.svg';
 
@@ -408,6 +420,18 @@ export function WorkflowDesigner() {
 
   const [executeModalOpen, setExecuteModalOpen] = useState(false);
   const [isHttpConfigModalOpen, setIsHttpConfigModalOpen] = useState(false);
+  const [isKafkaPublishModalOpen, setIsKafkaPublishModalOpen] = useState(false);
+  const [isGrpcModalOpen, setIsGrpcModalOpen] = useState(false);
+  const [isJsonJqTransformModalOpen, setIsJsonJqTransformModalOpen] = useState(false);
+  const [isJsonJqTransformStringModalOpen, setIsJsonJqTransformStringModalOpen] = useState(false);
+  const [isNoopModalOpen, setIsNoopModalOpen] = useState(false);
+  const [isEventModalOpen, setIsEventModalOpen] = useState(false);
+  const [isWaitModalOpen, setIsWaitModalOpen] = useState(false);
+  const [isSetVariableModalOpen, setIsSetVariableModalOpen] = useState(false);
+  const [isSubWorkflowModalOpen, setIsSubWorkflowModalOpen] = useState(false);
+  const [isTerminateModalOpen, setIsTerminateModalOpen] = useState(false);
+  const [isInlineModalOpen, setIsInlineModalOpen] = useState(false);
+  const [isSimpleTaskModalOpen, setIsSimpleTaskModalOpen] = useState(false);
   const [selectedNodeForConfig, setSelectedNodeForConfig] = useState<Node | null>(null);
   const [pendingNodeForAutoConfig, setPendingNodeForAutoConfig] = useState<Node | null>(null); // For auto-opening config after drag/drop
 
@@ -417,15 +441,53 @@ export function WorkflowDesigner() {
     if (node) {
       setSelectedNodeForConfig(node);
       // Open the correct modal based on task type
-      if (node.data.taskType === 'HTTP') {
-        setIsHttpConfigModalOpen(true);
-      } else {
-        toast({
-          title: 'Configuration not available',
-          description: `No specific configuration modal for task type: ${node.data.taskType}`,
-          variant: 'destructive',
-        });
-        setSelectedNodeForConfig(null);
+      switch (node.data.taskType) {
+        case 'HTTP':
+          setIsHttpConfigModalOpen(true);
+          break;
+        case 'KAFKA_PUBLISH':
+          setIsKafkaPublishModalOpen(true);
+          break;
+        case 'GRPC':
+          setIsGrpcModalOpen(true);
+          break;
+        case 'JSON_JQ_TRANSFORM':
+          setIsJsonJqTransformModalOpen(true);
+          break;
+        case 'JSON_JQ_TRANSFORM_STRING':
+          setIsJsonJqTransformStringModalOpen(true);
+          break;
+        case 'NOOP':
+          setIsNoopModalOpen(true);
+          break;
+        case 'EVENT':
+          setIsEventModalOpen(true);
+          break;
+        case 'WAIT':
+          setIsWaitModalOpen(true);
+          break;
+        case 'SET_VARIABLE':
+          setIsSetVariableModalOpen(true);
+          break;
+        case 'SUB_WORKFLOW':
+          setIsSubWorkflowModalOpen(true);
+          break;
+        case 'TERMINATE':
+          setIsTerminateModalOpen(true);
+          break;
+        case 'INLINE':
+          setIsInlineModalOpen(true);
+          break;
+        case 'SIMPLE':
+          setIsSimpleTaskModalOpen(true);
+          break;
+        default:
+          toast({
+            title: 'Configuration not available',
+            description: `No specific configuration modal for task type: ${node.data.taskType}`,
+            variant: 'destructive',
+          });
+          setSelectedNodeForConfig(null);
       }
     }
   }, [nodes, toast]);
@@ -461,6 +523,7 @@ export function WorkflowDesigner() {
               data: {
                 ...node.data,
                 config: config,
+                label: config.taskReferenceName || config.name,
               },
             }
           : node
@@ -476,6 +539,162 @@ export function WorkflowDesigner() {
     setPendingNodeForAutoConfig(null);
   }, [setNodes, toast]);
 
+  const handleSaveHttpTaskConfig = useCallback((config: any) => {
+    const targetNode = selectedNodeForConfig || pendingNodeForAutoConfig;
+    if (targetNode?.id) {
+      setNodes((nds) =>
+        nds.map((node) =>
+          node.id === targetNode.id
+            ? {
+                ...node,
+                data: {
+                  ...node.data,
+                  config: config,
+                  label: config.taskReferenceName || config.name,
+                },
+              }
+            : node
+        )
+      );
+
+      toast({
+        title: 'Configuration saved',
+        description: 'HTTP task configuration has been updated.',
+      });
+    }
+
+    setSelectedNodeForConfig(null);
+    setPendingNodeForAutoConfig(null);
+    setIsHttpConfigModalOpen(false);
+  }, [selectedNodeForConfig, pendingNodeForAutoConfig, setNodes, toast]);
+
+  // Generic save handler for task configs
+  const createTaskConfigHandler = useCallback((
+    taskType: string,
+    setModalOpen: (open: boolean) => void
+  ) => {
+    return (config: any) => {
+      const targetNode = selectedNodeForConfig || pendingNodeForAutoConfig;
+      if (targetNode?.id) {
+        setNodes((nds) =>
+          nds.map((node) =>
+            node.id === targetNode.id
+              ? {
+                  ...node,
+                  data: {
+                    ...node.data,
+                    config: config,
+                    label: config.taskReferenceName || config.name,
+                  },
+                }
+              : node
+          )
+        );
+
+        toast({
+          title: 'Configuration saved',
+          description: `${taskType} task configuration has been updated.`,
+        });
+      }
+
+      setSelectedNodeForConfig(null);
+      setPendingNodeForAutoConfig(null);
+      setModalOpen(false);
+    };
+  }, [selectedNodeForConfig, pendingNodeForAutoConfig, setNodes, toast]);
+
+  const handleSaveKafkaTaskConfig = useCallback((config: KafkaPublishTaskConfig) =>
+    createTaskConfigHandler('Kafka Publish', setIsKafkaPublishModalOpen)(config),
+    [createTaskConfigHandler]
+  );
+
+  const handleSaveGrpcTaskConfig = useCallback((config: GrpcTaskConfig) =>
+    createTaskConfigHandler('gRPC', setIsGrpcModalOpen)(config),
+    [createTaskConfigHandler]
+  );
+
+  const handleSaveJsonJqTransformConfig = useCallback((config: JsonJqTransformTaskConfig) =>
+    createTaskConfigHandler('JSON JQ Transform', setIsJsonJqTransformModalOpen)(config),
+    [createTaskConfigHandler]
+  );
+
+  const handleSaveJsonJqTransformStringConfig = useCallback((config: JsonJqTransformStringTaskConfig) =>
+    createTaskConfigHandler('JSON JQ Transform String', setIsJsonJqTransformStringModalOpen)(config),
+    [createTaskConfigHandler]
+  );
+
+  const handleSaveNoopConfig = useCallback((config: NoopSystemTaskConfig) =>
+    createTaskConfigHandler('No-Op', setIsNoopModalOpen)(config),
+    [createTaskConfigHandler]
+  );
+
+  const handleSaveEventConfig = useCallback((config: EventSystemTaskConfig) =>
+    createTaskConfigHandler('Event', setIsEventModalOpen)(config),
+    [createTaskConfigHandler]
+  );
+
+  const handleSaveWaitConfig = useCallback((config: WaitSystemTaskConfig) =>
+    createTaskConfigHandler('Wait', setIsWaitModalOpen)(config),
+    [createTaskConfigHandler]
+  );
+
+  const handleSaveSetVariableConfig = useCallback((config: SetVariableSystemTaskConfig) =>
+    createTaskConfigHandler('Set Variable', setIsSetVariableModalOpen)(config),
+    [createTaskConfigHandler]
+  );
+
+  const handleSaveSubWorkflowConfig = useCallback((config: SubWorkflowSystemTaskConfig) =>
+    createTaskConfigHandler('Sub Workflow', setIsSubWorkflowModalOpen)(config),
+    [createTaskConfigHandler]
+  );
+
+  const handleSaveTerminateConfig = useCallback((config: TerminateSystemTaskConfig) =>
+    createTaskConfigHandler('Terminate', setIsTerminateModalOpen)(config),
+    [createTaskConfigHandler]
+  );
+
+  const handleSaveInlineConfig = useCallback((config: InlineSystemTaskConfig) =>
+    createTaskConfigHandler('Inline', setIsInlineModalOpen)(config),
+    [createTaskConfigHandler]
+  );
+
+  const handleSaveSimpleTaskConfig = useCallback((config: WorkflowTaskConfig, nodeId?: string) => {
+    // Get the node ID from selectedNodeForConfig, pendingNodeForAutoConfig, or parameter
+    const targetNodeId = nodeId || selectedNodeForConfig?.id || pendingNodeForAutoConfig?.id;
+
+    if (!targetNodeId) {
+      console.error('No node ID found for saving simple task config');
+      return;
+    }
+
+    setNodes((nds) => {
+      // Find the node in the current state
+      const nodeExists = nds.some(n => n.id === targetNodeId);
+
+      if (!nodeExists) {
+        console.warn(`Node with ID ${targetNodeId} not found in nodes array`, nds.map(n => n.id));
+        return nds; // Node not found, don't update
+      }
+
+      return nds.map((node) =>
+        node.id === targetNodeId
+          ? {
+              ...node,
+              data: {
+                ...node.data,
+                config: config,
+                label: config.taskReferenceName || config.name,
+              },
+            }
+          : node
+      );
+    });
+
+    setSelectedNodeForConfig(null);
+    setPendingNodeForAutoConfig(null);
+    setIsSimpleTaskModalOpen(false);
+  }, [selectedNodeForConfig, pendingNodeForAutoConfig, setNodes]);
+
   const onDragOver = useCallback((event: React.DragEvent) => {
     event.preventDefault();
     event.dataTransfer.dropEffect = 'move';
@@ -488,7 +707,8 @@ export function WorkflowDesigner() {
       const taskId = event.dataTransfer.getData('application/reactflow');
       if (!taskId) return;
 
-      const task = systemTasks.find((t) => t.id === taskId);
+      // Search in both system tasks and worker tasks
+      const task = systemTasks.find((t) => t.id === taskId) || workerTasks.find((t) => t.id === taskId);
       if (!task) return;
 
       const reactFlowBounds = event.currentTarget.getBoundingClientRect();
@@ -537,73 +757,71 @@ export function WorkflowDesigner() {
       });
 
       // Auto-open config modal for tasks that require configuration
-      if (task.type === 'HTTP') {
-        // Store the node for auto-opening config
-        setPendingNodeForAutoConfig({
-          id: taskRefId,
-          type: 'custom',
-          position,
-          data: {
-            label: taskRefId,
-            taskType: task.type,
-            taskName: task.name,
-            color: task.color,
-            sequenceNo: 1,
-            onEdit: handleEditNode,
-            onDelete: handleDeleteNode,
-          },
-        });
-        setIsHttpConfigModalOpen(true);
-      }
-    },
-    [setNodes, setEdges, handleEditNode, handleDeleteNode]
-  );
-
-  const handleAddNode = useCallback((taskId: string) => {
-    const task = systemTasks.find((t) => t.id === taskId);
-    if (!task) return;
-
-    setNodes((nds) => {
-      // Calculate position based on existing nodes with better spacing
-      const lastNode = nds.at(-1);
-      const xPosition = lastNode ? lastNode.position.x : 100;
-      const yPosition = lastNode ? lastNode.position.y + 150 : 100;
-      const sequenceNo = nds.length + 1;
-
-      const taskRefId = `${task.type.toLowerCase()}_${Date.now()}`;
-      const newNode: Node = {
+      const pendingNode = {
         id: taskRefId,
-        type: 'custom',
-        position: { x: xPosition, y: yPosition },
-        data: { 
+        type: 'custom' as const,
+        position,
+        data: {
           label: taskRefId,
           taskType: task.type,
           taskName: task.name,
           color: task.color,
-          sequenceNo: sequenceNo,
+          sequenceNo: 1,
           onEdit: handleEditNode,
           onDelete: handleDeleteNode,
         },
       };
 
-      const updatedNodes = [...nds, newNode];
-      
-      // Auto-connect to previous node if exists
-      if (lastNode) {
-        const newEdge: Edge = {
-          id: `${lastNode.id}-${newNode.id}`,
-          source: lastNode.id,
-          target: newNode.id,
-          type: 'smoothstep',
-          animated: true,
-          style: { stroke: '#00bcd4', strokeWidth: 2 },
-        };
-        setEdges((eds) => [...eds, newEdge]);
+      setPendingNodeForAutoConfig(pendingNode);
+
+      // Open the appropriate modal based on task type
+      switch (task.type) {
+        case 'HTTP':
+          setIsHttpConfigModalOpen(true);
+          break;
+        case 'KAFKA_PUBLISH':
+          setIsKafkaPublishModalOpen(true);
+          break;
+        case 'GRPC':
+          setIsGrpcModalOpen(true);
+          break;
+        case 'JSON_JQ_TRANSFORM':
+          setIsJsonJqTransformModalOpen(true);
+          break;
+        case 'JSON_JQ_TRANSFORM_STRING':
+          setIsJsonJqTransformStringModalOpen(true);
+          break;
+        case 'NOOP':
+          setIsNoopModalOpen(true);
+          break;
+        case 'EVENT':
+          setIsEventModalOpen(true);
+          break;
+        case 'WAIT':
+          setIsWaitModalOpen(true);
+          break;
+        case 'SET_VARIABLE':
+          setIsSetVariableModalOpen(true);
+          break;
+        case 'SUB_WORKFLOW':
+          setIsSubWorkflowModalOpen(true);
+          break;
+        case 'TERMINATE':
+          setIsTerminateModalOpen(true);
+          break;
+        case 'INLINE':
+          setIsInlineModalOpen(true);
+          break;
+        case 'SIMPLE':
+          setIsSimpleTaskModalOpen(true);
+          break;
+        default:
+          // For tasks without modals, just clear the pending node
+          setPendingNodeForAutoConfig(null);
       }
-      
-      return updatedNodes;
-    });
-  }, [setNodes, setEdges, handleEditNode, handleDeleteNode]);
+    },
+    [setNodes, setEdges, handleEditNode, handleDeleteNode]
+  );
 
   const handleAutoArrange = useCallback(() => {
     if (nodes.length === 0) {
@@ -788,14 +1006,14 @@ export function WorkflowDesigner() {
       task.description.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const getInitialConfig = () => {
-    if (selectedNodeForConfig?.data?.taskType === 'HTTP') {
+  const getInitialConfig = (taskType: string) => {
+    if (selectedNodeForConfig?.data?.taskType === taskType) {
       return selectedNodeForConfig.data.config;
     }
-    if (pendingNodeForAutoConfig?.data?.taskType === 'HTTP') {
+    if (pendingNodeForAutoConfig?.data?.taskType === taskType) {
       return pendingNodeForAutoConfig.data.config;
     }
-    return null;
+    return undefined;
   };
 
   return (
@@ -904,8 +1122,7 @@ export function WorkflowDesigner() {
                   {filteredWorkerTasks.map((task) => (
                     <button
                       key={task.id}
-                      className="w-full group p-3 bg-[#0f1419] border border-[#2a3142] rounded-lg cursor-pointer hover:border-cyan-500 transition-all duration-200 text-left"
-                      onClick={() => handleAddNode(task.id)}
+                      className="w-full group p-3 bg-[#0f1419] border border-[#2a3142] rounded-lg cursor-move hover:border-cyan-500 transition-all duration-200 text-left"
                       draggable
                       onDragStart={(e) => {
                         e.dataTransfer.setData('application/reactflow', task.id);
@@ -944,8 +1161,7 @@ export function WorkflowDesigner() {
                   {filteredOperators.map((task) => (
                     <button
                       key={task.id}
-                      className="w-full group p-3 bg-[#0f1419] border border-[#2a3142] rounded-lg cursor-pointer hover:border-purple-500 transition-all duration-200 text-left"
-                      onClick={() => handleAddNode(task.id)}
+                      className="w-full group p-3 bg-[#0f1419] border border-[#2a3142] rounded-lg cursor-move hover:border-purple-500 transition-all duration-200 text-left"
                       draggable
                       onDragStart={(e) => {
                         e.dataTransfer.setData('application/reactflow', task.id);
@@ -984,8 +1200,7 @@ export function WorkflowDesigner() {
                   {filteredSystemTasks.map((task) => (
                     <button
                       key={task.id}
-                      className="w-full group p-3 bg-[#0f1419] border border-[#2a3142] rounded-lg cursor-pointer hover:border-orange-500 transition-all duration-200 text-left"
-                      onClick={() => handleAddNode(task.id)}
+                      className="w-full group p-3 bg-[#0f1419] border border-[#2a3142] rounded-lg cursor-move hover:border-orange-500 transition-all duration-200 text-left"
                       draggable
                       onDragStart={(e) => {
                         e.dataTransfer.setData('application/reactflow', task.id);
@@ -1403,39 +1618,28 @@ export function WorkflowDesigner() {
                           name: workflowName,
                           description: workflowSettings.description,
                           version: workflowSettings.version,
-                          tasks: nodes.map(node => {
-                            const baseTask = {
-                              name: node.data.config?.taskId || node.data.taskName,
-                              taskReferenceName: node.data.config?.taskRefId || node.id,
-                              type: node.data.taskType,
-                              optional: false,
-                            };
-                            
-                            // Include full config if available
-                            if (node.data.config) {
+                          tasks: [...nodes]
+                            .sort((a, b) => (a.data.sequenceNo || 0) - (b.data.sequenceNo || 0))
+                            .map(node => {
+                              // If task has config, use it directly (it should be in proper OSS Conductor format)
+                              if (node.data.config) {
+                                return node.data.config;
+                              }
+
+                              // Fallback for tasks without config
                               return {
-                                ...baseTask,
-                                ...node.data.config,
-                                sequenceNo: node.data.sequenceNo,
+                                name: node.data.taskName,
+                                taskReferenceName: node.id,
+                                type: node.data.taskType,
+                                inputParameters: {},
+                                optional: false,
                               };
-                            }
-                            
-                            return {
-                              ...baseTask,
-                              inputParameters: {},
-                              sequenceNo: node.data.sequenceNo,
-                            };
-                          }),
+                            }),
                           inputParameters: workflowSettings.inputParameters,
                           outputParameters: workflowSettings.outputParameters,
                           timeoutSeconds: workflowSettings.timeoutSeconds,
                           restartable: workflowSettings.restartable,
                           schemaVersion: workflowSettings.schemaVersion,
-                          orgId: workflowSettings.orgId,
-                          workflowId: workflowSettings.workflowId,
-                          effectiveDate: workflowSettings.effectiveDate,
-                          endDate: workflowSettings.endDate,
-                          status: workflowSettings.status,
                         }, null, 2);
                         navigator.clipboard.writeText(json);
                         toast({ title: 'Copied!', description: 'JSON copied to clipboard' });
@@ -1450,42 +1654,28 @@ export function WorkflowDesigner() {
                       name: workflowName,
                       description: workflowSettings.description,
                       version: workflowSettings.version,
-                      tasks: nodes.map(node => {
-                        const baseTask = {
-                          name: node.data.config?.taskId || node.data.taskName,
-                          taskReferenceName: node.data.config?.taskRefId || node.id,
-                          type: node.data.taskType,
-                          optional: false,
-                        };
-                        
-                        // Include full config if available
-                        if (node.data.config) {
+                      tasks: [...nodes]
+                        .sort((a, b) => (a.data.sequenceNo || 0) - (b.data.sequenceNo || 0))
+                        .map(node => {
+                          // If task has config, use it directly (it should be in proper OSS Conductor format)
+                          if (node.data.config) {
+                            return node.data.config;
+                          }
+
+                          // Fallback for tasks without config
                           return {
-                            ...baseTask,
-                            ...node.data.config,
-                            sequenceNo: node.data.sequenceNo,
+                            name: node.data.taskName,
+                            taskReferenceName: node.id,
+                            type: node.data.taskType,
+                            inputParameters: {},
+                            optional: false,
                           };
-                        }
-                        
-                        return {
-                          ...baseTask,
-                          inputParameters: {},
-                          sequenceNo: node.data.sequenceNo,
-                        };
-                      }),
+                        }),
                       inputParameters: workflowSettings.inputParameters,
                       outputParameters: workflowSettings.outputParameters,
                       timeoutSeconds: workflowSettings.timeoutSeconds,
                       restartable: workflowSettings.restartable,
                       schemaVersion: workflowSettings.schemaVersion,
-                      orgId: workflowSettings.orgId,
-                      workflowId: workflowSettings.workflowId,
-                      externalReferences: null,
-                      httpEndpoints: [],
-                      searchableFields: [],
-                      effectiveDate: workflowSettings.effectiveDate,
-                      endDate: workflowSettings.endDate,
-                      status: workflowSettings.status,
                     }, null, 2)}
                   </pre>
                 </Card>
@@ -1510,6 +1700,223 @@ export function WorkflowDesigner() {
           if (!open) {
             if (pendingNodeForAutoConfig && !selectedNodeForConfig) {
               setNodes((nds) => nds.filter((n) => n.id !== pendingNodeForAutoConfig.id));
+              setEdges((eds) => eds.filter((e) =>
+                e.source !== pendingNodeForAutoConfig.id && e.target !== pendingNodeForAutoConfig.id
+              ));
+            }
+            setPendingNodeForAutoConfig(null);
+            setSelectedNodeForConfig(null);
+          }
+        }}
+        initialConfig={getInitialConfig('HTTP')}
+        onSave={handleSaveHttpTaskConfig}
+      />
+
+      <KafkaPublishTaskModal
+        open={isKafkaPublishModalOpen}
+        onOpenChange={(open) => {
+          setIsKafkaPublishModalOpen(open);
+          if (!open) {
+            if (pendingNodeForAutoConfig && !selectedNodeForConfig) {
+              setNodes((nds) => nds.filter((n) => n.id !== pendingNodeForAutoConfig.id));
+              setEdges((eds) => eds.filter((e) =>
+                e.source !== pendingNodeForAutoConfig.id && e.target !== pendingNodeForAutoConfig.id
+              ));
+            }
+            setPendingNodeForAutoConfig(null);
+            setSelectedNodeForConfig(null);
+          }
+        }}
+        onSave={handleSaveKafkaTaskConfig}
+      />
+
+      <GrpcTaskModal
+        open={isGrpcModalOpen}
+        onOpenChange={(open) => {
+          setIsGrpcModalOpen(open);
+          if (!open) {
+            if (pendingNodeForAutoConfig && !selectedNodeForConfig) {
+              setNodes((nds) => nds.filter((n) => n.id !== pendingNodeForAutoConfig.id));
+              setEdges((eds) => eds.filter((e) =>
+                e.source !== pendingNodeForAutoConfig.id && e.target !== pendingNodeForAutoConfig.id
+              ));
+            }
+            setPendingNodeForAutoConfig(null);
+            setSelectedNodeForConfig(null);
+          }
+        }}
+        onSave={handleSaveGrpcTaskConfig}
+      />
+
+      <JsonJqTransformTaskModal
+        open={isJsonJqTransformModalOpen}
+        onOpenChange={(open) => {
+          setIsJsonJqTransformModalOpen(open);
+          if (!open) {
+            if (pendingNodeForAutoConfig && !selectedNodeForConfig) {
+              setNodes((nds) => nds.filter((n) => n.id !== pendingNodeForAutoConfig.id));
+              setEdges((eds) => eds.filter((e) =>
+                e.source !== pendingNodeForAutoConfig.id && e.target !== pendingNodeForAutoConfig.id
+              ));
+            }
+            setPendingNodeForAutoConfig(null);
+            setSelectedNodeForConfig(null);
+          }
+        }}
+        onSave={handleSaveJsonJqTransformConfig}
+      />
+
+      <JsonJqTransformStringTaskModal
+        open={isJsonJqTransformStringModalOpen}
+        onOpenChange={(open) => {
+          setIsJsonJqTransformStringModalOpen(open);
+          if (!open) {
+            if (pendingNodeForAutoConfig && !selectedNodeForConfig) {
+              setNodes((nds) => nds.filter((n) => n.id !== pendingNodeForAutoConfig.id));
+              setEdges((eds) => eds.filter((e) =>
+                e.source !== pendingNodeForAutoConfig.id && e.target !== pendingNodeForAutoConfig.id
+              ));
+            }
+            setPendingNodeForAutoConfig(null);
+            setSelectedNodeForConfig(null);
+          }
+        }}
+        onSave={handleSaveJsonJqTransformStringConfig}
+      />
+
+      <NoopSystemTaskModal
+        open={isNoopModalOpen}
+        onOpenChange={(open) => {
+          setIsNoopModalOpen(open);
+          if (!open) {
+            if (pendingNodeForAutoConfig && !selectedNodeForConfig) {
+              setNodes((nds) => nds.filter((n) => n.id !== pendingNodeForAutoConfig.id));
+              setEdges((eds) => eds.filter((e) =>
+                e.source !== pendingNodeForAutoConfig.id && e.target !== pendingNodeForAutoConfig.id
+              ));
+            }
+            setPendingNodeForAutoConfig(null);
+            setSelectedNodeForConfig(null);
+          }
+        }}
+        onSave={handleSaveNoopConfig}
+      />
+
+      <EventSystemTaskModal
+        open={isEventModalOpen}
+        onOpenChange={(open) => {
+          setIsEventModalOpen(open);
+          if (!open) {
+            if (pendingNodeForAutoConfig && !selectedNodeForConfig) {
+              setNodes((nds) => nds.filter((n) => n.id !== pendingNodeForAutoConfig.id));
+              setEdges((eds) => eds.filter((e) =>
+                e.source !== pendingNodeForAutoConfig.id && e.target !== pendingNodeForAutoConfig.id
+              ));
+            }
+            setPendingNodeForAutoConfig(null);
+            setSelectedNodeForConfig(null);
+          }
+        }}
+        onSave={handleSaveEventConfig}
+      />
+
+      <WaitSystemTaskModal
+        open={isWaitModalOpen}
+        onOpenChange={(open) => {
+          setIsWaitModalOpen(open);
+          if (!open) {
+            if (pendingNodeForAutoConfig && !selectedNodeForConfig) {
+              setNodes((nds) => nds.filter((n) => n.id !== pendingNodeForAutoConfig.id));
+              setEdges((eds) => eds.filter((e) =>
+                e.source !== pendingNodeForAutoConfig.id && e.target !== pendingNodeForAutoConfig.id
+              ));
+            }
+            setPendingNodeForAutoConfig(null);
+            setSelectedNodeForConfig(null);
+          }
+        }}
+        onSave={handleSaveWaitConfig}
+      />
+
+      <SetVariableSystemTaskModal
+        open={isSetVariableModalOpen}
+        onOpenChange={(open) => {
+          setIsSetVariableModalOpen(open);
+          if (!open) {
+            if (pendingNodeForAutoConfig && !selectedNodeForConfig) {
+              setNodes((nds) => nds.filter((n) => n.id !== pendingNodeForAutoConfig.id));
+              setEdges((eds) => eds.filter((e) =>
+                e.source !== pendingNodeForAutoConfig.id && e.target !== pendingNodeForAutoConfig.id
+              ));
+            }
+            setPendingNodeForAutoConfig(null);
+            setSelectedNodeForConfig(null);
+          }
+        }}
+        onSave={handleSaveSetVariableConfig}
+      />
+
+      <SubWorkflowSystemTaskModal
+        open={isSubWorkflowModalOpen}
+        onOpenChange={(open) => {
+          setIsSubWorkflowModalOpen(open);
+          if (!open) {
+            if (pendingNodeForAutoConfig && !selectedNodeForConfig) {
+              setNodes((nds) => nds.filter((n) => n.id !== pendingNodeForAutoConfig.id));
+              setEdges((eds) => eds.filter((e) =>
+                e.source !== pendingNodeForAutoConfig.id && e.target !== pendingNodeForAutoConfig.id
+              ));
+            }
+            setPendingNodeForAutoConfig(null);
+            setSelectedNodeForConfig(null);
+          }
+        }}
+        onSave={handleSaveSubWorkflowConfig}
+      />
+
+      <TerminateSystemTaskModal
+        open={isTerminateModalOpen}
+        onOpenChange={(open) => {
+          setIsTerminateModalOpen(open);
+          if (!open) {
+            if (pendingNodeForAutoConfig && !selectedNodeForConfig) {
+              setNodes((nds) => nds.filter((n) => n.id !== pendingNodeForAutoConfig.id));
+              setEdges((eds) => eds.filter((e) =>
+                e.source !== pendingNodeForAutoConfig.id && e.target !== pendingNodeForAutoConfig.id
+              ));
+            }
+            setPendingNodeForAutoConfig(null);
+            setSelectedNodeForConfig(null);
+          }
+        }}
+        onSave={handleSaveTerminateConfig}
+      />
+
+      <InlineSystemTaskModal
+        open={isInlineModalOpen}
+        onOpenChange={(open) => {
+          setIsInlineModalOpen(open);
+          if (!open) {
+            if (pendingNodeForAutoConfig && !selectedNodeForConfig) {
+              setNodes((nds) => nds.filter((n) => n.id !== pendingNodeForAutoConfig.id));
+              setEdges((eds) => eds.filter((e) =>
+                e.source !== pendingNodeForAutoConfig.id && e.target !== pendingNodeForAutoConfig.id
+              ));
+            }
+            setPendingNodeForAutoConfig(null);
+            setSelectedNodeForConfig(null);
+          }
+        }}
+        onSave={handleSaveInlineConfig}
+      />
+
+      <SimpleTaskModal
+        open={isSimpleTaskModalOpen}
+        onOpenChange={(open) => {
+          setIsSimpleTaskModalOpen(open);
+          if (!open) {
+            if (pendingNodeForAutoConfig && !selectedNodeForConfig) {
+              setNodes((nds) => nds.filter((n) => n.id !== pendingNodeForAutoConfig.id));
               setEdges((eds) => eds.filter((e) => 
                 e.source !== pendingNodeForAutoConfig.id && e.target !== pendingNodeForAutoConfig.id
               ));
@@ -1518,10 +1925,11 @@ export function WorkflowDesigner() {
             setSelectedNodeForConfig(null);
           }
         }}
-        initialConfig={getInitialConfig()}
-        onSave={(config) => {
+        onSave={async (config) => {
           const targetNode = selectedNodeForConfig || pendingNodeForAutoConfig;
-          handleSaveTaskConfig(config, targetNode!.id);
+          if (targetNode?.id) {
+            handleSaveSimpleTaskConfig(config, targetNode.id);
+          }
         }}
       />
     </>

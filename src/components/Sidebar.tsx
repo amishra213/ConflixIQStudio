@@ -7,8 +7,8 @@ import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
 
 interface SidebarProps {
-  collapsed: boolean;
-  onToggleCollapse: () => void;
+  readonly collapsed: boolean;
+  readonly onToggleCollapse: () => void;
 }
 
 const menuItems = [
