@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { SearchIcon, BoxIcon, GitBranchIcon, TimerIcon, DatabaseIcon, WebhookIcon, MailIcon, FunctionSquareIcon, ClockIcon, XCircleIcon, RepeatIcon } from 'lucide-react';
+import { SearchIcon, BoxIcon, GitBranchIcon, TimerIcon, DatabaseIcon, WebhookIcon, MailIcon, FunctionSquareIcon, ClockIcon, XCircleIcon, RepeatIcon, ZapIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface Task {
@@ -46,6 +46,14 @@ const systemTasks: Task[] = [
     category: 'Control',
     icon: RepeatIcon,
     description: 'Loop until condition is met'
+  },
+  {
+    id: 'DYNAMIC',
+    name: 'Dynamic',
+    type: 'system',
+    category: 'Control',
+    icon: ZapIcon,
+    description: 'Execute a task determined dynamically at runtime'
   },
   {
     id: 'MAPPER',

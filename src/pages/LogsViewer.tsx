@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { useNavigate } from 'react-router-dom';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -10,21 +11,22 @@ import {
   SearchIcon,
   DownloadIcon,
   TrashIcon,
-  FilterIcon,
   ChevronDownIcon,
   ChevronUpIcon,
   ClockIcon,
   AlertCircleIcon,
   CheckCircle2Icon,
   ArrowRightIcon,
+  ChevronLeftIcon,
 } from 'lucide-react';
-import { useLoggingStore, LogEntry } from '../stores/loggingStore';
+import { useLoggingStore } from '../stores/loggingStore';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 
 export default function LogsViewer() {
   const { toast } = useToast();
+  const navigate = useNavigate();
   const { logs, clearLogs, exportLogs, getFilteredLogs } = useLoggingStore();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedType, setSelectedType] = useState<string>('all');
@@ -99,11 +101,22 @@ export default function LogsViewer() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="font-heading text-3xl font-bold text-foreground">API Logs</h1>
-          <p className="text-muted-foreground mt-2">
-            View and analyze GraphQL API calls to Netflix Conductor
-          </p>
+        <div className="flex items-center gap-4">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => navigate(-1)}
+            className="text-foreground hover:bg-accent"
+            title="Go back to previous page"
+          >
+            <ChevronLeftIcon className="h-5 w-5" strokeWidth={1.5} />
+          </Button>
+          <div>
+            <h1 className="font-heading text-3xl font-bold text-foreground">API Logs</h1>
+            <p className="text-muted-foreground mt-2">
+              View and analyze GraphQL API calls to Netflix Conductor
+            </p>
+          </div>
         </div>
         <div className="flex items-center gap-2">
           <Button
@@ -247,17 +260,9 @@ export default function LogsViewer() {
 
                   return (
                     <div key={log.id} className="p-4 hover:bg-accent/50 transition-colors">
-                      <div
-                        className="flex items-start justify-between gap-4 cursor-pointer"
+                      <button
+                        className="w-full flex items-start justify-between gap-4 cursor-pointer bg-transparent border-0 p-0 text-left hover:bg-transparent"
                         onClick={() => setExpandedLog(isExpanded ? null : log.id)}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter' || e.key === ' ') {
-                            e.preventDefault();
-                            setExpandedLog(isExpanded ? null : log.id);
-                          }
-                        }}
-                        role="button"
-                        tabIndex={0}
                         aria-expanded={isExpanded}
                         aria-label={`${isExpanded ? 'Collapse' : 'Expand'} log entry for ${log.operation}`}
                       >
@@ -301,7 +306,7 @@ export default function LogsViewer() {
                             <ChevronDownIcon className="h-4 w-4" strokeWidth={1.5} />
                           )}
                         </Button>
-                      </div>
+                      </button>
 
                       {isExpanded && (
                         <div className="mt-4 space-y-4">

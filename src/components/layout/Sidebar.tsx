@@ -1,5 +1,5 @@
 import { Link, useLocation } from 'react-router-dom';
-import { LayoutDashboardIcon, WorkflowIcon, ListChecksIcon, ActivityIcon, SettingsIcon, MoonIcon, SunIcon, LogOutIcon, ChevronLeftIcon, ChevronRightIcon, PenToolIcon, CheckCircleIcon } from 'lucide-react';
+import { LayoutDashboardIcon, WorkflowIcon, ListChecksIcon, ActivityIcon, SettingsIcon, MoonIcon, SunIcon, LogOutIcon, ChevronLeftIcon, ChevronRightIcon, PenToolIcon, CheckCircleIcon, FileTextIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Avatar } from '@/components/ui/avatar';
 import { Separator } from '@/components/ui/separator';
@@ -19,6 +19,7 @@ export function Sidebar() {
     { path: '/tasks', label: 'Tasks', icon: ListChecksIcon },
     { path: '/executions', label: 'Executions', icon: ActivityIcon },
     { path: '/validation', label: 'Validation', icon: CheckCircleIcon },
+    { path: '/logs', label: 'API Logs', icon: FileTextIcon },
     { path: '/settings', label: 'Settings', icon: SettingsIcon },
   ];
 

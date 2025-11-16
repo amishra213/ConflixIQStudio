@@ -11,6 +11,7 @@ import { ValidationHub } from './pages/ValidationHub';
 import { Executions } from './pages/Executions';
 import { ExecutionDetails } from './pages/ExecutionDetails';
 import { Settings } from './pages/Settings';
+import LogsViewer from './pages/LogsViewer';
 
 const queryClient = new QueryClient();
 
@@ -32,6 +33,7 @@ function App() {
             <Route path="executions/:id" element={<ExecutionDetails />} />
             <Route path="executions/:id/diagram" element={<UnifiedWorkflowDiagram />} />
             <Route path="diagram/:id" element={<UnifiedWorkflowDiagram />} />
+            <Route path="logs" element={<LogsViewer />} />
             <Route path="settings" element={<Settings />} />
           </Route>
         </Routes>

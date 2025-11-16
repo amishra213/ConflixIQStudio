@@ -35,6 +35,7 @@ import { SwitchModal } from './SwitchModal';
 import { LambdaModal } from './LambdaModal';
 import { JoinModal } from './JoinModal';
 import { ExclusiveJoinModal } from './ExclusiveJoinModal';
+import { DynamicModal } from './DynamicModal';
 
 export interface DoWhileConfig extends BaseTaskConfig {
   taskRefId: string;
@@ -70,6 +71,7 @@ const AVAILABLE_TASK_TYPES = [
   'FORK_JOIN_DYNAMIC',
   'SWITCH',
   'DO_WHILE',
+  'DYNAMIC',
   'LAMBDA',
   'JOIN',
   'EXCLUSIVE_JOIN',
@@ -264,6 +266,8 @@ export function DoWhileModal({ open, onOpenChange, onSave, initialConfig }: DoWh
         return <SwitchModal {...commonProps} />;
       case 'DO_WHILE':
         return <DoWhileModal {...commonProps} />;
+      case 'DYNAMIC':
+        return <DynamicModal {...commonProps} />;
       case 'LAMBDA':
         return <LambdaModal {...commonProps} />;
       case 'JOIN':

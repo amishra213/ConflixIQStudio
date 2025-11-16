@@ -47,6 +47,7 @@ import { ForkJoinModal, ForkJoinConfig } from '@/components/modals/operators/For
 import { ForkJoinDynamicModal, ForkJoinDynamicConfig } from '@/components/modals/operators/ForkJoinDynamicModal';
 import { SwitchModal, SwitchConfig } from '@/components/modals/operators/SwitchModal';
 import { DoWhileModal, DoWhileConfig } from '@/components/modals/operators/DoWhileModal';
+import { DynamicModal, DynamicConfig } from '@/components/modals/operators/DynamicModal';
 import { LambdaModal, LambdaConfig } from '@/components/modals/operators/LambdaModal';
 import { InlineModal, InlineConfig } from '@/components/modals/operators/InlineModal';
 import { JoinModal, JoinConfig } from '@/components/modals/operators/JoinModal';
@@ -186,6 +187,13 @@ const operators = [
     name: 'Do While',
     description: 'Loop until condition is met',
     type: 'DO_WHILE',
+    color: '#9c27b0',
+  },
+  {
+    id: 'DYNAMIC',
+    name: 'Dynamic',
+    description: 'Execute a task determined dynamically at runtime',
+    type: 'DYNAMIC',
     color: '#9c27b0',
   },
   {
@@ -449,6 +457,7 @@ export function WorkflowDesigner() {
   const [isForkJoinDynamicModalOpen, setIsForkJoinDynamicModalOpen] = useState(false);
   const [isSwitchModalOpen, setIsSwitchModalOpen] = useState(false);
   const [isDoWhileModalOpen, setIsDoWhileModalOpen] = useState(false);
+  const [isDynamicModalOpen, setIsDynamicModalOpen] = useState(false);
   const [isLambdaModalOpen, setIsLambdaModalOpen] = useState(false);
   const [isOperatorInlineModalOpen, setIsOperatorInlineModalOpen] = useState(false);
   const [isJoinModalOpen, setIsJoinModalOpen] = useState(false);
@@ -515,6 +524,9 @@ export function WorkflowDesigner() {
           break;
         case 'DO_WHILE':
           setIsDoWhileModalOpen(true);
+          break;
+        case 'DYNAMIC':
+          setIsDynamicModalOpen(true);
           break;
         case 'LAMBDA':
           setIsLambdaModalOpen(true);
@@ -729,6 +741,11 @@ export function WorkflowDesigner() {
     [createTaskConfigHandler]
   );
 
+  const handleSaveDynamicConfig = useCallback((config: DynamicConfig) =>
+    createTaskConfigHandler('Dynamic', setIsDynamicModalOpen)(config),
+    [createTaskConfigHandler]
+  );
+
   const handleSaveLambdaConfig = useCallback((config: LambdaConfig) =>
     createTaskConfigHandler('Lambda', setIsLambdaModalOpen)(config),
     [createTaskConfigHandler]
@@ -922,6 +939,9 @@ export function WorkflowDesigner() {
           break;
         case 'DO_WHILE':
           setIsDoWhileModalOpen(true);
+          break;
+        case 'DYNAMIC':
+          setIsDynamicModalOpen(true);
           break;
         case 'LAMBDA':
           setIsLambdaModalOpen(true);
@@ -2127,6 +2147,24 @@ export function WorkflowDesigner() {
           }
         }}
         onSave={handleSaveDoWhileConfig}
+      />
+
+      <DynamicModal
+        open={isDynamicModalOpen}
+        onOpenChange={(open) => {
+          setIsDynamicModalOpen(open);
+          if (!open) {
+            if (pendingNodeForAutoConfig && !selectedNodeForConfig) {
+              setNodes((nds) => nds.filter((n) => n.id !== pendingNodeForAutoConfig.id));
+              setEdges((eds) => eds.filter((e) =>
+                e.source !== pendingNodeForAutoConfig.id && e.target !== pendingNodeForAutoConfig.id
+              ));
+            }
+            setPendingNodeForAutoConfig(null);
+            setSelectedNodeForConfig(null);
+          }
+        }}
+        onSave={handleSaveDynamicConfig}
       />
 
       <LambdaModal
