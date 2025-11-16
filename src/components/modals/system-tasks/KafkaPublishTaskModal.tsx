@@ -56,7 +56,7 @@ export function KafkaPublishTaskModal({ open, onOpenChange, onSave }: KafkaPubli
     ));
   };
 
-  const validateConfig = (cfg: KafkaPublishTaskConfig): string | null => {
+  const validateConfig = (): string | null => {
     // Validate using the state values
     if (!topic || topic.trim() === '') {
       return 'Topic is required';
