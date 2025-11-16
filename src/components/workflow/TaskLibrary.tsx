@@ -195,13 +195,12 @@ export default function TaskLibrary() {
               {filteredSystemTasks.map((task) => {
                 const Icon = task.icon;
                 return (
-                  <div
+                  <button
                     key={task.id}
+                    type="button"
                     draggable
                     onDragStart={(e) => handleDragStart(task, e)}
                     onDragEnd={handleDragEnd}
-                    role="button"
-                    tabIndex={0}
                     aria-label={`Drag ${task.name} to canvas`}
                     className={cn(
                       'flex items-start gap-3 p-3 rounded-lg border border-border bg-background cursor-move transition-all hover:border-primary hover:shadow-md',
@@ -223,7 +222,7 @@ export default function TaskLibrary() {
                       </div>
                       <p className="text-xs text-muted-foreground line-clamp-2">{task.description}</p>
                     </div>
-                  </div>
+                  </button>
                 );
               })}
             </div>
@@ -237,13 +236,12 @@ export default function TaskLibrary() {
               {filteredUserTasks.map((task) => {
                 const Icon = task.icon;
                 return (
-                  <div
+                  <button
                     key={task.id}
+                    type="button"
                     draggable
                     onDragStart={(e) => handleDragStart(task, e)}
                     onDragEnd={handleDragEnd}
-                    role="button"
-                    tabIndex={0}
                     aria-label={`Drag ${task.name} to canvas`}
                     className={cn(
                       'flex items-start gap-3 p-3 rounded-lg border border-border bg-background cursor-move transition-all hover:border-tertiary hover:shadow-md',
@@ -268,7 +266,7 @@ export default function TaskLibrary() {
                       </div>
                       <p className="text-xs text-muted-foreground line-clamp-2">{task.description}</p>
                     </div>
-                  </div>
+                  </button>
                 );
               })}
             </div>

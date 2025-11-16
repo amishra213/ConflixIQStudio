@@ -194,41 +194,37 @@ export function ForkJoinDynamicModal({
   );
 
   const renderModeBFields = () => (
-    <>
-      <div>
-        <Label className="text-white">Fork Task Name</Label>
-        <Input
-          value={config.forkTaskName || ''}
-          onChange={(e) => setConfig({ ...config, forkTaskName: e.target.value })}
-          placeholder="e.g., myWorkerTask"
-          className="mt-1 bg-[#1a1f2e] text-white border-[#2a3142]"
-        />
-        <p className="text-xs text-gray-400 mt-1">
-          Required only if forkTaskType is SIMPLE (worker task name)
-        </p>
-      </div>
-    </>
+    <div>
+      <Label className="text-white">Fork Task Name</Label>
+      <Input
+        value={config.forkTaskName || ''}
+        onChange={(e) => setConfig({ ...config, forkTaskName: e.target.value })}
+        placeholder="e.g., myWorkerTask"
+        className="mt-1 bg-[#1a1f2e] text-white border-[#2a3142]"
+      />
+      <p className="text-xs text-gray-400 mt-1">
+        Required only if forkTaskType is SIMPLE (worker task name)
+      </p>
+    </div>
   );
 
   const renderModeCFields = () => (
-    <>
-      <div>
-        <Label className="text-white">Fork Task Workflow Version</Label>
-        <Input
-          type="number"
-          value={config.forkTaskWorkflowVersion || ''}
-          onChange={(e) =>
-            setConfig({
-              ...config,
-              forkTaskWorkflowVersion: e.target.value ? parseInt(e.target.value) : undefined,
-            })
-          }
-          placeholder="e.g., 1"
-          className="mt-1 bg-[#1a1f2e] text-white border-[#2a3142]"
-        />
-        <p className="text-xs text-gray-400 mt-1">Optional workflow version</p>
-      </div>
-    </>
+    <div>
+      <Label className="text-white">Fork Task Workflow Version</Label>
+      <Input
+        type="number"
+        value={config.forkTaskWorkflowVersion || ''}
+        onChange={(e) =>
+          setConfig({
+            ...config,
+            forkTaskWorkflowVersion: e.target.value ? Number.parseInt(e.target.value) : undefined,
+          })
+        }
+        placeholder="e.g., 1"
+        className="mt-1 bg-[#1a1f2e] text-white border-[#2a3142]"
+      />
+      <p className="text-xs text-gray-400 mt-1">Optional workflow version</p>
+    </div>
   );
 
   const getPlaceholderForMode = (mode: ConfigMode): string => {
@@ -349,6 +345,49 @@ export function ForkJoinDynamicModal({
     onSave(savedConfig);
   };
 
+  // Helper functions for validation
+  const validateDifferentTasks = (cfg: ForkJoinDynamicConfig, inputParams: any): string | null => {
+    if (!cfg.dynamicForkTasksParam || cfg.dynamicForkTasksParam.trim() === '') {
+      return 'Dynamic Fork Tasks Parameter is required';
+    }
+    if (!cfg.dynamicForkTasksInputParamName || cfg.dynamicForkTasksInputParamName.trim() === '') {
+      return 'Dynamic Fork Tasks Input Param Name is required';
+    }
+    if (!inputParams.dynamicTasks) {
+      return 'Input Parameters must include "dynamicTasks" array';
+    }
+    if (!inputParams.dynamicTasksInput) {
+      return 'Input Parameters must include "dynamicTasksInput" object';
+    }
+    return null;
+  };
+
+  const validateSameTask = (cfg: ForkJoinDynamicConfig, inputParams: any): string | null => {
+    if (!inputParams.forkTaskType) {
+      return 'Input Parameters must include "forkTaskType"';
+    }
+    if (!inputParams.forkTaskInputs || !Array.isArray(inputParams.forkTaskInputs)) {
+      return 'Input Parameters must include "forkTaskInputs" array';
+    }
+    if (
+      inputParams.forkTaskType === 'SIMPLE' &&
+      (!cfg.forkTaskName || cfg.forkTaskName.trim() === '')
+    ) {
+      return 'Fork Task Name is required when forkTaskType is SIMPLE';
+    }
+    return null;
+  };
+
+  const validateSubworkflow = (_inputParams: any): string | null => {
+    if (!_inputParams.forkTaskWorkflow) {
+      return 'Input Parameters must include "forkTaskWorkflow"';
+    }
+    if (!_inputParams.forkTaskInputs || !Array.isArray(_inputParams.forkTaskInputs)) {
+      return 'Input Parameters must include "forkTaskInputs" array';
+    }
+    return null;
+  };
+
   const validateConfig = (cfg: ForkJoinDynamicConfig): string | null => {
     // Parse input parameters
     let inputParams: any = {};
@@ -360,39 +399,16 @@ export function ForkJoinDynamicModal({
       }
     }
 
-    if (configMode === 'different-tasks') {
-      if (!cfg.dynamicForkTasksParam || cfg.dynamicForkTasksParam.trim() === '') {
-        return 'Dynamic Fork Tasks Parameter is required';
-      }
-      if (!cfg.dynamicForkTasksInputParamName || cfg.dynamicForkTasksInputParamName.trim() === '') {
-        return 'Dynamic Fork Tasks Input Param Name is required';
-      }
-      if (!inputParams.dynamicTasks) {
-        return 'Input Parameters must include "dynamicTasks" array';
-      }
-      if (!inputParams.dynamicTasksInput) {
-        return 'Input Parameters must include "dynamicTasksInput" object';
-      }
-    } else if (configMode === 'same-task') {
-      if (!inputParams.forkTaskType) {
-        return 'Input Parameters must include "forkTaskType"';
-      }
-      if (!inputParams.forkTaskInputs || !Array.isArray(inputParams.forkTaskInputs)) {
-        return 'Input Parameters must include "forkTaskInputs" array';
-      }
-      if (inputParams.forkTaskType === 'SIMPLE' && (!cfg.forkTaskName || cfg.forkTaskName.trim() === '')) {
-        return 'Fork Task Name is required when forkTaskType is SIMPLE';
-      }
-    } else if (configMode === 'subworkflow') {
-      if (!inputParams.forkTaskWorkflow) {
-        return 'Input Parameters must include "forkTaskWorkflow"';
-      }
-      if (!inputParams.forkTaskInputs || !Array.isArray(inputParams.forkTaskInputs)) {
-        return 'Input Parameters must include "forkTaskInputs" array';
-      }
+    switch (configMode) {
+      case 'different-tasks':
+        return validateDifferentTasks(cfg, inputParams);
+      case 'same-task':
+        return validateSameTask(cfg, inputParams);
+      case 'subworkflow':
+        return validateSubworkflow(inputParams);
+      default:
+        return null;
     }
-
-    return null;
   };
 
   return (

@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -76,13 +75,15 @@ export function Executions() {
                     {new Date(execution.startTime).toLocaleString()}
                   </td>
                   <td className="px-6 py-4 text-sm text-white">
-                    {execution.status === 'running' ? (
-                      <span className="text-cyan-400 animate-pulse">Running...</span>
-                    ) : execution.duration ? (
-                      `${(execution.duration / 1000).toFixed(2)}s`
-                    ) : (
-                      '-'
-                    )}
+                    {(() => {
+                      if (execution.status === 'running') {
+                        return <span className="text-cyan-400 animate-pulse">Running...</span>;
+                      } else if (execution.duration) {
+                        return `${(execution.duration / 1000).toFixed(2)}s`;
+                      } else {
+                        return '-';
+                      }
+                    })()}
                   </td>
                   <td className="px-6 py-4">
                     <Button

@@ -1,4 +1,4 @@
-import { useCallback, useState, useEffect, memo } from 'react';
+import { useCallback, useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import ReactFlow, {
   Background,
@@ -9,9 +9,6 @@ import ReactFlow, {
   Connection,
   Edge,
   Node,
-  Handle,
-  Position,
-  NodeProps,
   BackgroundVariant,
 } from 'reactflow';
 import 'reactflow/dist/style.css';
@@ -19,7 +16,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
 import { useWorkflowStore, WorkflowSettings } from '@/stores/workflowStore';
-import { SaveIcon, PlayIcon, EyeIcon, EditIcon, Trash2Icon, LayoutGridIcon } from 'lucide-react';
+import { SaveIcon, PlayIcon, EyeIcon, LayoutGridIcon } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
@@ -54,317 +51,18 @@ import { JoinModal, JoinConfig } from '@/components/modals/operators/JoinModal';
 import { ExclusiveJoinModal, ExclusiveJoinConfig } from '@/components/modals/operators/ExclusiveJoinModal';
 import { SubWorkflowModal, SubWorkflowConfig } from '@/components/modals/operators/SubWorkflowModal';
 
+// Extracted modules
+import { CustomNode } from '@/components/workflow/CustomNode';
+import { TaskLibrarySidebar } from '@/components/workflow/TaskLibrarySidebar';
+import { workerTasks, operators, systemTasks } from '@/constants/taskDefinitions';
+import { formatDate, formatDateForInput, formatDateFromInput } from '@/utils/dateFormatters';
+import { useTaskModals } from '@/hooks/useTaskModals';
+
 import logo from '../../resources/logo.svg';
-
-// Custom Node Component
-const CustomNode = memo(({ data, selected, id }: NodeProps) => {
-  const getNodeIcon = (taskType: string) => {
-    if (taskType === 'HTTP') return '🌐';
-    if (taskType === 'LAMBDA') return '⚡';
-    if (taskType === 'DECISION') return '🔀';
-    if (taskType === 'CONVERGE') return '🔗';
-    if (taskType === 'FORK_JOIN') return '🔱';
-    return '📋';
-  };
-
-  const handleEditClick = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (data.onEdit) {
-      console.log('Edit clicked for node:', id, 'taskType:', data.taskType);
-      data.onEdit(id);
-    }
-  };
-
-  const handleDeleteClick = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (data.onDelete) {
-      data.onDelete(id);
-    }
-  };
-
-  return (
-    <div
-      className={`px-2 py-1.5 rounded-md border-2 bg-[#1a1f2e] transition-all group relative ${
-        selected ? 'border-cyan-500 shadow-lg shadow-cyan-500/20' : 'border-[#2a3142]'
-      }`}
-      style={{
-        borderColor: selected ? '#00bcd4' : data.color || '#2a3142',
-        width: '140px',
-        height: '80px',
-        display: 'flex',
-        flexDirection: 'column',
-        justifyContent: 'center',
-        pointerEvents: 'auto',
-      }}
-      title={`Task: ${data.label}\nRef: ${data.taskReferenceName || 'N/A'}`}
-    >
-      {/* Top Handle */}
-      <Handle 
-        id="top" 
-        type="target" 
-        position={Position.Top} 
-        className="w-2.5 h-2.5 !bg-cyan-500" 
-      />
-      
-      {/* Left Handle */}
-      <Handle 
-        id="left" 
-        type="target" 
-        position={Position.Left} 
-        className="w-2.5 h-2.5 !bg-cyan-500"
-        style={{ top: '50%', transform: 'translateY(-50%)' }}
-      />
-      
-      {/* Right Handle */}
-      <Handle 
-        id="right" 
-        type="source" 
-        position={Position.Right} 
-        className="w-2.5 h-2.5 !bg-cyan-500"
-        style={{ top: '50%', transform: 'translateY(-50%)' }}
-      />
-      
-      {/* Bottom Handle */}
-      <Handle 
-        id="bottom" 
-        type="source" 
-        position={Position.Bottom} 
-        className="w-2.5 h-2.5 !bg-cyan-500" 
-      />
-      
-      {/* Action Buttons */}
-      <div className="absolute -top-1 -right-1 flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity z-10">
-        <button
-          onClick={handleEditClick}
-          className="w-4 h-4 bg-blue-500 hover:bg-blue-600 rounded-full flex items-center justify-center shadow-lg cursor-pointer"
-          title="Edit Task"
-        >
-          <EditIcon className="w-2 h-2 text-white" />
-        </button>
-        <button
-          onClick={handleDeleteClick}
-          className="w-4 h-4 bg-red-500 hover:bg-red-600 rounded-full flex items-center justify-center shadow-lg cursor-pointer"
-          title="Delete Task"
-        >
-          <Trash2Icon className="w-2 h-2 text-white" />
-        </button>
-      </div>
-
-      {/* Sequence Number Badge */}
-      {data.sequenceNo && (
-        <div className="absolute -top-1 -left-1 w-4 h-4 bg-cyan-500 rounded-full flex items-center justify-center text-[10px] font-bold text-white shadow-lg">
-          {data.sequenceNo}
-        </div>
-      )}
-
-      <div className="flex items-center gap-1 mb-0.5">
-        <span className="text-sm">{getNodeIcon(data.taskType)}</span>
-        <span className="text-[10px] font-semibold text-cyan-400 uppercase">{data.taskType}</span>
-      </div>
-      <div className="text-xs font-medium text-white truncate text-center">{data.label}</div>
-      
-      {/* Config indicator */}
-      {data.config && (
-        <div className="mt-0.5 flex items-center justify-center gap-0.5">
-          <div className="w-1 h-1 bg-green-500 rounded-full"></div>
-          <span className="text-[9px] text-green-400">Configured</span>
-        </div>
-      )}
-    </div>
-  );
-});
-
-CustomNode.displayName = 'CustomNode';
 
 const nodeTypes = {
   custom: CustomNode,
 };
-
-// Worker Tasks - Currently only SIMPLE is supported by Conductor Server
-const workerTasks = [
-  {
-    id: 'SIMPLE',
-    name: 'Simple Task',
-    description: 'Execute a simple task with custom business logic',
-    type: 'SIMPLE',
-    color: '#00bcd4',
-  },
-];
-
-// Workflow Operators
-const operators = [
-  {
-    id: 'FORK_JOIN',
-    name: 'Fork/Join',
-    description: 'Execute tasks in parallel and wait for completion',
-    type: 'FORK_JOIN',
-    color: '#9c27b0',
-  },
-  {
-    id: 'FORK_JOIN_DYNAMIC',
-    name: 'Fork/Join Dynamic',
-    description: 'Execute dynamic number of parallel tasks',
-    type: 'FORK_JOIN_DYNAMIC',
-    color: '#9c27b0',
-  },
-  {
-    id: 'JOIN',
-    name: 'Join',
-    description: 'Wait for multiple tasks to complete',
-    type: 'JOIN',
-    color: '#9c27b0',
-  },
-  {
-    id: 'EXCLUSIVE_JOIN',
-    name: 'Exclusive Join',
-    description: 'Wait for one of multiple tasks to complete',
-    type: 'EXCLUSIVE_JOIN',
-    color: '#9c27b0',
-  },
-  {
-    id: 'SWITCH',
-    name: 'Switch',
-    description: 'Conditional branching logic',
-    type: 'SWITCH',
-    color: '#9c27b0',
-  },
-  {
-    id: 'DO_WHILE',
-    name: 'Do While',
-    description: 'Loop until condition is met',
-    type: 'DO_WHILE',
-    color: '#9c27b0',
-  },
-  {
-    id: 'DYNAMIC',
-    name: 'Dynamic',
-    description: 'Execute a task determined dynamically at runtime',
-    type: 'DYNAMIC',
-    color: '#9c27b0',
-  },
-  {
-    id: 'LAMBDA',
-    name: 'Lambda',
-    description: 'Execute inline JavaScript expressions',
-    type: 'LAMBDA',
-    color: '#9c27b0',
-  },
-  {
-    id: 'INLINE',
-    name: 'Inline',
-    description: 'Execute inline code',
-    type: 'INLINE_OPERATOR',
-    color: '#9c27b0',
-  },
-  {
-    id: 'WAIT',
-    name: 'Wait',
-    description: 'Wait for a specified duration',
-    type: 'WAIT',
-    color: '#9c27b0',
-  },
-  {
-    id: 'EVENT',
-    name: 'Event',
-    description: 'Wait for an external event',
-    type: 'EVENT',
-    color: '#9c27b0',
-  },
-  {
-    id: 'SET_VARIABLE',
-    name: 'Set Variable',
-    description: 'Set workflow variables',
-    type: 'SET_VARIABLE',
-    color: '#9c27b0',
-  },
-  {
-    id: 'SUB_WORKFLOW',
-    name: 'Sub Workflow',
-    description: 'Execute a sub-workflow',
-    type: 'SUB_WORKFLOW_OPERATOR',
-    color: '#9c27b0',
-  },
-  {
-    id: 'TERMINATE',
-    name: 'Terminate',
-    description: 'Terminate the workflow execution',
-    type: 'TERMINATE',
-    color: '#f44336',
-  },
-];
-
-// System Tasks
-const systemTasks = [
-  {
-    id: 'HTTP',
-    name: 'HTTP',
-    description: 'Make HTTP API calls',
-    type: 'HTTP',
-    color: '#ff9800',
-  },
-  {
-    id: 'KAFKA_PUBLISH',
-    name: 'Kafka Publish',
-    description: 'Publish messages to Kafka',
-    type: 'KAFKA_PUBLISH',
-    color: '#ff9800',
-  },
-  {
-    id: 'GRPC',
-    name: 'gRPC',
-    description: 'Make gRPC service calls',
-    type: 'GRPC',
-    color: '#ff9800',
-  },
-  {
-    id: 'JSON_JQ_TRANSFORM',
-    name: 'JSON JQ Transform',
-    description: 'Transform JSON using JQ expressions',
-    type: 'JSON_JQ_TRANSFORM',
-    color: '#ff9800',
-  },
-  {
-    id: 'JSON_JQ_TRANSFORM_STRING',
-    name: 'JSON JQ Transform (String)',
-    description: 'Transform JSON strings using JQ expressions',
-    type: 'JSON_JQ_TRANSFORM_STRING',
-    color: '#ff9800',
-  },
-  {
-    id: 'NOOP',
-    name: 'No-Op',
-    description: 'No operation - placeholder task',
-    type: 'NOOP',
-    color: '#ff9800',
-  },
-];
-
-function formatDate(date: Date): string {
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  const year = date.getFullYear();
-  return `${month}-${day}-${year}`;
-}
-
-function formatDateForInput(dateStr: string): string {
-  if (!dateStr) return '';
-  try {
-    const [month, day, year] = dateStr.split('-');
-    return `${year}-${month}-${day}`;
-  } catch {
-    return '';
-  }
-}
-
-function formatDateFromInput(dateStr: string): string {
-  if (!dateStr) return '';
-  try {
-    const [year, month, day] = dateStr.split('-');
-    return `${month}-${day}-${year}`;
-  } catch {
-    return '';
-  }
-}
 
 export function WorkflowDesigner() {
   const { id } = useParams();
@@ -393,42 +91,17 @@ export function WorkflowDesigner() {
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
 
-  // Modal state declarations - MUST be before handleEditNode that uses them
-  const [executeModalOpen, setExecuteModalOpen] = useState(false);
-  const [isHttpConfigModalOpen, setIsHttpConfigModalOpen] = useState(false);
-  const [isKafkaPublishModalOpen, setIsKafkaPublishModalOpen] = useState(false);
-  const [isGrpcModalOpen, setIsGrpcModalOpen] = useState(false);
-  const [isJsonJqTransformModalOpen, setIsJsonJqTransformModalOpen] = useState(false);
-  const [isJsonJqTransformStringModalOpen, setIsJsonJqTransformStringModalOpen] = useState(false);
-  const [isNoopModalOpen, setIsNoopModalOpen] = useState(false);
-  const [isEventModalOpen, setIsEventModalOpen] = useState(false);
-  const [isWaitModalOpen, setIsWaitModalOpen] = useState(false);
-  const [isSetVariableModalOpen, setIsSetVariableModalOpen] = useState(false);
-  const [isSubWorkflowModalOpen, setIsSubWorkflowModalOpen] = useState(false);
-  const [isTerminateModalOpen, setIsTerminateModalOpen] = useState(false);
-  const [isInlineModalOpen, setIsInlineModalOpen] = useState(false);
-  const [isSimpleTaskModalOpen, setIsSimpleTaskModalOpen] = useState(false);
-  
-  // Operator Modals
-  const [isForkJoinModalOpen, setIsForkJoinModalOpen] = useState(false);
-  const [isForkJoinDynamicModalOpen, setIsForkJoinDynamicModalOpen] = useState(false);
-  const [isSwitchModalOpen, setIsSwitchModalOpen] = useState(false);
-  const [isDoWhileModalOpen, setIsDoWhileModalOpen] = useState(false);
-  const [isDynamicModalOpen, setIsDynamicModalOpen] = useState(false);
-  const [isLambdaModalOpen, setIsLambdaModalOpen] = useState(false);
-  const [isOperatorInlineModalOpen, setIsOperatorInlineModalOpen] = useState(false);
-  const [isJoinModalOpen, setIsJoinModalOpen] = useState(false);
-  const [isExclusiveJoinModalOpen, setIsExclusiveJoinModalOpen] = useState(false);
-  const [isOperatorSubWorkflowModalOpen, setIsOperatorSubWorkflowModalOpen] = useState(false);
-  
-  const [selectedNodeForConfig, setSelectedNodeForConfig] = useState<Node | null>(null);
-  const [pendingNodeForAutoConfig, setPendingNodeForAutoConfig] = useState<Node | null>(null);
-  const [pendingTaskDrop, setPendingTaskDrop] = useState<{
-    taskType: string;
-    taskName: string;
-    color: string;
-    position: { x: number; y: number };
-  } | null>(null);
+  // Use the task modals hook
+  const {
+    states: modalStates,
+    actions: modalActions,
+    selectedNodeForConfig,
+    setSelectedNodeForConfig,
+    pendingNodeForAutoConfig,
+    setPendingNodeForAutoConfig,
+    pendingTaskDrop,
+    setPendingTaskDrop,
+  } = useTaskModals();
 
   // Define edit and delete handlers BEFORE useEffects that use them
   const handleEditNode = useCallback((nodeId: string) => {
@@ -440,86 +113,19 @@ export function WorkflowDesigner() {
       setSelectedNodeForConfig(node);
       // Open the correct modal based on task type
       console.log('Opening modal for task type:', node.data.taskType);
-      switch (node.data.taskType) {
-        case 'HTTP':
-          setIsHttpConfigModalOpen(true);
-          break;
-        case 'KAFKA_PUBLISH':
-          setIsKafkaPublishModalOpen(true);
-          break;
-        case 'GRPC':
-          setIsGrpcModalOpen(true);
-          break;
-        case 'JSON_JQ_TRANSFORM':
-          setIsJsonJqTransformModalOpen(true);
-          break;
-        case 'JSON_JQ_TRANSFORM_STRING':
-          setIsJsonJqTransformStringModalOpen(true);
-          break;
-        case 'NOOP':
-          setIsNoopModalOpen(true);
-          break;
-        case 'EVENT':
-          setIsEventModalOpen(true);
-          break;
-        case 'WAIT':
-          setIsWaitModalOpen(true);
-          break;
-        case 'SET_VARIABLE':
-          setIsSetVariableModalOpen(true);
-          break;
-        case 'SUB_WORKFLOW':
-          setIsSubWorkflowModalOpen(true);
-          break;
-        case 'TERMINATE':
-          setIsTerminateModalOpen(true);
-          break;
-        case 'INLINE':
-          setIsInlineModalOpen(true);
-          break;
-        case 'SIMPLE':
-          setIsSimpleTaskModalOpen(true);
-          break;
-        case 'FORK_JOIN':
-          setIsForkJoinModalOpen(true);
-          break;
-        case 'FORK_JOIN_DYNAMIC':
-          setIsForkJoinDynamicModalOpen(true);
-          break;
-        case 'SWITCH':
-          setIsSwitchModalOpen(true);
-          break;
-        case 'DO_WHILE':
-          setIsDoWhileModalOpen(true);
-          break;
-        case 'DYNAMIC':
-          setIsDynamicModalOpen(true);
-          break;
-        case 'LAMBDA':
-          setIsLambdaModalOpen(true);
-          break;
-        case 'INLINE_OPERATOR':
-          setIsOperatorInlineModalOpen(true);
-          break;
-        case 'JOIN':
-          setIsJoinModalOpen(true);
-          break;
-        case 'EXCLUSIVE_JOIN':
-          setIsExclusiveJoinModalOpen(true);
-          break;
-        case 'SUB_WORKFLOW_OPERATOR':
-          setIsOperatorSubWorkflowModalOpen(true);
-          break;
-        default:
-          toast({
-            title: 'Configuration not available',
-            description: `No specific configuration modal for task type: ${node.data.taskType}`,
-            variant: 'destructive',
-          });
-          setSelectedNodeForConfig(null);
+      modalActions.openModalForTaskType(node.data.taskType);
+      
+      // Check if no modal was opened (unknown task type)
+      if (!node.data.taskType) {
+        toast({
+          title: 'Configuration not available',
+          description: `No specific configuration modal for task type: ${node.data.taskType}`,
+          variant: 'destructive',
+        });
+        setSelectedNodeForConfig(null);
       }
     }
-  }, [nodes, toast]);
+  }, [nodes, toast, modalActions, setSelectedNodeForConfig]);
 
   const handleDeleteNode = useCallback((nodeId: string) => {
     setNodes((nds) => {
@@ -818,119 +424,119 @@ export function WorkflowDesigner() {
   }, [selectedNodeForConfig, pendingNodeForAutoConfig, pendingTaskDrop, setNodes, setEdges, workflow, updateWorkflow, handleEditNode, handleDeleteNode]);
 
   const handleSaveHttpTaskConfig = useCallback((config: any) =>
-    createTaskConfigHandler(setIsHttpConfigModalOpen)(config),
-    [createTaskConfigHandler]
+    createTaskConfigHandler(modalActions.setIsHttpConfigModalOpen)(config),
+    [createTaskConfigHandler, modalActions]
   );
 
   const handleSaveKafkaTaskConfig = useCallback((config: KafkaPublishTaskConfig) =>
-    createTaskConfigHandler(setIsKafkaPublishModalOpen)(config),
-    [createTaskConfigHandler]
+    createTaskConfigHandler(modalActions.setIsKafkaPublishModalOpen)(config),
+    [createTaskConfigHandler, modalActions]
   );
 
   const handleSaveGrpcTaskConfig = useCallback((config: GrpcTaskConfig) =>
-    createTaskConfigHandler(setIsGrpcModalOpen)(config),
-    [createTaskConfigHandler]
+    createTaskConfigHandler(modalActions.setIsGrpcModalOpen)(config),
+    [createTaskConfigHandler, modalActions]
   );
 
   const handleSaveJsonJqTransformConfig = useCallback((config: JsonJqTransformTaskConfig) =>
-    createTaskConfigHandler(setIsJsonJqTransformModalOpen)(config),
-    [createTaskConfigHandler]
+    createTaskConfigHandler(modalActions.setIsJsonJqTransformModalOpen)(config),
+    [createTaskConfigHandler, modalActions]
   );
 
   const handleSaveJsonJqTransformStringConfig = useCallback((config: JsonJqTransformStringTaskConfig) =>
-    createTaskConfigHandler(setIsJsonJqTransformStringModalOpen)(config),
-    [createTaskConfigHandler]
+    createTaskConfigHandler(modalActions.setIsJsonJqTransformStringModalOpen)(config),
+    [createTaskConfigHandler, modalActions]
   );
 
   const handleSaveNoopConfig = useCallback((config: NoopSystemTaskConfig) =>
-    createTaskConfigHandler(setIsNoopModalOpen)(config),
-    [createTaskConfigHandler]
+    createTaskConfigHandler(modalActions.setIsNoopModalOpen)(config),
+    [createTaskConfigHandler, modalActions]
   );
 
   const handleSaveEventConfig = useCallback((config: EventSystemTaskConfig) =>
-    createTaskConfigHandler(setIsEventModalOpen)(config),
-    [createTaskConfigHandler]
+    createTaskConfigHandler(modalActions.setIsEventModalOpen)(config),
+    [createTaskConfigHandler, modalActions]
   );
 
   const handleSaveWaitConfig = useCallback((config: WaitSystemTaskConfig) =>
-    createTaskConfigHandler(setIsWaitModalOpen)(config),
-    [createTaskConfigHandler]
+    createTaskConfigHandler(modalActions.setIsWaitModalOpen)(config),
+    [createTaskConfigHandler, modalActions]
   );
 
   const handleSaveSetVariableConfig = useCallback((config: SetVariableSystemTaskConfig) =>
-    createTaskConfigHandler(setIsSetVariableModalOpen)(config),
-    [createTaskConfigHandler]
+    createTaskConfigHandler(modalActions.setIsSetVariableModalOpen)(config),
+    [createTaskConfigHandler, modalActions]
   );
 
   const handleSaveSubWorkflowConfig = useCallback((config: SubWorkflowSystemTaskConfig) =>
-    createTaskConfigHandler(setIsSubWorkflowModalOpen)(config),
-    [createTaskConfigHandler]
+    createTaskConfigHandler(modalActions.setIsSubWorkflowModalOpen)(config),
+    [createTaskConfigHandler, modalActions]
   );
 
   const handleSaveTerminateConfig = useCallback((config: TerminateSystemTaskConfig) =>
-    createTaskConfigHandler(setIsTerminateModalOpen)(config),
-    [createTaskConfigHandler]
+    createTaskConfigHandler(modalActions.setIsTerminateModalOpen)(config),
+    [createTaskConfigHandler, modalActions]
   );
 
   const handleSaveInlineConfig = useCallback((config: InlineSystemTaskConfig) =>
-    createTaskConfigHandler(setIsInlineModalOpen)(config),
-    [createTaskConfigHandler]
+    createTaskConfigHandler(modalActions.setIsInlineModalOpen)(config),
+    [createTaskConfigHandler, modalActions]
   );
 
   // Operator Modal Handlers
   const handleSaveForkJoinConfig = useCallback((config: ForkJoinConfig) =>
-    createTaskConfigHandler(setIsForkJoinModalOpen)(config),
-    [createTaskConfigHandler]
+    createTaskConfigHandler(modalActions.setIsForkJoinModalOpen)(config),
+    [createTaskConfigHandler, modalActions]
   );
 
   const handleSaveForkJoinDynamicConfig = useCallback((config: ForkJoinDynamicConfig) =>
-    createTaskConfigHandler(setIsForkJoinDynamicModalOpen)(config),
-    [createTaskConfigHandler]
+    createTaskConfigHandler(modalActions.setIsForkJoinDynamicModalOpen)(config),
+    [createTaskConfigHandler, modalActions]
   );
 
   const handleSaveSwitchConfig = useCallback((config: SwitchConfig) =>
-    createTaskConfigHandler(setIsSwitchModalOpen)(config),
-    [createTaskConfigHandler]
+    createTaskConfigHandler(modalActions.setIsSwitchModalOpen)(config),
+    [createTaskConfigHandler, modalActions]
   );
 
   const handleSaveDoWhileConfig = useCallback((config: DoWhileConfig) =>
-    createTaskConfigHandler(setIsDoWhileModalOpen)(config),
-    [createTaskConfigHandler]
+    createTaskConfigHandler(modalActions.setIsDoWhileModalOpen)(config),
+    [createTaskConfigHandler, modalActions]
   );
 
   const handleSaveDynamicConfig = useCallback((config: DynamicConfig) =>
-    createTaskConfigHandler(setIsDynamicModalOpen)(config),
-    [createTaskConfigHandler]
+    createTaskConfigHandler(modalActions.setIsDynamicModalOpen)(config),
+    [createTaskConfigHandler, modalActions]
   );
 
   const handleSaveLambdaConfig = useCallback((config: LambdaConfig) =>
-    createTaskConfigHandler(setIsLambdaModalOpen)(config),
-    [createTaskConfigHandler]
+    createTaskConfigHandler(modalActions.setIsLambdaModalOpen)(config),
+    [createTaskConfigHandler, modalActions]
   );
 
   const handleSaveOperatorInlineConfig = useCallback((config: InlineConfig) =>
-    createTaskConfigHandler(setIsOperatorInlineModalOpen)(config),
-    [createTaskConfigHandler]
+    createTaskConfigHandler(modalActions.setIsOperatorInlineModalOpen)(config),
+    [createTaskConfigHandler, modalActions]
   );
 
   const handleSaveJoinConfig = useCallback((config: JoinConfig) =>
-    createTaskConfigHandler(setIsJoinModalOpen)(config),
-    [createTaskConfigHandler]
+    createTaskConfigHandler(modalActions.setIsJoinModalOpen)(config),
+    [createTaskConfigHandler, modalActions]
   );
 
   const handleSaveExclusiveJoinConfig = useCallback((config: ExclusiveJoinConfig) =>
-    createTaskConfigHandler(setIsExclusiveJoinModalOpen)(config),
-    [createTaskConfigHandler]
+    createTaskConfigHandler(modalActions.setIsExclusiveJoinModalOpen)(config),
+    [createTaskConfigHandler, modalActions]
   );
 
   const handleSaveOperatorSubWorkflowConfig = useCallback((config: SubWorkflowConfig) =>
-    createTaskConfigHandler(setIsOperatorSubWorkflowModalOpen)(config),
-    [createTaskConfigHandler]
+    createTaskConfigHandler(modalActions.setIsOperatorSubWorkflowModalOpen)(config),
+    [createTaskConfigHandler, modalActions]
   );
 
   const handleSaveSimpleTaskConfig = useCallback((config: WorkflowTaskConfig) => {
-    saveTaskConfigLogic(config, setIsSimpleTaskModalOpen);
-  }, [saveTaskConfigLogic]);
+    saveTaskConfigLogic(config, modalActions.setIsSimpleTaskModalOpen);
+  }, [saveTaskConfigLogic, modalActions]);
 
   const onDragOver = useCallback((event: React.DragEvent) => {
     event.preventDefault();
@@ -963,82 +569,9 @@ export function WorkflowDesigner() {
       });
 
       // Open the appropriate modal based on task type
-      switch (task.type) {
-        case 'HTTP':
-          setIsHttpConfigModalOpen(true);
-          break;
-        case 'KAFKA_PUBLISH':
-          setIsKafkaPublishModalOpen(true);
-          break;
-        case 'GRPC':
-          setIsGrpcModalOpen(true);
-          break;
-        case 'JSON_JQ_TRANSFORM':
-          setIsJsonJqTransformModalOpen(true);
-          break;
-        case 'JSON_JQ_TRANSFORM_STRING':
-          setIsJsonJqTransformStringModalOpen(true);
-          break;
-        case 'NOOP':
-          setIsNoopModalOpen(true);
-          break;
-        case 'EVENT':
-          setIsEventModalOpen(true);
-          break;
-        case 'WAIT':
-          setIsWaitModalOpen(true);
-          break;
-        case 'SET_VARIABLE':
-          setIsSetVariableModalOpen(true);
-          break;
-        case 'SUB_WORKFLOW':
-          setIsSubWorkflowModalOpen(true);
-          break;
-        case 'TERMINATE':
-          setIsTerminateModalOpen(true);
-          break;
-        case 'INLINE':
-          setIsInlineModalOpen(true);
-          break;
-        case 'SIMPLE':
-          setIsSimpleTaskModalOpen(true);
-          break;
-        case 'FORK_JOIN':
-          setIsForkJoinModalOpen(true);
-          break;
-        case 'FORK_JOIN_DYNAMIC':
-          setIsForkJoinDynamicModalOpen(true);
-          break;
-        case 'SWITCH':
-          setIsSwitchModalOpen(true);
-          break;
-        case 'DO_WHILE':
-          setIsDoWhileModalOpen(true);
-          break;
-        case 'DYNAMIC':
-          setIsDynamicModalOpen(true);
-          break;
-        case 'LAMBDA':
-          setIsLambdaModalOpen(true);
-          break;
-        case 'INLINE_OPERATOR':
-          setIsOperatorInlineModalOpen(true);
-          break;
-        case 'JOIN':
-          setIsJoinModalOpen(true);
-          break;
-        case 'EXCLUSIVE_JOIN':
-          setIsExclusiveJoinModalOpen(true);
-          break;
-        case 'SUB_WORKFLOW_OPERATOR':
-          setIsOperatorSubWorkflowModalOpen(true);
-          break;
-        default:
-          // For tasks without modals, clear the pending drop
-          setPendingTaskDrop(null);
-      }
+      modalActions.openModalForTaskType(task.type);
     },
-    [setIsHttpConfigModalOpen, setIsKafkaPublishModalOpen, setIsGrpcModalOpen, setIsJsonJqTransformModalOpen, setIsJsonJqTransformStringModalOpen, setIsNoopModalOpen, setIsEventModalOpen, setIsWaitModalOpen, setIsSetVariableModalOpen, setIsSubWorkflowModalOpen, setIsTerminateModalOpen, setIsInlineModalOpen, setIsSimpleTaskModalOpen, setIsForkJoinModalOpen, setIsForkJoinDynamicModalOpen, setIsSwitchModalOpen, setIsDoWhileModalOpen, setIsLambdaModalOpen, setIsOperatorInlineModalOpen, setIsJoinModalOpen, setIsExclusiveJoinModalOpen, setIsOperatorSubWorkflowModalOpen]
+    [modalActions, setPendingTaskDrop]
   );
 
   const handleAutoArrange = useCallback(() => {
@@ -1188,7 +721,7 @@ export function WorkflowDesigner() {
       });
       
       // Open execute modal
-      setExecuteModalOpen(true);
+      modalActions.setExecuteModalOpen(true);
     } else {
       toast({
         title: 'Please save first',
@@ -1307,157 +840,13 @@ export function WorkflowDesigner() {
         {/* Main Content */}
         <div className="flex-1 flex overflow-hidden">
           {/* Left Sidebar - Task Library */}
-          <div className="w-80 bg-[#1a1f2e] border-r border-[#2a3142] flex flex-col">
-          {/* Task Library Header */}
-          <div className="px-4 py-4 border-b border-[#2a3142]">
-            <h3 className="text-base font-semibold text-white mb-3">Task Library</h3>
-            {/* Search */}
-            <div className="relative">
-              <input
-                type="text"
-                placeholder="Search tasks..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full h-9 pl-9 pr-3 bg-[#0f1419] text-white text-sm border border-[#2a3142] rounded-md focus:outline-none focus:ring-1 focus:ring-cyan-500 placeholder:text-gray-500"
-              />
-              <svg
-                className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-500"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-                />
-              </svg>
-            </div>
-          </div>
-
-          {/* Task Categories */}
-          <div className="flex-1 overflow-y-auto">
-            <div className="p-4 space-y-6">
-              {/* Worker Tasks */}
-              <div>
-                <h4 className="text-xs font-semibold text-cyan-400 uppercase tracking-wider mb-3 flex items-center gap-2">
-                  <div className="w-2 h-2 bg-cyan-400 rounded-full"></div>
-                  Worker Tasks
-                </h4>
-                <div className="space-y-2">
-                  {filteredWorkerTasks.map((task) => (
-                    <button
-                      key={task.id}
-                      className="w-full group p-3 bg-[#0f1419] border border-[#2a3142] rounded-lg cursor-move hover:border-cyan-500 transition-all duration-200 text-left"
-                      draggable
-                      onDragStart={(e) => {
-                        e.dataTransfer.setData('application/reactflow', task.id);
-                        e.dataTransfer.effectAllowed = 'move';
-                      }}
-                    >
-                      <div className="flex items-start gap-3">
-                        <div 
-                          className="mt-0.5 w-8 h-8 rounded flex items-center justify-center flex-shrink-0"
-                          style={{ backgroundColor: `${task.color}20` }}
-                        >
-                          <div 
-                            className="w-3 h-3 rounded-full"
-                            style={{ backgroundColor: task.color }}
-                          />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-white truncate">{task.name}</p>
-                          <p className="text-xs text-gray-400 mt-1 line-clamp-2">
-                            {task.description}
-                          </p>
-                        </div>
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Operators */}
-              <div>
-                <h4 className="text-xs font-semibold text-purple-400 uppercase tracking-wider mb-3 flex items-center gap-2">
-                  <div className="w-2 h-2 bg-purple-400 rounded-full"></div>
-                  Operators
-                </h4>
-                <div className="space-y-2">
-                  {filteredOperators.map((task) => (
-                    <button
-                      key={task.id}
-                      className="w-full group p-3 bg-[#0f1419] border border-[#2a3142] rounded-lg cursor-move hover:border-purple-500 transition-all duration-200 text-left"
-                      draggable
-                      onDragStart={(e) => {
-                        e.dataTransfer.setData('application/reactflow', task.id);
-                        e.dataTransfer.effectAllowed = 'move';
-                      }}
-                    >
-                      <div className="flex items-start gap-3">
-                        <div 
-                          className="mt-0.5 w-8 h-8 rounded flex items-center justify-center flex-shrink-0"
-                          style={{ backgroundColor: `${task.color}20` }}
-                        >
-                          <div 
-                            className="w-3 h-3 rounded-full"
-                            style={{ backgroundColor: task.color }}
-                          />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-white truncate">{task.name}</p>
-                          <p className="text-xs text-gray-400 mt-1 line-clamp-2">
-                            {task.description}
-                          </p>
-                        </div>
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* System Tasks */}
-              <div>
-                <h4 className="text-xs font-semibold text-orange-400 uppercase tracking-wider mb-3 flex items-center gap-2">
-                  <div className="w-2 h-2 bg-orange-400 rounded-full"></div>
-                  System Tasks
-                </h4>
-                <div className="space-y-2">
-                  {filteredSystemTasks.map((task) => (
-                    <button
-                      key={task.id}
-                      className="w-full group p-3 bg-[#0f1419] border border-[#2a3142] rounded-lg cursor-move hover:border-orange-500 transition-all duration-200 text-left"
-                      draggable
-                      onDragStart={(e) => {
-                        e.dataTransfer.setData('application/reactflow', task.id);
-                        e.dataTransfer.effectAllowed = 'move';
-                      }}
-                    >
-                      <div className="flex items-start gap-3">
-                        <div 
-                          className="mt-0.5 w-8 h-8 rounded flex items-center justify-center flex-shrink-0"
-                          style={{ backgroundColor: `${task.color}20` }}
-                        >
-                          <div 
-                            className="w-3 h-3 rounded-full"
-                            style={{ backgroundColor: task.color }}
-                          />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-white truncate">{task.name}</p>
-                          <p className="text-xs text-gray-400 mt-1 line-clamp-2">
-                            {task.description}
-                          </p>
-                        </div>
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
-            </div>
-          </div>
+          <TaskLibrarySidebar
+            searchQuery={searchQuery}
+            onSearchChange={setSearchQuery}
+            workerTasks={filteredWorkerTasks}
+            operators={filteredOperators}
+            systemTasks={filteredSystemTasks}
+          />
 
           {/* Right Side - Canvas Area */}
           <div className="flex-1 flex flex-col bg-[#0f1419]">
@@ -1895,16 +1284,16 @@ export function WorkflowDesigner() {
       </div>
 
       <ExecuteWorkflowModal
-        open={executeModalOpen}
-        onOpenChange={setExecuteModalOpen}
+        open={modalStates.executeModalOpen}
+        onOpenChange={modalActions.setExecuteModalOpen}
         workflow={workflow || null}
         onExecute={handleExecuteWorkflow}
       />
 
       <HttpTaskModal
-        open={isHttpConfigModalOpen}
+        open={modalStates.isHttpConfigModalOpen}
         onOpenChange={(open) => {
-          setIsHttpConfigModalOpen(open);
+          modalActions.setIsHttpConfigModalOpen(open);
           if (!open) {
             setPendingTaskDrop(null);
             if (pendingNodeForAutoConfig && !selectedNodeForConfig) {
@@ -1922,9 +1311,9 @@ export function WorkflowDesigner() {
       />
 
       <KafkaPublishTaskModal
-        open={isKafkaPublishModalOpen}
+        open={modalStates.isKafkaPublishModalOpen}
         onOpenChange={(open) => {
-          setIsKafkaPublishModalOpen(open);
+          modalActions.setIsKafkaPublishModalOpen(open);
           if (!open) {
             if (pendingNodeForAutoConfig && !selectedNodeForConfig) {
               setNodes((nds) => nds.filter((n) => n.id !== pendingNodeForAutoConfig.id));
@@ -1940,9 +1329,9 @@ export function WorkflowDesigner() {
       />
 
       <GrpcTaskModal
-        open={isGrpcModalOpen}
+        open={modalStates.isGrpcModalOpen}
         onOpenChange={(open) => {
-          setIsGrpcModalOpen(open);
+          modalActions.setIsGrpcModalOpen(open);
           if (!open) {
             if (pendingNodeForAutoConfig && !selectedNodeForConfig) {
               setNodes((nds) => nds.filter((n) => n.id !== pendingNodeForAutoConfig.id));
@@ -1958,9 +1347,9 @@ export function WorkflowDesigner() {
       />
 
       <JsonJqTransformTaskModal
-        open={isJsonJqTransformModalOpen}
+        open={modalStates.isJsonJqTransformModalOpen}
         onOpenChange={(open) => {
-          setIsJsonJqTransformModalOpen(open);
+          modalActions.setIsJsonJqTransformModalOpen(open);
           if (!open) {
             if (pendingNodeForAutoConfig && !selectedNodeForConfig) {
               setNodes((nds) => nds.filter((n) => n.id !== pendingNodeForAutoConfig.id));
@@ -1976,9 +1365,9 @@ export function WorkflowDesigner() {
       />
 
       <JsonJqTransformStringTaskModal
-        open={isJsonJqTransformStringModalOpen}
+        open={modalStates.isJsonJqTransformStringModalOpen}
         onOpenChange={(open) => {
-          setIsJsonJqTransformStringModalOpen(open);
+          modalActions.setIsJsonJqTransformStringModalOpen(open);
           if (!open) {
             if (pendingNodeForAutoConfig && !selectedNodeForConfig) {
               setNodes((nds) => nds.filter((n) => n.id !== pendingNodeForAutoConfig.id));
@@ -1994,9 +1383,9 @@ export function WorkflowDesigner() {
       />
 
       <NoopSystemTaskModal
-        open={isNoopModalOpen}
+        open={modalStates.isNoopModalOpen}
         onOpenChange={(open) => {
-          setIsNoopModalOpen(open);
+          modalActions.setIsNoopModalOpen(open);
           if (!open) {
             if (pendingNodeForAutoConfig && !selectedNodeForConfig) {
               setNodes((nds) => nds.filter((n) => n.id !== pendingNodeForAutoConfig.id));
@@ -2012,9 +1401,9 @@ export function WorkflowDesigner() {
       />
 
       <EventSystemTaskModal
-        open={isEventModalOpen}
+        open={modalStates.isEventModalOpen}
         onOpenChange={(open) => {
-          setIsEventModalOpen(open);
+          modalActions.setIsEventModalOpen(open);
           if (!open) {
             if (pendingNodeForAutoConfig && !selectedNodeForConfig) {
               setNodes((nds) => nds.filter((n) => n.id !== pendingNodeForAutoConfig.id));
@@ -2030,9 +1419,9 @@ export function WorkflowDesigner() {
       />
 
       <WaitSystemTaskModal
-        open={isWaitModalOpen}
+        open={modalStates.isWaitModalOpen}
         onOpenChange={(open) => {
-          setIsWaitModalOpen(open);
+          modalActions.setIsWaitModalOpen(open);
           if (!open) {
             if (pendingNodeForAutoConfig && !selectedNodeForConfig) {
               setNodes((nds) => nds.filter((n) => n.id !== pendingNodeForAutoConfig.id));
@@ -2048,9 +1437,9 @@ export function WorkflowDesigner() {
       />
 
       <SetVariableSystemTaskModal
-        open={isSetVariableModalOpen}
+        open={modalStates.isSetVariableModalOpen}
         onOpenChange={(open) => {
-          setIsSetVariableModalOpen(open);
+          modalActions.setIsSetVariableModalOpen(open);
           if (!open) {
             if (pendingNodeForAutoConfig && !selectedNodeForConfig) {
               setNodes((nds) => nds.filter((n) => n.id !== pendingNodeForAutoConfig.id));
@@ -2066,9 +1455,9 @@ export function WorkflowDesigner() {
       />
 
       <SubWorkflowSystemTaskModal
-        open={isSubWorkflowModalOpen}
+        open={modalStates.isSubWorkflowModalOpen}
         onOpenChange={(open) => {
-          setIsSubWorkflowModalOpen(open);
+          modalActions.setIsSubWorkflowModalOpen(open);
           if (!open) {
             if (pendingNodeForAutoConfig && !selectedNodeForConfig) {
               setNodes((nds) => nds.filter((n) => n.id !== pendingNodeForAutoConfig.id));
@@ -2084,9 +1473,9 @@ export function WorkflowDesigner() {
       />
 
       <TerminateSystemTaskModal
-        open={isTerminateModalOpen}
+        open={modalStates.isTerminateModalOpen}
         onOpenChange={(open) => {
-          setIsTerminateModalOpen(open);
+          modalActions.setIsTerminateModalOpen(open);
           if (!open) {
             if (pendingNodeForAutoConfig && !selectedNodeForConfig) {
               setNodes((nds) => nds.filter((n) => n.id !== pendingNodeForAutoConfig.id));
@@ -2102,9 +1491,9 @@ export function WorkflowDesigner() {
       />
 
       <InlineSystemTaskModal
-        open={isInlineModalOpen}
+        open={modalStates.isInlineModalOpen}
         onOpenChange={(open) => {
-          setIsInlineModalOpen(open);
+          modalActions.setIsInlineModalOpen(open);
           if (!open) {
             if (pendingNodeForAutoConfig && !selectedNodeForConfig) {
               setNodes((nds) => nds.filter((n) => n.id !== pendingNodeForAutoConfig.id));
@@ -2120,9 +1509,9 @@ export function WorkflowDesigner() {
       />
 
       <SimpleTaskModal
-        open={isSimpleTaskModalOpen}
+        open={modalStates.isSimpleTaskModalOpen}
         onOpenChange={(open) => {
-          setIsSimpleTaskModalOpen(open);
+          modalActions.setIsSimpleTaskModalOpen(open);
           if (!open) {
             setPendingTaskDrop(null);
             if (pendingNodeForAutoConfig && !selectedNodeForConfig) {
@@ -2143,9 +1532,9 @@ export function WorkflowDesigner() {
 
       {/* Operator Modals */}
       <ForkJoinModal
-        open={isForkJoinModalOpen}
+        open={modalStates.isForkJoinModalOpen}
         onOpenChange={(open) => {
-          setIsForkJoinModalOpen(open);
+          modalActions.setIsForkJoinModalOpen(open);
           if (!open) {
             if (pendingNodeForAutoConfig && !selectedNodeForConfig) {
               setNodes((nds) => nds.filter((n) => n.id !== pendingNodeForAutoConfig.id));
@@ -2161,9 +1550,9 @@ export function WorkflowDesigner() {
       />
 
       <ForkJoinDynamicModal
-        open={isForkJoinDynamicModalOpen}
+        open={modalStates.isForkJoinDynamicModalOpen}
         onOpenChange={(open) => {
-          setIsForkJoinDynamicModalOpen(open);
+          modalActions.setIsForkJoinDynamicModalOpen(open);
           if (!open) {
             if (pendingNodeForAutoConfig && !selectedNodeForConfig) {
               setNodes((nds) => nds.filter((n) => n.id !== pendingNodeForAutoConfig.id));
@@ -2179,9 +1568,9 @@ export function WorkflowDesigner() {
       />
 
       <SwitchModal
-        open={isSwitchModalOpen}
+        open={modalStates.isSwitchModalOpen}
         onOpenChange={(open) => {
-          setIsSwitchModalOpen(open);
+          modalActions.setIsSwitchModalOpen(open);
           if (!open) {
             if (pendingNodeForAutoConfig && !selectedNodeForConfig) {
               setNodes((nds) => nds.filter((n) => n.id !== pendingNodeForAutoConfig.id));
@@ -2197,9 +1586,9 @@ export function WorkflowDesigner() {
       />
 
       <DoWhileModal
-        open={isDoWhileModalOpen}
+        open={modalStates.isDoWhileModalOpen}
         onOpenChange={(open) => {
-          setIsDoWhileModalOpen(open);
+          modalActions.setIsDoWhileModalOpen(open);
           if (!open) {
             if (pendingNodeForAutoConfig && !selectedNodeForConfig) {
               setNodes((nds) => nds.filter((n) => n.id !== pendingNodeForAutoConfig.id));
@@ -2215,9 +1604,9 @@ export function WorkflowDesigner() {
       />
 
       <DynamicModal
-        open={isDynamicModalOpen}
+        open={modalStates.isDynamicModalOpen}
         onOpenChange={(open) => {
-          setIsDynamicModalOpen(open);
+          modalActions.setIsDynamicModalOpen(open);
           if (!open) {
             if (pendingNodeForAutoConfig && !selectedNodeForConfig) {
               setNodes((nds) => nds.filter((n) => n.id !== pendingNodeForAutoConfig.id));
@@ -2233,9 +1622,9 @@ export function WorkflowDesigner() {
       />
 
       <LambdaModal
-        open={isLambdaModalOpen}
+        open={modalStates.isLambdaModalOpen}
         onOpenChange={(open) => {
-          setIsLambdaModalOpen(open);
+          modalActions.setIsLambdaModalOpen(open);
           if (!open) {
             if (pendingNodeForAutoConfig && !selectedNodeForConfig) {
               setNodes((nds) => nds.filter((n) => n.id !== pendingNodeForAutoConfig.id));
@@ -2251,9 +1640,9 @@ export function WorkflowDesigner() {
       />
 
       <InlineModal
-        open={isOperatorInlineModalOpen}
+        open={modalStates.isOperatorInlineModalOpen}
         onOpenChange={(open) => {
-          setIsOperatorInlineModalOpen(open);
+          modalActions.setIsOperatorInlineModalOpen(open);
           if (!open) {
             if (pendingNodeForAutoConfig && !selectedNodeForConfig) {
               setNodes((nds) => nds.filter((n) => n.id !== pendingNodeForAutoConfig.id));
@@ -2269,9 +1658,9 @@ export function WorkflowDesigner() {
       />
 
       <JoinModal
-        open={isJoinModalOpen}
+        open={modalStates.isJoinModalOpen}
         onOpenChange={(open) => {
-          setIsJoinModalOpen(open);
+          modalActions.setIsJoinModalOpen(open);
           if (!open) {
             if (pendingNodeForAutoConfig && !selectedNodeForConfig) {
               setNodes((nds) => nds.filter((n) => n.id !== pendingNodeForAutoConfig.id));
@@ -2287,9 +1676,9 @@ export function WorkflowDesigner() {
       />
 
       <ExclusiveJoinModal
-        open={isExclusiveJoinModalOpen}
+        open={modalStates.isExclusiveJoinModalOpen}
         onOpenChange={(open) => {
-          setIsExclusiveJoinModalOpen(open);
+          modalActions.setIsExclusiveJoinModalOpen(open);
           if (!open) {
             if (pendingNodeForAutoConfig && !selectedNodeForConfig) {
               setNodes((nds) => nds.filter((n) => n.id !== pendingNodeForAutoConfig.id));
@@ -2305,9 +1694,9 @@ export function WorkflowDesigner() {
       />
 
       <SubWorkflowModal
-        open={isOperatorSubWorkflowModalOpen}
+        open={modalStates.isOperatorSubWorkflowModalOpen}
         onOpenChange={(open) => {
-          setIsOperatorSubWorkflowModalOpen(open);
+          modalActions.setIsOperatorSubWorkflowModalOpen(open);
           if (!open) {
             if (pendingNodeForAutoConfig && !selectedNodeForConfig) {
               setNodes((nds) => nds.filter((n) => n.id !== pendingNodeForAutoConfig.id));

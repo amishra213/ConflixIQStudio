@@ -5,7 +5,7 @@ import { Card } from '@/components/ui/card';
 import { useWorkflowStore } from '@/stores/workflowStore';
 import { ArrowLeftIcon, RefreshCwIcon } from 'lucide-react';
 import { WorkflowDiagramViewer } from '@/components/workflow/WorkflowDiagramViewer';
-import { WorkflowExecution } from '@/utils/workflowToMermaid';
+import { WorkflowExecution, WorkflowTask } from '@/utils/workflowToMermaid';
 
 export function ExecutionDiagram() {
   const { id } = useParams();
@@ -26,6 +26,23 @@ export function ExecutionDiagram() {
   const convertToWorkflowExecution = () => {
     if (!execution) return;
 
+    // Map execution status to valid WorkflowTask status
+    const mapStatus = (status: string): 'SCHEDULED' | 'IN_PROGRESS' | 'COMPLETED' | 'FAILED' | 'TIMED_OUT' | 'SKIPPED' | 'CANCELED' | undefined => {
+      const upperStatus = status.toUpperCase();
+      switch (upperStatus) {
+        case 'PENDING':
+          return 'SCHEDULED';
+        case 'RUNNING':
+          return 'IN_PROGRESS';
+        case 'COMPLETED':
+          return 'COMPLETED';
+        case 'FAILED':
+          return 'FAILED';
+        default:
+          return undefined;
+      }
+    };
+
     const converted: WorkflowExecution = {
       workflowId: execution.id,
       workflowDefinition: {
@@ -35,7 +52,7 @@ export function ExecutionDiagram() {
           name: task.taskName,
           taskReferenceName: task.taskId,
           type: task.taskType || 'GENERIC',
-          status: task.status.toUpperCase() as any,
+          status: mapStatus(task.status),
         })),
       },
       tasks: execution.tasks.map(task => ({
@@ -43,17 +60,26 @@ export function ExecutionDiagram() {
         name: task.taskName,
         taskReferenceName: task.taskId,
         type: task.taskType || 'GENERIC',
-        status: task.status.toUpperCase(),
+        status: mapStatus(task.status),
         workflowTask: {
           name: task.taskName,
           taskReferenceName: task.taskId,
           type: task.taskType || 'GENERIC',
+          status: mapStatus(task.status),
         },
         startTime: task.startTime ? new Date(task.startTime).getTime() : undefined,
         endTime: task.endTime ? new Date(task.endTime).getTime() : undefined,
         inputData: task.input,
         outputData: task.output,
-      })),
+      })) as Array<WorkflowTask & {
+        taskId: string;
+        workflowTask: WorkflowTask;
+        status: string;
+        startTime?: number;
+        endTime?: number;
+        inputData?: any;
+        outputData?: any;
+      }>,
       status: execution.status.toUpperCase(),
       startTime: new Date(execution.startTime).getTime(),
       endTime: execution.endTime ? new Date(execution.endTime).getTime() : undefined,

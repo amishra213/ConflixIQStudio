@@ -7,7 +7,13 @@ import { PlusIcon, Trash2Icon } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useConductorApi } from '@/hooks/useConductorApi';
 import { SimpleTaskModal } from '@/components/modals/SimpleTaskModal';
-import type { SimpleTaskDefinition } from '@/components/modals/SimpleTaskModal';
+
+// Define the SimpleTaskDefinition type if not imported from elsewhere
+type SimpleTaskDefinition = {
+  name: string;
+  description?: string;
+  // Add other fields as required by your application
+};
 
 const workerTaskTypes = [
   { id: 'SIMPLE', name: 'Simple Task', description: 'Simple task definition', color: '#00bcd4' },

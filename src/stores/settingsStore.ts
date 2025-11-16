@@ -20,11 +20,14 @@ export interface LLMConfig {
 }
 
 interface SettingsStore {
+  conductorSettings: any;
   conductorApi: ConductorApiConfig;
   proxyServer: ProxyServerConfig;
   openAiLlm: LLMConfig;
   enableNotifications: boolean;
   autoSaveWorkflows: boolean; // Renamed for clarity
+  isConnected: boolean;
+  serverUrl: string;
 
   setConductorApiEndpoint: (endpoint: string) => void;
   setConductorApiKey: (apiKey: string) => void;
@@ -37,9 +40,12 @@ interface SettingsStore {
   setOpenAiApiKey: (apiKey: string) => void;
   setEnableNotifications: (enabled: boolean) => void;
   setAutoSaveWorkflows: (enabled: boolean) => void;
+  setIsConnected: (connected: boolean) => void;
+  setServerUrl: (url: string) => void;
 }
 
 export const useSettingsStore = create<SettingsStore>((set) => ({
+  conductorSettings: {}, // Add a default value for conductorSettings
   conductorApi: {
     endpoint: 'http://localhost:8080/api',
     apiKey: '',
@@ -58,6 +64,8 @@ export const useSettingsStore = create<SettingsStore>((set) => ({
   },
   enableNotifications: true,
   autoSaveWorkflows: true,
+  isConnected: false,
+  serverUrl: '',
 
   setConductorApiEndpoint: (endpoint) => set((state) => ({
     conductorApi: { ...state.conductorApi, endpoint }
@@ -88,4 +96,6 @@ export const useSettingsStore = create<SettingsStore>((set) => ({
   })),
   setEnableNotifications: (enabled) => set({ enableNotifications: enabled }),
   setAutoSaveWorkflows: (enabled) => set({ autoSaveWorkflows: enabled }),
+  setIsConnected: (connected) => set({ isConnected: connected }),
+  setServerUrl: (url) => set({ serverUrl: url }),
 }));

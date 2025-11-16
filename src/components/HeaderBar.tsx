@@ -18,7 +18,7 @@ import { cn } from '@/lib/utils'; // Import cn from utils
 export default function HeaderBar() {
   const [searchQuery, setSearchQuery] = useState('');
   const notificationCount = 3;
-  const { conductorSettings } = useSettingsStore();
+  const conductorSettings = useSettingsStore((state) => state.conductorSettings);
 
 
   const getConnectionColor = () => {

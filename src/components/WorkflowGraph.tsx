@@ -36,10 +36,10 @@ export default function WorkflowGraph() {
       { from: 5, to: 6 },
     ];
 
-    edges.forEach((edge) => {
+    for (const edge of edges) {
       const fromNode = nodes.find((n) => n.id === edge.from);
       const toNode = nodes.find((n) => n.id === edge.to);
-      if (!fromNode || !toNode) return;
+      if (!fromNode || !toNode) continue;
 
       const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
       line.setAttribute('x1', fromNode.x.toString());
@@ -49,9 +49,9 @@ export default function WorkflowGraph() {
       line.setAttribute('stroke', 'hsl(220, 9%, 38%)');
       line.setAttribute('stroke-width', '2');
       svg.appendChild(line);
-    });
+    }
 
-    nodes.forEach((node) => {
+    for (const node of nodes) {
       const group = document.createElementNS('http://www.w3.org/2000/svg', 'g');
 
       const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
@@ -85,7 +85,7 @@ export default function WorkflowGraph() {
       group.appendChild(text);
 
       svg.appendChild(group);
-    });
+    }
 
     canvas.appendChild(svg);
   }, [workflowNodes]);

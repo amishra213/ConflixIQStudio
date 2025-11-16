@@ -5,6 +5,7 @@ export interface Task {
   name: string;
   type: string;
   description: string;
+  config?: any;
 }
 
 export interface WorkflowNode {
@@ -86,6 +87,7 @@ export interface Execution {
   tasks: {
     taskId: string;
     taskName: string;
+    taskType?: string;
     status: 'pending' | 'running' | 'completed' | 'failed';
     startTime?: string;
     endTime?: string;

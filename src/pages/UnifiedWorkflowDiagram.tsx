@@ -51,7 +51,6 @@ export function UnifiedWorkflowDiagram() {
   const [mode, setMode] = useState<DiagramMode>('workflow');
   
   const { fetchWorkflowByName, fetchExecution, loading } = useConductorApi({
-    baseUrl: 'http://localhost:8080/api',
     enableFallback: true,
   });
 
@@ -135,7 +134,7 @@ export function UnifiedWorkflowDiagram() {
     if (!execution) return;
 
     try {
-      const apiExecution = await fetchExecution(id);
+      const apiExecution = id ? await fetchExecution(id) : null;
       
       if (apiExecution) {
         setDiagramData(apiExecution);

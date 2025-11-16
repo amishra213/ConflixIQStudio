@@ -117,7 +117,7 @@ export default function Tasks() { // Default export
       </div>
 
       {/* Create Modals */}
-      <HttpTaskModal open={isHttpCreateModalOpen} onOpenChange={setIsHttpCreateModalOpen} onSave={handleSaveHttpTask} variant="full" />
+      <HttpTaskModal open={isHttpCreateModalOpen} onOpenChange={setIsHttpCreateModalOpen} onSave={handleSaveHttpTask} />
     </div>
   );
 }

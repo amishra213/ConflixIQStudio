@@ -1,8 +1,10 @@
 import { ApolloClient, InMemoryCache, HttpLink, ApolloLink, from } from '@apollo/client';
-import { onError } from '@apollo/client/link/error';
+import { ErrorLink } from '@apollo/client/link/error';
+import { CombinedGraphQLErrors } from '@apollo/client/errors';
+import { Observable } from 'rxjs';
 import { useLoggingStore } from '../../stores/loggingStore';
 
-let apolloClient: ApolloClient<any> | null = null;
+let apolloClient: ApolloClient | null = null;
 
 export const createApolloClient = (conductorUrl?: string, apiKey?: string) => {
   const envConductorUrl = import.meta.env.VITE_CONDUCTOR_SERVER_URL;
@@ -36,7 +38,7 @@ export const createApolloClient = (conductorUrl?: string, apiKey?: string) => {
 
   const loggingLink = new ApolloLink((operation, forward) => {
     const startTime = Date.now();
-    
+
     try {
       const { addLog } = useLoggingStore.getState();
       const context = operation.getContext();
@@ -44,7 +46,7 @@ export const createApolloClient = (conductorUrl?: string, apiKey?: string) => {
 
       addLog({
         type: 'request',
-        operation: operation.operationName,
+        operation: operation.operationName || 'unknown',
         method: 'POST',
         url: finalConductorUrl,
         requestHeaders: headers,
@@ -57,70 +59,75 @@ export const createApolloClient = (conductorUrl?: string, apiKey?: string) => {
       console.warn('Failed to log request:', logError);
     }
 
-    return forward(operation).map((response) => {
-      const duration = Date.now() - startTime;
+    return new Observable((observer) => {
+      const subscription = forward(operation).subscribe({
+        next: (result) => {
+          const duration = Date.now() - startTime;
 
-      try {
-        const { addLog } = useLoggingStore.getState();
-        addLog({
-          type: 'response',
-          operation: operation.operationName,
-          method: 'POST',
-          url: finalConductorUrl,
-          status: 200,
-          duration,
-          responseBody: response.data,
-        });
-      } catch (logError) {
-        console.warn('Failed to log response:', logError);
-      }
+          try {
+            const { addLog } = useLoggingStore.getState();
+            addLog({
+              type: 'response',
+              operation: operation.operationName || 'unknown',
+              method: 'POST',
+              url: finalConductorUrl,
+              status: 200,
+              duration,
+              responseBody: result.data,
+            });
+          } catch (logError) {
+            console.warn('Failed to log response:', logError);
+          }
 
-      return response;
+          observer.next(result);
+        },
+        error: (error) => observer.error(error),
+        complete: () => observer.complete(),
+      });
+
+      return () => subscription.unsubscribe();
     });
   });
 
-  const errorLink = onError(({ graphQLErrors, networkError, operation }) => {
+  const errorLink = new ErrorLink(({ error, operation }) => {
     try {
       const { addLog } = useLoggingStore.getState();
 
-      if (graphQLErrors) {
-        graphQLErrors.forEach(({ message, locations, path }) => {
+      if (CombinedGraphQLErrors.is(error)) {
+        error.errors.forEach(({ message, locations, path }) => {
           console.error(
             `[GraphQL error]: Message: ${message}, Location: ${locations}, Path: ${path}`
           );
 
           addLog({
             type: 'error',
-            operation: operation.operationName,
+            operation: operation.operationName || 'unknown',
             method: 'POST',
             url: finalConductorUrl,
             error: `GraphQL Error: ${message}`,
             responseBody: { locations, path },
           });
         });
-      }
-
-      if (networkError) {
-        console.error(`[Network error]: ${networkError}`);
+      } else {
+        console.error(`[Network error]: ${error}`);
 
         addLog({
           type: 'error',
-          operation: operation.operationName,
+          operation: operation.operationName || 'unknown',
           method: 'POST',
           url: finalConductorUrl,
-          error: `Network Error: ${networkError.message}`,
+          error: `Network Error: ${error.message}`,
         });
       }
     } catch (logError) {
       console.warn('Failed to log error:', logError);
       // Still log the original errors to console
-      if (graphQLErrors) {
-        graphQLErrors.forEach(({ message, locations, path }) => {
+      if (CombinedGraphQLErrors.is(error)) {
+        error.errors.forEach(({ message, locations, path }) => {
           console.error(`[GraphQL error]: Message: ${message}, Location: ${locations}, Path: ${path}`);
         });
-      }
-      if (networkError) {
-        console.error(`[Network error]: ${networkError}`);
+      } else {
+        console.error(`[Network error]: ${error}`);
       }
     }
   });
