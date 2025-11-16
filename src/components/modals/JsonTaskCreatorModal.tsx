@@ -8,7 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { AlertCircleIcon, CheckCircle2Icon, InfoIcon, CopyIcon, DownloadIcon } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
-interface JsonTaskCreatorProps {
+interface JsonTaskCreatorModalProps {
   open: boolean;
   onClose: () => void;
   onSave: (taskJson: any) => void;
@@ -85,7 +85,7 @@ const DECISION_TASK_EXAMPLE = `{
   }
 }`;
 
-export default function JsonTaskCreator({ open, onClose, onSave }: JsonTaskCreatorProps) {
+export default function JsonTaskCreatorModal({ open, onClose, onSave }: JsonTaskCreatorModalProps) {
   const { toast } = useToast();
   const [jsonInput, setJsonInput] = useState('');
   const [jsonError, setJsonError] = useState('');
