@@ -14,14 +14,15 @@ export function Workflows() {
   const navigate = useNavigate();
   const { workflows, deleteWorkflow, executeWorkflow, addWorkflow } = useWorkflowStore();
   const { toast } = useToast();
-  const { syncWorkflows, loading: syncLoading, fetchWorkflowExecution } = useConductorApi();
+  const { syncWorkflows, loading: syncLoading, fetchWorkflowByVersion } = useConductorApi();
   const [executeModalOpen, setExecuteModalOpen] = useState(false);
   const [selectedWorkflow, setSelectedWorkflow] = useState<Workflow | null>(null);
   const [workflowListOpen, setWorkflowListOpen] = useState(false);
   const [serverWorkflows, setServerWorkflows] = useState<any[]>([]);
   const [listLoading, setListLoading] = useState(false);
   const [workflowIdModalOpen, setWorkflowIdModalOpen] = useState(false);
-  const [workflowIdInput, setWorkflowIdInput] = useState('');
+  const [workflowNameInput, setWorkflowNameInput] = useState('');
+  const [workflowVersionInput, setWorkflowVersionInput] = useState('1');
   const [isLoadingExecution, setIsLoadingExecution] = useState(false);
 
   const handleCreateWorkflow = () => {
@@ -90,10 +91,19 @@ export function Workflows() {
   };
 
   const handleLoadWorkflowById = async () => {
-    if (!workflowIdInput.trim()) {
+    if (!workflowNameInput.trim()) {
       toast({
         title: 'Invalid input',
-        description: 'Please enter a workflow ID',
+        description: 'Please enter a workflow name',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    if (!workflowVersionInput.trim()) {
+      toast({
+        title: 'Invalid input',
+        description: 'Please enter a workflow version',
         variant: 'destructive',
       });
       return;
@@ -101,42 +111,61 @@ export function Workflows() {
 
     setIsLoadingExecution(true);
     try {
-      const workflowExecution = await fetchWorkflowExecution(workflowIdInput.trim());
-      
-      if (!workflowExecution) {
+      const version = Number.parseInt(workflowVersionInput.trim(), 10);
+      if (Number.isNaN(version)) {
         toast({
-          title: 'Workflow not found',
-          description: `No workflow found with ID: ${workflowIdInput}`,
+          title: 'Invalid version',
+          description: 'Version must be a valid number',
           variant: 'destructive',
         });
         setIsLoadingExecution(false);
         return;
       }
 
-      // Extract workflow definition from execution
-      const workflowDef = workflowExecution.workflowDefinition || workflowExecution;
-      const localWorkflow = conductorWorkflowToLocal(workflowDef);
+      console.log(`Fetching workflow: ${workflowNameInput.trim()} version ${version}`);
+      
+      // Use the GraphQL proxy-aware hook
+      const workflowDef = await fetchWorkflowByVersion(workflowNameInput.trim(), version);
+      
+      if (!workflowDef?.name) {
+        console.error('Invalid workflow definition:', workflowDef);
+        toast({
+          title: 'Workflow not found',
+          description: `No workflow found with name "${workflowNameInput}" and version ${version}`,
+          variant: 'destructive',
+        });
+        setIsLoadingExecution(false);
+        return;
+      }
 
-      // Add to store and navigate to designer
+      console.log('Workflow definition loaded:', workflowDef);
+
+      // Convert to local workflow format
+      const localWorkflow = conductorWorkflowToLocal(workflowDef);
+      console.log('Converted to local workflow:', localWorkflow);
+
+      // Add to store
       addWorkflow(localWorkflow);
       
       toast({
         title: 'Workflow loaded',
-        description: `Workflow "${workflowDef.name}" has been loaded successfully.`,
+        description: `Workflow "${workflowDef.name}" (v${workflowDef.version}) has been loaded successfully.`,
       });
 
       // Navigate to workflow designer
       setTimeout(() => {
-        navigate(`/workflow-designer`);
+        navigate(`/workflow-designer/${localWorkflow.id}`);
       }, 500);
 
       // Reset modal
       setWorkflowIdModalOpen(false);
-      setWorkflowIdInput('');
+      setWorkflowNameInput('');
+      setWorkflowVersionInput('1');
     } catch (error) {
+      console.error('Load workflow error:', error);
       toast({
         title: 'Failed to load workflow',
-        description: error instanceof Error ? error.message : 'Failed to load workflow execution',
+        description: error instanceof Error ? error.message : 'Failed to load workflow from Conductor server',
         variant: 'destructive',
       });
     } finally {
@@ -472,13 +501,14 @@ export function Workflows() {
         <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
           <Card className="w-full max-w-md bg-[#1a1f2e] border-[#2a3142] shadow-lg">
             <div className="flex items-center justify-between p-6 border-b border-[#2a3142]">
-              <h2 className="text-2xl font-bold text-white">Load Workflow by ID</h2>
+              <h2 className="text-2xl font-bold text-white">Load Workflow</h2>
               <Button
                 size="sm"
                 variant="ghost"
                 onClick={() => {
                   setWorkflowIdModalOpen(false);
-                  setWorkflowIdInput('');
+                  setWorkflowNameInput('');
+                  setWorkflowVersionInput('1');
                 }}
                 className="text-gray-400 hover:text-white hover:bg-[#2a3142]"
               >
@@ -488,24 +518,43 @@ export function Workflows() {
 
             <div className="p-6 space-y-4">
               <div className="space-y-2">
-                <label htmlFor="workflowIdInput" className="block text-sm font-medium text-gray-300">
-                  Workflow Execution ID
+                <label htmlFor="workflowNameInput" className="block text-sm font-medium text-gray-300">
+                  Workflow Name
                 </label>
                 <input
-                  id="workflowIdInput"
+                  id="workflowNameInput"
                   type="text"
-                  value={workflowIdInput}
-                  onChange={(e) => setWorkflowIdInput(e.target.value)}
+                  value={workflowNameInput}
+                  onChange={(e) => setWorkflowNameInput(e.target.value)}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') {
                       handleLoadWorkflowById();
                     }
                   }}
-                  placeholder="Enter workflow execution ID"
+                  placeholder="e.g., sample_http_workflow"
+                  className="w-full px-4 py-2 bg-[#0f1419] border border-[#2a3142] rounded text-white placeholder-gray-500 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label htmlFor="workflowVersionInput" className="block text-sm font-medium text-gray-300">
+                  Version
+                </label>
+                <input
+                  id="workflowVersionInput"
+                  type="text"
+                  value={workflowVersionInput}
+                  onChange={(e) => setWorkflowVersionInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      handleLoadWorkflowById();
+                    }
+                  }}
+                  placeholder="1"
                   className="w-full px-4 py-2 bg-[#0f1419] border border-[#2a3142] rounded text-white placeholder-gray-500 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500"
                 />
                 <p className="text-xs text-gray-500">
-                  Enter the workflow execution ID to load the workflow from Conductor server
+                  Load workflow definition from Conductor server (GET /api/metadata/workflow/{'<name>'}?version={'<version>'})
                 </p>
               </div>
 
@@ -515,14 +564,15 @@ export function Workflows() {
                   className="border-gray-600 text-gray-400 hover:bg-[#2a3142]"
                   onClick={() => {
                     setWorkflowIdModalOpen(false);
-                    setWorkflowIdInput('');
+                    setWorkflowNameInput('');
+                    setWorkflowVersionInput('1');
                   }}
                 >
                   Cancel
                 </Button>
                 <Button
                   className="bg-orange-500 text-white hover:bg-orange-600"
-                  disabled={isLoadingExecution || !workflowIdInput.trim()}
+                  disabled={isLoadingExecution || !workflowNameInput.trim() || !workflowVersionInput.trim()}
                   onClick={handleLoadWorkflowById}
                 >
                   {isLoadingExecution ? 'Loading...' : 'Load Workflow'}

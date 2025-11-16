@@ -35,8 +35,6 @@ const typeDefs = gql`
     outputParameters: JSON
     restartable: Boolean
     schemaVersion: Int
-    orgId: String # Custom attribute
-    workflowId: String # Custom attribute
     effectiveDate: String # Custom attribute
     endDate: String # Custom attribute
     status: String # Custom attribute (e.g., ACTIVE, INACTIVE, DRAFT)
@@ -98,8 +96,6 @@ const typeDefs = gql`
     timeoutSeconds: Int
     restartable: Boolean
     schemaVersion: Int
-    orgId: String
-    workflowId: String
     effectiveDate: String
     endDate: String
     status: String

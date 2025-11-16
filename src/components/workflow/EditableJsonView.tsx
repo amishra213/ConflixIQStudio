@@ -8,38 +8,33 @@ import { AlertCircleIcon, CheckCircle2Icon, SaveIcon, RefreshCwIcon } from 'luci
 
 export default function EditableJsonView() {
   const { toast } = useToast();
-  const { currentWorkflow, updateWorkflow, canvasNodes } = useWorkflowStore();
+  const { selectedWorkflow, canvasNodes, updateWorkflow } = useWorkflowStore();
   const [jsonText, setJsonText] = useState('');
   const [jsonError, setJsonError] = useState('');
   const [hasChanges, setHasChanges] = useState(false);
 
   useEffect(() => {
-    if (currentWorkflow) {
+    if (selectedWorkflow) {
       console.log('=== EditableJsonView updating ===');
       console.log('Canvas nodes:', canvasNodes);
       
       const workflowJson = {
-        orgId: currentWorkflow.orgId,
-        workflowId: currentWorkflow.workflowId,
-        description: currentWorkflow.description,
-        version: currentWorkflow.version,
-        effectiveDate: currentWorkflow.effectiveDate,
-        endDate: currentWorkflow.endDate,
-        status: currentWorkflow.status,
+        description: selectedWorkflow.description || '',
+        version: selectedWorkflow.version || 1,
+        effectiveDate: selectedWorkflow.createdAt || '',
+        endDate: '',
+        status: selectedWorkflow.status || 'DRAFT',
         tasks: canvasNodes.map((node, index) => {
           console.log(`Processing node ${index + 1} for JSON view:`, node);
-          
-          // Normalize SIMPLE to GENERIC
-          const normalizedType = node.type === 'SIMPLE' ? 'GENERIC' : node.type;
           
           if (node.config) {
             console.log(`Node ${index + 1} config:`, node.config);
             
             const taskJson: any = {
-              taskRefId: node.config.taskRefId,
-              taskId: node.config.taskId,
-              taskType: node.config.taskType === 'SIMPLE' ? 'GENERIC' : node.config.taskType,
-              sequenceNo: node.config.sequenceNo,
+              taskRefId: node.config.taskRefId || `task_ref_${index + 1}`,
+              taskId: node.config.taskId || `task_${index + 1}`,
+              taskType: node.config.taskType,
+              sequenceNo: node.config.sequenceNo || (index + 1),
             };
 
             // Add taskListDomain if it exists
@@ -62,25 +57,25 @@ export default function EditableJsonView() {
             return taskJson;
           } else {
             return {
-              taskRefId: `${node.name.toLowerCase().replace(/\s+/g, '-')}-${index + 1}-taskref`,
-              taskId: `${node.name.toLowerCase().replace(/\s+/g, '-')}-task`,
-              taskType: normalizedType,
+              taskRefId: `${node.name.replaceAll(/\s+/g, '-').toLowerCase()}-${index + 1}-taskref`,
+              taskId: `${node.name.replaceAll(/\s+/g, '-').toLowerCase()}-task`,
+              taskType: node.type || 'GENERIC',
               taskListDomain: 'DEFAULT-TASKLIST',
               sequenceNo: index + 1,
             };
           }
         }),
-        inputParameters: currentWorkflow.inputParameters,
-        outputParameters: currentWorkflow.outputParameters,
-        timeoutSeconds: currentWorkflow.timeoutSeconds,
-        restartable: currentWorkflow.restartable,
+        inputParameters: selectedWorkflow.inputParameters || [],
+        outputParameters: selectedWorkflow.outputParameters || {},
+        timeoutSeconds: selectedWorkflow.timeoutSeconds || 3600,
+        restartable: selectedWorkflow.restartable ?? true,
       };
       
       console.log('Final workflow JSON:', workflowJson);
       setJsonText(JSON.stringify(workflowJson, null, 2));
       setHasChanges(false);
     }
-  }, [currentWorkflow, canvasNodes]);
+  }, [selectedWorkflow, canvasNodes]);
 
   const validateJson = (text: string): boolean => {
     try {
@@ -112,14 +107,18 @@ export default function EditableJsonView() {
     try {
       const parsedWorkflow = JSON.parse(jsonText);
       
-      updateWorkflow({
-        orgId: parsedWorkflow.orgId,
-        workflowId: parsedWorkflow.workflowId,
+      if (!selectedWorkflow) {
+        toast({
+          title: 'No workflow selected',
+          description: 'Please select a workflow first.',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      updateWorkflow(selectedWorkflow.id, {
         description: parsedWorkflow.description,
         version: parsedWorkflow.version,
-        effectiveDate: parsedWorkflow.effectiveDate,
-        endDate: parsedWorkflow.endDate,
-        status: parsedWorkflow.status,
         inputParameters: parsedWorkflow.inputParameters,
         outputParameters: parsedWorkflow.outputParameters,
         timeoutSeconds: parsedWorkflow.timeoutSeconds,
@@ -133,51 +132,47 @@ export default function EditableJsonView() {
         description: 'Workflow JSON has been updated successfully.',
       });
     } catch (error) {
+      console.error('Save error:', error);
       toast({
         title: 'Save Failed',
-        description: 'Failed to save workflow JSON.',
+        description: error instanceof Error ? error.message : 'Failed to save workflow JSON.',
         variant: 'destructive',
       });
     }
   };
 
   const handleReset = () => {
-    if (currentWorkflow) {
+    if (selectedWorkflow) {
       const workflowJson = {
-        orgId: currentWorkflow.orgId,
-        workflowId: currentWorkflow.workflowId,
-        description: currentWorkflow.description,
-        version: currentWorkflow.version,
-        effectiveDate: currentWorkflow.effectiveDate,
-        endDate: currentWorkflow.endDate,
-        status: currentWorkflow.status,
+        description: selectedWorkflow.description || '',
+        version: selectedWorkflow.version || 1,
+        effectiveDate: selectedWorkflow.createdAt || '',
+        endDate: '',
+        status: selectedWorkflow.status || 'DRAFT',
         tasks: canvasNodes.map((node, index) => {
-          // Normalize SIMPLE to GENERIC
-          const normalizedType = node.type === 'SIMPLE' ? 'GENERIC' : node.type;
-          
           if (node.config) {
             return {
-              taskRefId: node.config.taskRefId,
-              taskId: node.config.taskId,
-              taskType: node.config.taskType === 'SIMPLE' ? 'GENERIC' : node.config.taskType,
-              taskListDomain: node.config.taskListDomain,
-              sequenceNo: node.config.sequenceNo,
+              taskRefId: node.config.taskRefId || `task_ref_${index + 1}`,
+              taskId: node.config.taskId || `task_${index + 1}`,
+              taskType: node.config.taskType,
+              taskListDomain: node.config.taskListDomain || 'DEFAULT-TASKLIST',
+              sequenceNo: node.config.sequenceNo || (index + 1),
               taskinputParameters: node.config.taskinputParameters,
             };
           } else {
             return {
-              taskRefId: `${node.name.toLowerCase().replace(/\s+/g, '-')}-${index + 1}-taskref`,
-              taskId: `${node.name.toLowerCase().replace(/\s+/g, '-')}-task`,
-              taskType: normalizedType,
+              taskRefId: `${node.name.replaceAll(/\s+/g, '-').toLowerCase()}-${index + 1}-taskref`,
+              taskId: `${node.name.replaceAll(/\s+/g, '-').toLowerCase()}-task`,
+              taskType: node.type || 'GENERIC',
               taskListDomain: 'DEFAULT-TASKLIST',
               sequenceNo: index + 1,
             };
           }
         }),
-        inputParameters: currentWorkflow.inputParameters,
-        outputParameters: currentWorkflow.outputParameters,
-        timeoutSeconds: currentWorkflow.timeoutSeconds,
-        restartable: currentWorkflow.restartable,
+        inputParameters: selectedWorkflow.inputParameters || [],
+        outputParameters: selectedWorkflow.outputParameters || {},
+        timeoutSeconds: selectedWorkflow.timeoutSeconds || 3600,
+        restartable: selectedWorkflow.restartable ?? true,
       };
       setJsonText(JSON.stringify(workflowJson, null, 2));
       setHasChanges(false);
@@ -244,13 +239,24 @@ export default function EditableJsonView() {
         </div>
       )}
 
-      <ScrollArea className="flex-1 rounded-lg border border-border">
-        <Textarea
-          value={jsonText}
-          onChange={(e) => handleJsonChange(e.target.value)}
-          className="min-h-[600px] font-mono text-xs bg-background text-foreground border-0 focus-visible:ring-0 resize-none"
-          placeholder="Workflow JSON will appear here..."
-        />
+      <ScrollArea className="flex-1 rounded-lg border border-border flex">
+        <div className="flex w-full">
+          {/* Line Numbers */}
+          <div className="bg-muted/50 border-r border-border p-4 text-right select-none">
+            {jsonText.split('\n').map((line, i) => (
+              <div key={`line-${i}-${line.length}`} className="text-xs text-muted-foreground font-mono leading-6 h-6">
+                {i + 1}
+              </div>
+            ))}
+          </div>
+          {/* Code Editor */}
+          <Textarea
+            value={jsonText}
+            onChange={(e) => handleJsonChange(e.target.value)}
+            className="min-h-[600px] font-mono text-xs bg-background text-foreground border-0 focus-visible:ring-0 resize-none flex-1"
+            placeholder="Workflow JSON will appear here..."
+          />
+        </div>
       </ScrollArea>
 
       <div className="p-3 rounded-lg bg-primary/10 border border-primary/20">

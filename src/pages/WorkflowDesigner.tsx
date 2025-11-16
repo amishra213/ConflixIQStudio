@@ -67,35 +67,83 @@ const CustomNode = memo(({ data, selected, id }: NodeProps) => {
     return '📋';
   };
 
+  const handleEditClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (data.onEdit) {
+      console.log('Edit clicked for node:', id, 'taskType:', data.taskType);
+      data.onEdit(id);
+    }
+  };
+
+  const handleDeleteClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (data.onDelete) {
+      data.onDelete(id);
+    }
+  };
+
   return (
     <div
-      className={`px-2 py-1.5 rounded-md border-2 bg-[#1a1f2e] min-w-[120px] transition-all group ${
+      className={`px-2 py-1.5 rounded-md border-2 bg-[#1a1f2e] transition-all group relative ${
         selected ? 'border-cyan-500 shadow-lg shadow-cyan-500/20' : 'border-[#2a3142]'
       }`}
       style={{
         borderColor: selected ? '#00bcd4' : data.color || '#2a3142',
+        width: '140px',
+        height: '80px',
+        display: 'flex',
+        flexDirection: 'column',
+        justifyContent: 'center',
+        pointerEvents: 'auto',
       }}
+      title={`Task: ${data.label}\nRef: ${data.taskReferenceName || 'N/A'}`}
     >
-      <Handle type="target" position={Position.Top} className="w-2.5 h-2.5 !bg-cyan-500" />
+      {/* Top Handle */}
+      <Handle 
+        id="top" 
+        type="target" 
+        position={Position.Top} 
+        className="w-2.5 h-2.5 !bg-cyan-500" 
+      />
+      
+      {/* Left Handle */}
+      <Handle 
+        id="left" 
+        type="target" 
+        position={Position.Left} 
+        className="w-2.5 h-2.5 !bg-cyan-500"
+        style={{ top: '50%', transform: 'translateY(-50%)' }}
+      />
+      
+      {/* Right Handle */}
+      <Handle 
+        id="right" 
+        type="source" 
+        position={Position.Right} 
+        className="w-2.5 h-2.5 !bg-cyan-500"
+        style={{ top: '50%', transform: 'translateY(-50%)' }}
+      />
+      
+      {/* Bottom Handle */}
+      <Handle 
+        id="bottom" 
+        type="source" 
+        position={Position.Bottom} 
+        className="w-2.5 h-2.5 !bg-cyan-500" 
+      />
       
       {/* Action Buttons */}
-      <div className="absolute -top-1 -right-1 flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+      <div className="absolute -top-1 -right-1 flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity z-10">
         <button
-          onClick={(e) => {
-            e.stopPropagation();
-            data.onEdit?.(id);
-          }}
-          className="w-4 h-4 bg-blue-500 hover:bg-blue-600 rounded-full flex items-center justify-center shadow-lg"
+          onClick={handleEditClick}
+          className="w-4 h-4 bg-blue-500 hover:bg-blue-600 rounded-full flex items-center justify-center shadow-lg cursor-pointer"
           title="Edit Task"
         >
           <EditIcon className="w-2 h-2 text-white" />
         </button>
         <button
-          onClick={(e) => {
-            e.stopPropagation();
-            data.onDelete?.(id);
-          }}
-          className="w-4 h-4 bg-red-500 hover:bg-red-600 rounded-full flex items-center justify-center shadow-lg"
+          onClick={handleDeleteClick}
+          className="w-4 h-4 bg-red-500 hover:bg-red-600 rounded-full flex items-center justify-center shadow-lg cursor-pointer"
           title="Delete Task"
         >
           <Trash2Icon className="w-2 h-2 text-white" />
@@ -113,17 +161,15 @@ const CustomNode = memo(({ data, selected, id }: NodeProps) => {
         <span className="text-sm">{getNodeIcon(data.taskType)}</span>
         <span className="text-[10px] font-semibold text-cyan-400 uppercase">{data.taskType}</span>
       </div>
-      <div className="text-xs font-medium text-white truncate">{data.label}</div>
+      <div className="text-xs font-medium text-white truncate text-center">{data.label}</div>
       
       {/* Config indicator */}
       {data.config && (
-        <div className="mt-0.5 flex items-center gap-0.5">
+        <div className="mt-0.5 flex items-center justify-center gap-0.5">
           <div className="w-1 h-1 bg-green-500 rounded-full"></div>
           <span className="text-[9px] text-green-400">Configured</span>
         </div>
       )}
-      
-      <Handle type="source" position={Position.Bottom} className="w-2.5 h-2.5 !bg-cyan-500" />
     </div>
   );
 });
@@ -334,8 +380,6 @@ export function WorkflowDesigner() {
     timeoutSeconds: 3600,
     restartable: true,
     schemaVersion: 2,
-    orgId: 'ORG001',
-    workflowId: `workflow-${Date.now()}`,
     effectiveDate: formatDate(new Date()),
     endDate: formatDate(new Date(new Date().setFullYear(new Date().getFullYear() + 10))),
     status: 'DRAFT',
@@ -349,94 +393,7 @@ export function WorkflowDesigner() {
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
 
-  // Load workflow data on mount or when workflow changes
-  useEffect(() => {
-    if (workflow) {
-      setWorkflowName(workflow.name);
-      if (workflow.settings) {
-        setWorkflowSettings(workflow.settings);
-      }
-      // Load nodes and edges from the workflow
-      if (workflow.nodes && workflow.nodes.length > 0) {
-        setNodes(workflow.nodes);
-      } else {
-        setNodes([]); // Clear nodes if workflow has none
-      }
-      if (workflow.edges && workflow.edges.length > 0) {
-        setEdges(workflow.edges);
-      } else {
-        setEdges([]); // Clear edges if workflow has none
-      }
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id]); // Only run when the workflow ID changes
-
-  // Update node handlers after they're loaded (only runs once after initial load)
-  useEffect(() => {
-    if (nodes.length > 0 && nodes[0].data.onEdit === undefined) {
-      setNodes((nds) =>
-        nds.map((node) => ({
-          ...node,
-          data: {
-            ...node.data,
-            onEdit: handleEditNode,
-            onDelete: handleDeleteNode,
-          },
-        }))
-      );
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [nodes.length]); // Only check when nodes count changes
-
-  // Auto-save nodes and edges whenever they change
-  useEffect(() => {
-    if (workflow && (nodes.length > 0 || edges.length > 0)) {
-      // Debounce the save to avoid too frequent updates
-      const timeoutId = setTimeout(() => {
-        updateWorkflow(workflow.id, {
-          nodes: nodes,
-          edges: edges,
-        });
-      }, 500);
-
-      return () => clearTimeout(timeoutId);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [nodes, edges, workflow?.id]); // Only depend on workflow.id, not the entire workflow object
-
-  const onConnect = useCallback(
-    (params: Connection | Edge) => {
-      // Get source and target nodes
-      const sourceNode = nodes.find(n => n.id === params.source);
-      const targetNode = nodes.find(n => n.id === params.target);
-
-      if (!sourceNode || !targetNode) return;
-
-      // Get sequence numbers
-      const sourceSeq = sourceNode.data.sequenceNo || 0;
-      const targetSeq = targetNode.data.sequenceNo || 0;
-
-      // Only allow connecting to the next node in sequence
-      if (targetSeq !== sourceSeq + 1) {
-        toast({
-          title: 'Invalid connection',
-          description: 'Tasks can only be connected in sequence order. Use Auto Arrange to reorganize.',
-          variant: 'destructive',
-        });
-        return;
-      }
-
-      const edge = {
-        ...params,
-        type: 'smoothstep',
-        animated: true,
-        style: { stroke: '#00bcd4', strokeWidth: 2 },
-      };
-      setEdges((eds) => addEdge(edge, eds));
-    },
-    [nodes, setEdges, toast]
-  );
-
+  // Modal state declarations - MUST be before handleEditNode that uses them
   const [executeModalOpen, setExecuteModalOpen] = useState(false);
   const [isHttpConfigModalOpen, setIsHttpConfigModalOpen] = useState(false);
   const [isKafkaPublishModalOpen, setIsKafkaPublishModalOpen] = useState(false);
@@ -465,14 +422,24 @@ export function WorkflowDesigner() {
   const [isOperatorSubWorkflowModalOpen, setIsOperatorSubWorkflowModalOpen] = useState(false);
   
   const [selectedNodeForConfig, setSelectedNodeForConfig] = useState<Node | null>(null);
-  const [pendingNodeForAutoConfig, setPendingNodeForAutoConfig] = useState<Node | null>(null); // For auto-opening config after drag/drop
+  const [pendingNodeForAutoConfig, setPendingNodeForAutoConfig] = useState<Node | null>(null);
+  const [pendingTaskDrop, setPendingTaskDrop] = useState<{
+    taskType: string;
+    taskName: string;
+    color: string;
+    position: { x: number; y: number };
+  } | null>(null);
 
-  // Define handlers first without dependencies on each other
+  // Define edit and delete handlers BEFORE useEffects that use them
   const handleEditNode = useCallback((nodeId: string) => {
+    console.log('handleEditNode called with nodeId:', nodeId);
     const node = nodes.find(n => n.id === nodeId);
+    console.log('Found node:', node);
     if (node) {
+      console.log('Setting selectedNodeForConfig to:', node);
       setSelectedNodeForConfig(node);
       // Open the correct modal based on task type
+      console.log('Opening modal for task type:', node.data.taskType);
       switch (node.data.taskType) {
         case 'HTTP':
           setIsHttpConfigModalOpen(true);
@@ -569,54 +536,184 @@ export function WorkflowDesigner() {
     });
     
     setEdges((eds) => eds.filter((e) => e.source !== nodeId && e.target !== nodeId));
-    
-    toast({
-      title: 'Task deleted',
-      description: 'Task has been removed from the workflow.',
-    });
-  }, [setNodes, setEdges, toast]);
+  }, [setNodes, setEdges]);
 
-  const handleSaveHttpTaskConfig = useCallback((config: any) => {
-    const targetNode = selectedNodeForConfig || pendingNodeForAutoConfig;
-    if (targetNode?.id) {
-      setNodes((nds) => {
-        const updatedNodes = nds.map((node) =>
-          node.id === targetNode.id
-            ? {
-                ...node,
-                data: {
-                  ...node.data,
-                  config: config,
-                  label: config.taskReferenceName || config.name,
-                },
-              }
-            : node
-        );
-
-        // Update workflow tasks array with all configured tasks
-        if (workflow) {
-          const sortedNodes = [...updatedNodes];
-          sortedNodes.sort((a, b) => (a.data.sequenceNo || 0) - (b.data.sequenceNo || 0));
-          const workflowTasks = sortedNodes
-            .map(node => node.data.config)
-            .filter(Boolean); // Remove nodes without config
-          
-          updateWorkflow(workflow.id, { tasks: workflowTasks });
-        }
-
-        return updatedNodes;
-      });
-
-      toast({
-        title: 'Configuration saved',
-        description: 'HTTP task configuration has been updated.',
-      });
+  // Load workflow data on mount or when workflow changes
+  useEffect(() => {
+    if (workflow) {
+      setWorkflowName(workflow.name);
+      if (workflow.settings) {
+        setWorkflowSettings(workflow.settings);
+      }
+      // Load nodes and edges from the workflow
+      if (workflow.nodes && workflow.nodes.length > 0) {
+        setNodes(workflow.nodes.map(node => ({ 
+          ...node, 
+          draggable: false,
+          data: {
+            ...node.data,
+            onEdit: handleEditNode,
+            onDelete: handleDeleteNode,
+          }
+        })));
+      } else {
+        setNodes([]); // Clear nodes if workflow has none
+      }
+      if (workflow.edges && workflow.edges.length > 0) {
+        setEdges(workflow.edges);
+      } else {
+        setEdges([]); // Clear edges if workflow has none
+      }
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id]); // Only run when the workflow ID changes
 
-    setSelectedNodeForConfig(null);
-    setPendingNodeForAutoConfig(null);
-    setIsHttpConfigModalOpen(false);
-  }, [selectedNodeForConfig, pendingNodeForAutoConfig, setNodes, toast, workflow, updateWorkflow]);
+  // Update node handlers after they're loaded or when nodes change
+  useEffect(() => {
+    if (nodes.length > 0) {
+      // Check if any node is missing handlers
+      const needsUpdate = nodes.some(node => !node.data.onEdit || !node.data.onDelete);
+      
+      if (needsUpdate) {
+        setNodes((nds) =>
+          nds.map((node) => ({
+            ...node,
+            data: {
+              ...node.data,
+              onEdit: handleEditNode,
+              onDelete: handleDeleteNode,
+            },
+          }))
+        );
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [nodes.length]); // Only check when nodes count changes
+
+  // Auto-arrange nodes whenever they change (but not on initial load)
+  useEffect(() => {
+    if (nodes.length > 0) {
+      // Auto-arrange nodes in snake pattern whenever a new node is added
+      const sortedNodes = [...nodes].sort((a, b) => {
+        const seqA = a.data.sequenceNo || 0;
+        const seqB = b.data.sequenceNo || 0;
+        return seqA - seqB;
+      });
+
+      // Configuration for snake layout
+      const nodesPerRow = 6;
+      const horizontalSpacing = 200;
+      const verticalSpacing = 120;
+      const startX = 50;
+      const startY = 50;
+
+      // Arrange nodes in a snake pattern
+      const arrangedNodes = sortedNodes.map((node, index) => {
+        const rowIndex = Math.floor(index / nodesPerRow);
+        const colIndex = index % nodesPerRow;
+        const isOddRow = rowIndex % 2 === 1;
+        const actualColIndex = isOddRow ? (nodesPerRow - 1 - colIndex) : colIndex;
+
+        return {
+          ...node,
+          draggable: false,
+          position: {
+            x: startX + (actualColIndex * horizontalSpacing),
+            y: startY + (rowIndex * verticalSpacing),
+          },
+        };
+      });
+
+      setNodes(arrangedNodes);
+
+      // Auto-connect all nodes in sequence
+      const newEdges: Edge[] = [];
+      for (let i = 0; i < sortedNodes.length - 1; i++) {
+        const sourceNode = sortedNodes[i];
+        const targetNode = sortedNodes[i + 1];
+        
+        const sourceIndex = i;
+        const targetIndex = i + 1;
+        const sourceRow = Math.floor(sourceIndex / nodesPerRow);
+        const targetRow = Math.floor(targetIndex / nodesPerRow);
+        const isRowTransition = sourceRow !== targetRow;
+        
+        let sourceHandle = 'right';
+        let targetHandle = 'left';
+        
+        if (isRowTransition) {
+          sourceHandle = 'bottom';
+          targetHandle = 'top';
+        }
+        
+        newEdges.push({
+          id: `${sourceNode.id}-${targetNode.id}`,
+          source: sourceNode.id,
+          sourceHandle: sourceHandle,
+          target: targetNode.id,
+          targetHandle: targetHandle,
+          type: 'straight',
+          animated: true,
+          style: { stroke: '#00bcd4', strokeWidth: 2 },
+        });
+      }
+      setEdges(newEdges);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [nodes.length]); // Only run when node count changes
+
+  // Auto-save nodes and edges whenever they change
+  useEffect(() => {
+    if (workflow && (nodes.length > 0 || edges.length > 0)) {
+      // Debounce the save to avoid too frequent updates
+      const timeoutId = setTimeout(() => {
+        updateWorkflow(workflow.id, {
+          nodes: nodes,
+          edges: edges,
+        });
+      }, 500);
+
+      return () => clearTimeout(timeoutId);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [nodes, edges, workflow?.id]); // Only depend on workflow.id, not the entire workflow object
+
+  const onConnect = useCallback(
+    (params: Connection | Edge) => {
+      // Get source and target nodes
+      const sourceNode = nodes.find(n => n.id === params.source);
+      const targetNode = nodes.find(n => n.id === params.target);
+
+      if (!sourceNode || !targetNode) return;
+
+      // Get sequence numbers
+      const sourceSeq = sourceNode.data.sequenceNo || 0;
+      const targetSeq = targetNode.data.sequenceNo || 0;
+
+      // Only allow connecting to the next node in sequence
+      if (targetSeq !== sourceSeq + 1) {
+        toast({
+          title: 'Invalid connection',
+          description: 'Tasks can only be connected in sequence order. Use Auto Arrange to reorganize.',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      const edge = {
+        ...params,
+        sourceHandle: params.sourceHandle || 'right',
+        targetHandle: params.targetHandle || 'left',
+        type: 'bezier',
+        animated: true,
+        style: { stroke: '#00bcd4', strokeWidth: 2 },
+      };
+      setEdges((eds) => addEdge(edge, eds));
+    },
+    [nodes, setEdges, toast]
+  );
+
+  // Modal state declarations moved to top before handleEditNode
 
   // Helper to update a single node with new config
   const updateNodeWithConfig = (node: any, targetNodeId: string, config: any) => {
@@ -627,6 +724,8 @@ export function WorkflowDesigner() {
           ...node.data,
           config: config,
           label: config.taskReferenceName || config.name,
+          onEdit: handleEditNode,
+          onDelete: handleDeleteNode,
         },
       };
     }
@@ -645,197 +744,193 @@ export function WorkflowDesigner() {
   // Helper to handle the config save logic
   const saveTaskConfigLogic = (
     config: any,
-    taskType: string,
     setModalOpen: (open: boolean) => void
   ) => {
-    const targetNode = selectedNodeForConfig || pendingNodeForAutoConfig;
-    if (!targetNode?.id) return;
+    // Check if this is a new drop (pendingTaskDrop exists) or editing existing node
+    if (pendingTaskDrop) {
+      // Creating a new node from drag & drop
+      const taskRefId = config.taskReferenceName || `${pendingTaskDrop.taskType.toLowerCase()}_${Date.now()}`;
+      
+      setNodes((nds) => {
+        const sequenceNo = nds.length + 1;
+        
+        const newNode: Node = {
+          id: taskRefId,
+          type: 'custom',
+          position: { x: 0, y: 0 }, // Temporary position - will be arranged automatically
+          draggable: false,
+          data: {
+            label: config.taskReferenceName || config.name,
+            taskType: pendingTaskDrop.taskType,
+            taskName: pendingTaskDrop.taskName,
+            color: pendingTaskDrop.color,
+            sequenceNo: sequenceNo,
+            config: config,
+            onEdit: handleEditNode,
+            onDelete: handleDeleteNode,
+          },
+        };
+        
+        const updatedNodes = [...nds, newNode];
 
-    setNodes((nds) => {
-      const updatedNodes = nds.map((node) => updateNodeWithConfig(node, targetNode.id, config));
+        // Update workflow tasks array with all configured tasks
+        if (workflow) {
+          const workflowTasks = extractWorkflowTasks(updatedNodes);
+          updateWorkflow(workflow.id, { tasks: workflowTasks });
+        }
 
-      // Update workflow tasks array with all configured tasks
-      if (workflow) {
-        const workflowTasks = extractWorkflowTasks(updatedNodes);
-        updateWorkflow(workflow.id, { tasks: workflowTasks });
-      }
+        return updatedNodes;
+      });
 
-      return updatedNodes;
-    });
+      setPendingTaskDrop(null);
+      // Auto-arrange will be triggered by nodes state change via useEffect
+    } else {
+      // Editing existing node
+      const targetNode = selectedNodeForConfig || pendingNodeForAutoConfig;
+      if (!targetNode?.id) return;
 
-    toast({
-      title: 'Configuration saved',
-      description: `${taskType} task configuration has been updated.`,
-    });
+      setNodes((nds) => {
+        const updatedNodes = nds.map((node) => updateNodeWithConfig(node, targetNode.id, config));
 
-    setSelectedNodeForConfig(null);
-    setPendingNodeForAutoConfig(null);
+        // Update workflow tasks array with all configured tasks
+        if (workflow) {
+          const workflowTasks = extractWorkflowTasks(updatedNodes);
+          updateWorkflow(workflow.id, { tasks: workflowTasks });
+        }
+
+        return updatedNodes;
+      });
+
+      setSelectedNodeForConfig(null);
+      setPendingNodeForAutoConfig(null);
+    }
+
     setModalOpen(false);
   };
 
   // Generic save handler for task configs
   const createTaskConfigHandler = useCallback((
-    taskType: string,
     setModalOpen: (open: boolean) => void
-  ) => (config: any) => {
-    saveTaskConfigLogic(config, taskType, setModalOpen);
-  }, [selectedNodeForConfig, pendingNodeForAutoConfig, setNodes, toast, workflow, updateWorkflow]);
+  ) => {
+    return (config: any) => {
+      saveTaskConfigLogic(config, setModalOpen);
+    };
+  }, [selectedNodeForConfig, pendingNodeForAutoConfig, pendingTaskDrop, setNodes, setEdges, workflow, updateWorkflow, handleEditNode, handleDeleteNode]);
+
+  const handleSaveHttpTaskConfig = useCallback((config: any) =>
+    createTaskConfigHandler(setIsHttpConfigModalOpen)(config),
+    [createTaskConfigHandler]
+  );
 
   const handleSaveKafkaTaskConfig = useCallback((config: KafkaPublishTaskConfig) =>
-    createTaskConfigHandler('Kafka Publish', setIsKafkaPublishModalOpen)(config),
+    createTaskConfigHandler(setIsKafkaPublishModalOpen)(config),
     [createTaskConfigHandler]
   );
 
   const handleSaveGrpcTaskConfig = useCallback((config: GrpcTaskConfig) =>
-    createTaskConfigHandler('gRPC', setIsGrpcModalOpen)(config),
+    createTaskConfigHandler(setIsGrpcModalOpen)(config),
     [createTaskConfigHandler]
   );
 
   const handleSaveJsonJqTransformConfig = useCallback((config: JsonJqTransformTaskConfig) =>
-    createTaskConfigHandler('JSON JQ Transform', setIsJsonJqTransformModalOpen)(config),
+    createTaskConfigHandler(setIsJsonJqTransformModalOpen)(config),
     [createTaskConfigHandler]
   );
 
   const handleSaveJsonJqTransformStringConfig = useCallback((config: JsonJqTransformStringTaskConfig) =>
-    createTaskConfigHandler('JSON JQ Transform String', setIsJsonJqTransformStringModalOpen)(config),
+    createTaskConfigHandler(setIsJsonJqTransformStringModalOpen)(config),
     [createTaskConfigHandler]
   );
 
   const handleSaveNoopConfig = useCallback((config: NoopSystemTaskConfig) =>
-    createTaskConfigHandler('No-Op', setIsNoopModalOpen)(config),
+    createTaskConfigHandler(setIsNoopModalOpen)(config),
     [createTaskConfigHandler]
   );
 
   const handleSaveEventConfig = useCallback((config: EventSystemTaskConfig) =>
-    createTaskConfigHandler('Event', setIsEventModalOpen)(config),
+    createTaskConfigHandler(setIsEventModalOpen)(config),
     [createTaskConfigHandler]
   );
 
   const handleSaveWaitConfig = useCallback((config: WaitSystemTaskConfig) =>
-    createTaskConfigHandler('Wait', setIsWaitModalOpen)(config),
+    createTaskConfigHandler(setIsWaitModalOpen)(config),
     [createTaskConfigHandler]
   );
 
   const handleSaveSetVariableConfig = useCallback((config: SetVariableSystemTaskConfig) =>
-    createTaskConfigHandler('Set Variable', setIsSetVariableModalOpen)(config),
+    createTaskConfigHandler(setIsSetVariableModalOpen)(config),
     [createTaskConfigHandler]
   );
 
   const handleSaveSubWorkflowConfig = useCallback((config: SubWorkflowSystemTaskConfig) =>
-    createTaskConfigHandler('Sub Workflow', setIsSubWorkflowModalOpen)(config),
+    createTaskConfigHandler(setIsSubWorkflowModalOpen)(config),
     [createTaskConfigHandler]
   );
 
   const handleSaveTerminateConfig = useCallback((config: TerminateSystemTaskConfig) =>
-    createTaskConfigHandler('Terminate', setIsTerminateModalOpen)(config),
+    createTaskConfigHandler(setIsTerminateModalOpen)(config),
     [createTaskConfigHandler]
   );
 
   const handleSaveInlineConfig = useCallback((config: InlineSystemTaskConfig) =>
-    createTaskConfigHandler('Inline', setIsInlineModalOpen)(config),
+    createTaskConfigHandler(setIsInlineModalOpen)(config),
     [createTaskConfigHandler]
   );
 
   // Operator Modal Handlers
   const handleSaveForkJoinConfig = useCallback((config: ForkJoinConfig) =>
-    createTaskConfigHandler('Fork Join', setIsForkJoinModalOpen)(config),
+    createTaskConfigHandler(setIsForkJoinModalOpen)(config),
     [createTaskConfigHandler]
   );
 
   const handleSaveForkJoinDynamicConfig = useCallback((config: ForkJoinDynamicConfig) =>
-    createTaskConfigHandler('Fork Join Dynamic', setIsForkJoinDynamicModalOpen)(config),
+    createTaskConfigHandler(setIsForkJoinDynamicModalOpen)(config),
     [createTaskConfigHandler]
   );
 
   const handleSaveSwitchConfig = useCallback((config: SwitchConfig) =>
-    createTaskConfigHandler('Switch', setIsSwitchModalOpen)(config),
+    createTaskConfigHandler(setIsSwitchModalOpen)(config),
     [createTaskConfigHandler]
   );
 
   const handleSaveDoWhileConfig = useCallback((config: DoWhileConfig) =>
-    createTaskConfigHandler('Do While', setIsDoWhileModalOpen)(config),
+    createTaskConfigHandler(setIsDoWhileModalOpen)(config),
     [createTaskConfigHandler]
   );
 
   const handleSaveDynamicConfig = useCallback((config: DynamicConfig) =>
-    createTaskConfigHandler('Dynamic', setIsDynamicModalOpen)(config),
+    createTaskConfigHandler(setIsDynamicModalOpen)(config),
     [createTaskConfigHandler]
   );
 
   const handleSaveLambdaConfig = useCallback((config: LambdaConfig) =>
-    createTaskConfigHandler('Lambda', setIsLambdaModalOpen)(config),
+    createTaskConfigHandler(setIsLambdaModalOpen)(config),
     [createTaskConfigHandler]
   );
 
   const handleSaveOperatorInlineConfig = useCallback((config: InlineConfig) =>
-    createTaskConfigHandler('Inline Operator', setIsOperatorInlineModalOpen)(config),
+    createTaskConfigHandler(setIsOperatorInlineModalOpen)(config),
     [createTaskConfigHandler]
   );
 
   const handleSaveJoinConfig = useCallback((config: JoinConfig) =>
-    createTaskConfigHandler('Join', setIsJoinModalOpen)(config),
+    createTaskConfigHandler(setIsJoinModalOpen)(config),
     [createTaskConfigHandler]
   );
 
   const handleSaveExclusiveJoinConfig = useCallback((config: ExclusiveJoinConfig) =>
-    createTaskConfigHandler('Exclusive Join', setIsExclusiveJoinModalOpen)(config),
+    createTaskConfigHandler(setIsExclusiveJoinModalOpen)(config),
     [createTaskConfigHandler]
   );
 
   const handleSaveOperatorSubWorkflowConfig = useCallback((config: SubWorkflowConfig) =>
-    createTaskConfigHandler('Sub Workflow Operator', setIsOperatorSubWorkflowModalOpen)(config),
+    createTaskConfigHandler(setIsOperatorSubWorkflowModalOpen)(config),
     [createTaskConfigHandler]
   );
 
-  const handleSaveSimpleTaskConfig = useCallback((config: WorkflowTaskConfig, nodeId?: string) => {
-    // Get the node ID from selectedNodeForConfig, pendingNodeForAutoConfig, or parameter
-    const targetNodeId = nodeId || selectedNodeForConfig?.id || pendingNodeForAutoConfig?.id;
-
-    if (!targetNodeId) {
-      console.error('No node ID found for saving simple task config');
-      return;
-    }
-
-    setNodes((nds) => {
-      // Find the node in the current state
-      const nodeExists = nds.some(n => n.id === targetNodeId);
-
-      if (!nodeExists) {
-        console.warn(`Node with ID ${targetNodeId} not found in nodes array`, nds.map(n => n.id));
-        return nds; // Node not found, don't update
-      }
-
-      const updatedNodes = nds.map((node) =>
-        node.id === targetNodeId
-          ? {
-              ...node,
-              data: {
-                ...node.data,
-                config: config,
-                label: config.taskReferenceName || config.name,
-              },
-            }
-          : node
-      );
-
-      // Update workflow tasks array with the configured tasks
-      if (workflow) {
-        const sortedNodes = [...updatedNodes];
-        sortedNodes.sort((a, b) => (a.data.sequenceNo || 0) - (b.data.sequenceNo || 0));
-        const workflowTasks = sortedNodes
-          .map(node => node.data.config)
-          .filter(Boolean); // Remove nodes without config
-        
-        updateWorkflow(workflow.id, { tasks: workflowTasks });
-      }
-
-      return updatedNodes;
-    });
-
-    setSelectedNodeForConfig(null);
-    setPendingNodeForAutoConfig(null);
-    setIsSimpleTaskModalOpen(false);
-  }, [selectedNodeForConfig, pendingNodeForAutoConfig, setNodes, workflow, updateWorkflow]);
+  const handleSaveSimpleTaskConfig = useCallback((config: WorkflowTaskConfig) => {
+    saveTaskConfigLogic(config, setIsSimpleTaskModalOpen);
+  }, [saveTaskConfigLogic]);
 
   const onDragOver = useCallback((event: React.DragEvent) => {
     event.preventDefault();
@@ -859,62 +954,13 @@ export function WorkflowDesigner() {
         y: event.clientY - reactFlowBounds.top - 40,
       };
 
-      const taskRefId = `${task.type.toLowerCase()}_${Date.now()}`;
-      
-      setNodes((nds) => {
-        const sequenceNo = nds.length + 1;
-        
-        const newNode: Node = {
-          id: taskRefId,
-          type: 'custom',
-          position,
-          data: {
-            label: taskRefId,
-            taskType: task.type,
-            taskName: task.name,
-            color: task.color,
-            sequenceNo: sequenceNo,
-            onEdit: handleEditNode,
-            onDelete: handleDeleteNode,
-          },
-        };
-        
-        const updatedNodes = [...nds, newNode];
-        
-        // Auto-connect to the last node if exists
-        if (nds.length > 0) {
-          const lastNode = nds.at(-1)!;
-          const newEdge: Edge = {
-            id: `${lastNode.id}-${newNode.id}`,
-            source: lastNode.id,
-            target: newNode.id,
-            type: 'smoothstep',
-            animated: true,
-            style: { stroke: '#00bcd4', strokeWidth: 2 },
-          };
-          setEdges((eds) => [...eds, newEdge]);
-        }
-        
-        return updatedNodes;
+      // Store the pending drop information - node will be created when config is saved
+      setPendingTaskDrop({
+        taskType: task.type,
+        taskName: task.name,
+        color: task.color,
+        position: position,
       });
-
-      // Auto-open config modal for tasks that require configuration
-      const pendingNode = {
-        id: taskRefId,
-        type: 'custom' as const,
-        position,
-        data: {
-          label: taskRefId,
-          taskType: task.type,
-          taskName: task.name,
-          color: task.color,
-          sequenceNo: 1,
-          onEdit: handleEditNode,
-          onDelete: handleDeleteNode,
-        },
-      };
-
-      setPendingNodeForAutoConfig(pendingNode);
 
       // Open the appropriate modal based on task type
       switch (task.type) {
@@ -988,11 +1034,11 @@ export function WorkflowDesigner() {
           setIsOperatorSubWorkflowModalOpen(true);
           break;
         default:
-          // For tasks without modals, just clear the pending node
-          setPendingNodeForAutoConfig(null);
+          // For tasks without modals, clear the pending drop
+          setPendingTaskDrop(null);
       }
     },
-    [setNodes, setEdges, handleEditNode, handleDeleteNode, setIsHttpConfigModalOpen, setIsKafkaPublishModalOpen, setIsGrpcModalOpen, setIsJsonJqTransformModalOpen, setIsJsonJqTransformStringModalOpen, setIsNoopModalOpen, setIsEventModalOpen, setIsWaitModalOpen, setIsSetVariableModalOpen, setIsSubWorkflowModalOpen, setIsTerminateModalOpen, setIsInlineModalOpen, setIsSimpleTaskModalOpen, setIsForkJoinModalOpen, setIsForkJoinDynamicModalOpen, setIsSwitchModalOpen, setIsDoWhileModalOpen, setIsLambdaModalOpen, setIsOperatorInlineModalOpen, setIsJoinModalOpen, setIsExclusiveJoinModalOpen, setIsOperatorSubWorkflowModalOpen]
+    [setIsHttpConfigModalOpen, setIsKafkaPublishModalOpen, setIsGrpcModalOpen, setIsJsonJqTransformModalOpen, setIsJsonJqTransformStringModalOpen, setIsNoopModalOpen, setIsEventModalOpen, setIsWaitModalOpen, setIsSetVariableModalOpen, setIsSubWorkflowModalOpen, setIsTerminateModalOpen, setIsInlineModalOpen, setIsSimpleTaskModalOpen, setIsForkJoinModalOpen, setIsForkJoinDynamicModalOpen, setIsSwitchModalOpen, setIsDoWhileModalOpen, setIsLambdaModalOpen, setIsOperatorInlineModalOpen, setIsJoinModalOpen, setIsExclusiveJoinModalOpen, setIsOperatorSubWorkflowModalOpen]
   );
 
   const handleAutoArrange = useCallback(() => {
@@ -1030,6 +1076,7 @@ export function WorkflowDesigner() {
 
       return {
         ...node,
+        draggable: false,
         position: {
           x: startX + (actualColIndex * horizontalSpacing),
           y: startY + (rowIndex * verticalSpacing),
@@ -1039,17 +1086,38 @@ export function WorkflowDesigner() {
 
     setNodes(arrangedNodes);
 
-    // Auto-connect all nodes in sequence
+    // Auto-connect all nodes in sequence with proper row transitions
     const newEdges: Edge[] = [];
     for (let i = 0; i < sortedNodes.length - 1; i++) {
       const sourceNode = sortedNodes[i];
       const targetNode = sortedNodes[i + 1];
-
+      
+      const sourceIndex = i;
+      const targetIndex = i + 1;
+      
+      // Determine if we're transitioning to the next row
+      const sourceRow = Math.floor(sourceIndex / nodesPerRow);
+      const targetRow = Math.floor(targetIndex / nodesPerRow);
+      const isRowTransition = sourceRow !== targetRow;
+      
+      // Determine handle positions based on layout
+      let sourceHandle = 'right'; // Default: connect from right
+      let targetHandle = 'left';  // Default: connect to left
+      
+      // If it's a row transition (moving to next row)
+      if (isRowTransition) {
+        // Connect from bottom of last task in row to top of first task in next row
+        sourceHandle = 'bottom';
+        targetHandle = 'top';
+      }
+      
       newEdges.push({
         id: `${sourceNode.id}-${targetNode.id}`,
         source: sourceNode.id,
+        sourceHandle: sourceHandle,
         target: targetNode.id,
-        type: 'smoothstep',
+        targetHandle: targetHandle,
+        type: 'straight',
         animated: true,
         style: { stroke: '#00bcd4', strokeWidth: 2 },
       });
@@ -1086,7 +1154,7 @@ export function WorkflowDesigner() {
     if (!workflow) {
       // Create new workflow if accessed from standalone designer
       const newWorkflow = {
-        id: workflowSettings.workflowId,
+        id: `workflow-${Date.now()}`,
         name: workflowName,
         description: workflowSettings.description,
         nodes: nodes,
@@ -1096,10 +1164,6 @@ export function WorkflowDesigner() {
         settings: workflowSettings,
       };
       useWorkflowStore.getState().addWorkflow(newWorkflow);
-      toast({
-        title: 'Workflow created',
-        description: 'Your workflow has been created successfully.',
-      });
       navigate(`/workflows/${newWorkflow.id}`);
       return false;
     }
@@ -1111,10 +1175,6 @@ export function WorkflowDesigner() {
       settings: workflowSettings,
       nodes: nodes,
       edges: edges,
-    });
-    toast({
-      title: 'Workflow saved',
-      description: 'Your workflow has been saved successfully.',
     });
     return true;
   };
@@ -1140,12 +1200,7 @@ export function WorkflowDesigner() {
 
   const handleExecuteWorkflow = (workflowId: string, input: any) => {
     try {
-      const execution = executeWorkflow(workflowId, input);
-      
-      toast({
-        title: 'Workflow execution started',
-        description: `Execution ID: ${execution.id}`,
-      });
+      executeWorkflow(workflowId, input);
 
       // Navigate to executions page
       setTimeout(() => {
@@ -1517,10 +1572,12 @@ export function WorkflowDesigner() {
                         fitView
                         className="bg-[#0f1419]"
                         defaultEdgeOptions={{
-                          type: 'smoothstep',
+                          type: 'bezier',
                           animated: true,
                           style: { stroke: '#00bcd4', strokeWidth: 2 },
                         }}
+                        onDrop={onDrop}
+                        onDragOver={onDragOver}
                       >
                         <Background
                           color="#2a3142"
@@ -1547,10 +1604,6 @@ export function WorkflowDesigner() {
                       <div>
                         <Label className="text-gray-400 text-sm">Name</Label>
                         <p className="text-white mt-1">{workflowName}</p>
-                      </div>
-                      <div>
-                        <Label className="text-gray-400 text-sm">Workflow ID</Label>
-                        <p className="text-white mt-1 font-mono text-sm">{workflowSettings.workflowId}</p>
                       </div>
                       <div>
                         <Label className="text-gray-400 text-sm">Status</Label>
@@ -1589,19 +1642,11 @@ export function WorkflowDesigner() {
                     <div className="space-y-4">
                       <h4 className="text-lg font-medium text-white">Basic Information</h4>
                       <div className="grid grid-cols-2 gap-4">
-                        <div>
+                        <div className="col-span-2">
                           <Label className="text-white">Workflow Name *</Label>
                           <Input
                             value={workflowName}
                             onChange={(e) => setWorkflowName(e.target.value)}
-                            className="mt-2 bg-[#0f1419] text-white border-[#2a3142]"
-                          />
-                        </div>
-                        <div>
-                          <Label className="text-white">Workflow ID *</Label>
-                          <Input
-                            value={workflowSettings.workflowId}
-                            onChange={(e) => setWorkflowSettings({ ...workflowSettings, workflowId: e.target.value })}
                             className="mt-2 bg-[#0f1419] text-white border-[#2a3142]"
                           />
                         </div>
@@ -1638,14 +1683,6 @@ export function WorkflowDesigner() {
                             type="number"
                             value={workflowSettings.schemaVersion}
                             onChange={(e) => setWorkflowSettings({ ...workflowSettings, schemaVersion: Number.parseInt(e.target.value) || 2 })}
-                            className="mt-2 bg-[#0f1419] text-white border-[#2a3142]"
-                          />
-                        </div>
-                        <div>
-                          <Label className="text-white">Organization ID</Label>
-                          <Input
-                            value={workflowSettings.orgId}
-                            onChange={(e) => setWorkflowSettings({ ...workflowSettings, orgId: e.target.value })}
                             className="mt-2 bg-[#0f1419] text-white border-[#2a3142]"
                           />
                         </div>
@@ -1814,7 +1851,6 @@ export function WorkflowDesigner() {
                           schemaVersion: workflowSettings.schemaVersion,
                         }, null, 2);
                         navigator.clipboard.writeText(json);
-                        toast({ title: 'Copied!', description: 'JSON copied to clipboard' });
                       }}
                       className="text-cyan-500 border-[#2a3142]"
                     >
@@ -1870,6 +1906,7 @@ export function WorkflowDesigner() {
         onOpenChange={(open) => {
           setIsHttpConfigModalOpen(open);
           if (!open) {
+            setPendingTaskDrop(null);
             if (pendingNodeForAutoConfig && !selectedNodeForConfig) {
               setNodes((nds) => nds.filter((n) => n.id !== pendingNodeForAutoConfig.id));
               setEdges((eds) => eds.filter((e) =>
@@ -2087,6 +2124,7 @@ export function WorkflowDesigner() {
         onOpenChange={(open) => {
           setIsSimpleTaskModalOpen(open);
           if (!open) {
+            setPendingTaskDrop(null);
             if (pendingNodeForAutoConfig && !selectedNodeForConfig) {
               setNodes((nds) => nds.filter((n) => n.id !== pendingNodeForAutoConfig.id));
               setEdges((eds) => eds.filter((e) => 
@@ -2097,11 +2135,9 @@ export function WorkflowDesigner() {
             setSelectedNodeForConfig(null);
           }
         }}
+        initialConfig={selectedNodeForConfig?.data?.config}
         onSave={async (config) => {
-          const targetNode = selectedNodeForConfig || pendingNodeForAutoConfig;
-          if (targetNode?.id) {
-            handleSaveSimpleTaskConfig(config, targetNode.id);
-          }
+          handleSaveSimpleTaskConfig(config);
         }}
       />
 

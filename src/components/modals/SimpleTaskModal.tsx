@@ -25,6 +25,7 @@ export interface SimpleTaskModalProps {
   readonly open: boolean;
   readonly onOpenChange: (open: boolean) => void;
   readonly onSave: (config: WorkflowTaskConfig) => Promise<void>;
+  readonly initialConfig?: WorkflowTaskConfig; // For editing existing config
 }
 
 interface InputParam {
@@ -37,6 +38,7 @@ export function SimpleTaskModal({
   open,
   onOpenChange,
   onSave,
+  initialConfig,
 }: SimpleTaskModalProps) {
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
@@ -53,19 +55,41 @@ export function SimpleTaskModal({
 
   useEffect(() => {
     if (open) {
-      const timestamp = Date.now();
-      setTaskName(`task_${timestamp}`);
-      setTaskRefName(`task_ref_${timestamp}`);
-      setOptional(false);
-      setStartDelay(0);
-      setAsyncComplete(false);
-      setRateLimitPerFrequency(0);
-      setRateLimitFrequencyInSeconds(1);
-      setInputParams([]);
+      if (initialConfig) {
+        // Editing mode: populate form with existing config
+        setTaskName(initialConfig.name || "");
+        setTaskRefName(initialConfig.taskReferenceName || "");
+        setOptional(initialConfig.optional ?? false);
+        setStartDelay(initialConfig.startDelay ?? 0);
+        setAsyncComplete(initialConfig.asyncComplete ?? false);
+        setRateLimitPerFrequency(initialConfig.rateLimitPerFrequency ?? 0);
+        setRateLimitFrequencyInSeconds(initialConfig.rateLimitFrequencyInSeconds ?? 1);
+        
+        // Parse input parameters into the InputParam format
+        const params: InputParam[] = Object.entries(initialConfig.inputParameters || {}).map(
+          ([key, value]) => ({
+            id: `${Date.now()}_${key}`,
+            key,
+            value: typeof value === 'string' ? value : JSON.stringify(value),
+          })
+        );
+        setInputParams(params);
+      } else {
+        // New task mode: reset form with defaults
+        const timestamp = Date.now();
+        setTaskName(`task_${timestamp}`);
+        setTaskRefName(`task_ref_${timestamp}`);
+        setOptional(false);
+        setStartDelay(0);
+        setAsyncComplete(false);
+        setRateLimitPerFrequency(0);
+        setRateLimitFrequencyInSeconds(1);
+        setInputParams([]);
+      }
       setJsonValidationError("");
       setJsonEditable("");
     }
-  }, [open]);
+  }, [open, initialConfig]);
 
   const handleAddInputParam = () => {
     setInputParams([...inputParams, { id: `${Date.now()}`, key: "", value: "" }]);

@@ -65,7 +65,8 @@ export function useConductorApi(options: UseConductorApiOptions = {}) {
       if (apiKey) {
         headers['X-Conductor-API-Key'] = apiKey;
       }
-      const response = await fetch(`${baseUrl}/metadata/workflow/${name}/${version}`, { headers });
+      // Conductor API uses query parameter for version
+      const response = await fetch(`${baseUrl}/metadata/workflow/${name}?version=${version}`, { headers });
       if (!response.ok) {
         throw new Error(`Failed to fetch workflow: ${response.statusText}`);
       }

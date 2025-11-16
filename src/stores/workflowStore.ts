@@ -43,8 +43,6 @@ export interface WorkflowSettings {
   timeoutSeconds: number;
   restartable: boolean;
   schemaVersion: number;
-  orgId: string;
-  workflowId: string;
   effectiveDate: string;
   endDate: string;
   status: 'DRAFT' | 'ACTIVE' | 'PAUSED';

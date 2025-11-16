@@ -51,8 +51,6 @@ const resolvers = {
               type
             }
             # Custom attributes
-            orgId
-            workflowId
             effectiveDate
             endDate
             status
@@ -86,9 +84,6 @@ const resolvers = {
             timeoutSeconds
             restartable
             schemaVersion
-            # Custom attributes
-            orgId
-            workflowId
             effectiveDate
             endDate
             status
