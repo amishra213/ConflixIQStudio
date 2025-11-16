@@ -85,7 +85,7 @@ const DECISION_TASK_EXAMPLE = `{
   }
 }`;
 
-export default function JsonTaskCreatorModal({ open, onClose, onSave }: JsonTaskCreatorModalProps) {
+export default function JsonTaskCreatorModal({ open, onClose, onSave }: Readonly<JsonTaskCreatorModalProps>) {
   const { toast } = useToast();
   const [jsonInput, setJsonInput] = useState('');
   const [jsonError, setJsonError] = useState('');
@@ -121,6 +121,7 @@ export default function JsonTaskCreatorModal({ open, onClose, onSave }: JsonTask
       const taskJson = JSON.parse(jsonInput);
       onSave(taskJson);
     } catch (error) {
+      console.error('Failed to parse task JSON:', error);
       toast({
         title: 'Save Failed',
         description: 'Failed to parse task JSON.',
@@ -147,7 +148,7 @@ export default function JsonTaskCreatorModal({ open, onClose, onSave }: JsonTask
     link.download = 'task-template.json';
     document.body.appendChild(link);
     link.click();
-    document.body.removeChild(link);
+    link.remove();
     URL.revokeObjectURL(url);
     
     toast({
