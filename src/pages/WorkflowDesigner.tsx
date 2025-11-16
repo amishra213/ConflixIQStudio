@@ -227,6 +227,11 @@ export function WorkflowDesigner() {
             x: startX + (actualColIndex * horizontalSpacing),
             y: startY + (rowIndex * verticalSpacing),
           },
+          data: {
+            ...node.data,
+            onEdit: handleEditNode,
+            onDelete: handleDeleteNode,
+          },
         };
       });
 

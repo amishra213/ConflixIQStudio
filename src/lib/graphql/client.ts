@@ -1,4 +1,4 @@
-import { ApolloClient, InMemoryCache, HttpLink, ApolloLink, from } from '@apollo/client';
+import { ApolloClient, InMemoryCache, HttpLink, ApolloLink } from '@apollo/client';
 import { ErrorLink } from '@apollo/client/link/error';
 import { CombinedGraphQLErrors } from '@apollo/client/errors';
 import { Observable } from 'rxjs';
@@ -135,7 +135,7 @@ export const createApolloClient = (conductorUrl?: string, apiKey?: string) => {
   try {
     console.log('Creating Apollo Client...');
     apolloClient = new ApolloClient({
-      link: from([errorLink, loggingLink, authLink, httpLink]),
+      link: ApolloLink.from([errorLink, loggingLink, authLink, httpLink]),
       cache: new InMemoryCache(),
       defaultOptions: {
         watchQuery: {
