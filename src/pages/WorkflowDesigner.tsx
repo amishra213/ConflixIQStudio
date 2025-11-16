@@ -42,6 +42,17 @@ import { TerminateSystemTaskModal, TerminateSystemTaskConfig } from '@/component
 import { InlineSystemTaskModal, InlineSystemTaskConfig } from '@/components/modals/system-tasks/InlineSystemTaskModal';
 import { SimpleTaskModal, WorkflowTaskConfig } from '@/components/modals/SimpleTaskModal';
 
+// Operator Modals
+import { ForkJoinModal, ForkJoinConfig } from '@/components/modals/operators/ForkJoinModal';
+import { ForkJoinDynamicModal, ForkJoinDynamicConfig } from '@/components/modals/operators/ForkJoinDynamicModal';
+import { SwitchModal, SwitchConfig } from '@/components/modals/operators/SwitchModal';
+import { DoWhileModal, DoWhileConfig } from '@/components/modals/operators/DoWhileModal';
+import { LambdaModal, LambdaConfig } from '@/components/modals/operators/LambdaModal';
+import { InlineModal, InlineConfig } from '@/components/modals/operators/InlineModal';
+import { JoinModal, JoinConfig } from '@/components/modals/operators/JoinModal';
+import { ExclusiveJoinModal, ExclusiveJoinConfig } from '@/components/modals/operators/ExclusiveJoinModal';
+import { SubWorkflowModal, SubWorkflowConfig } from '@/components/modals/operators/SubWorkflowModal';
+
 import logo from '../../resources/logo.svg';
 
 // Custom Node Component
@@ -188,7 +199,7 @@ const operators = [
     id: 'INLINE',
     name: 'Inline',
     description: 'Execute inline code',
-    type: 'INLINE',
+    type: 'INLINE_OPERATOR',
     color: '#9c27b0',
   },
   {
@@ -216,7 +227,7 @@ const operators = [
     id: 'SUB_WORKFLOW',
     name: 'Sub Workflow',
     description: 'Execute a sub-workflow',
-    type: 'SUB_WORKFLOW',
+    type: 'SUB_WORKFLOW_OPERATOR',
     color: '#9c27b0',
   },
   {
@@ -432,6 +443,18 @@ export function WorkflowDesigner() {
   const [isTerminateModalOpen, setIsTerminateModalOpen] = useState(false);
   const [isInlineModalOpen, setIsInlineModalOpen] = useState(false);
   const [isSimpleTaskModalOpen, setIsSimpleTaskModalOpen] = useState(false);
+  
+  // Operator Modals
+  const [isForkJoinModalOpen, setIsForkJoinModalOpen] = useState(false);
+  const [isForkJoinDynamicModalOpen, setIsForkJoinDynamicModalOpen] = useState(false);
+  const [isSwitchModalOpen, setIsSwitchModalOpen] = useState(false);
+  const [isDoWhileModalOpen, setIsDoWhileModalOpen] = useState(false);
+  const [isLambdaModalOpen, setIsLambdaModalOpen] = useState(false);
+  const [isOperatorInlineModalOpen, setIsOperatorInlineModalOpen] = useState(false);
+  const [isJoinModalOpen, setIsJoinModalOpen] = useState(false);
+  const [isExclusiveJoinModalOpen, setIsExclusiveJoinModalOpen] = useState(false);
+  const [isOperatorSubWorkflowModalOpen, setIsOperatorSubWorkflowModalOpen] = useState(false);
+  
   const [selectedNodeForConfig, setSelectedNodeForConfig] = useState<Node | null>(null);
   const [pendingNodeForAutoConfig, setPendingNodeForAutoConfig] = useState<Node | null>(null); // For auto-opening config after drag/drop
 
@@ -480,6 +503,33 @@ export function WorkflowDesigner() {
           break;
         case 'SIMPLE':
           setIsSimpleTaskModalOpen(true);
+          break;
+        case 'FORK_JOIN':
+          setIsForkJoinModalOpen(true);
+          break;
+        case 'FORK_JOIN_DYNAMIC':
+          setIsForkJoinDynamicModalOpen(true);
+          break;
+        case 'SWITCH':
+          setIsSwitchModalOpen(true);
+          break;
+        case 'DO_WHILE':
+          setIsDoWhileModalOpen(true);
+          break;
+        case 'LAMBDA':
+          setIsLambdaModalOpen(true);
+          break;
+        case 'INLINE_OPERATOR':
+          setIsOperatorInlineModalOpen(true);
+          break;
+        case 'JOIN':
+          setIsJoinModalOpen(true);
+          break;
+        case 'EXCLUSIVE_JOIN':
+          setIsExclusiveJoinModalOpen(true);
+          break;
+        case 'SUB_WORKFLOW_OPERATOR':
+          setIsOperatorSubWorkflowModalOpen(true);
           break;
         default:
           toast({
@@ -658,6 +708,52 @@ export function WorkflowDesigner() {
     [createTaskConfigHandler]
   );
 
+  // Operator Modal Handlers
+  const handleSaveForkJoinConfig = useCallback((config: ForkJoinConfig) =>
+    createTaskConfigHandler('Fork Join', setIsForkJoinModalOpen)(config),
+    [createTaskConfigHandler]
+  );
+
+  const handleSaveForkJoinDynamicConfig = useCallback((config: ForkJoinDynamicConfig) =>
+    createTaskConfigHandler('Fork Join Dynamic', setIsForkJoinDynamicModalOpen)(config),
+    [createTaskConfigHandler]
+  );
+
+  const handleSaveSwitchConfig = useCallback((config: SwitchConfig) =>
+    createTaskConfigHandler('Switch', setIsSwitchModalOpen)(config),
+    [createTaskConfigHandler]
+  );
+
+  const handleSaveDoWhileConfig = useCallback((config: DoWhileConfig) =>
+    createTaskConfigHandler('Do While', setIsDoWhileModalOpen)(config),
+    [createTaskConfigHandler]
+  );
+
+  const handleSaveLambdaConfig = useCallback((config: LambdaConfig) =>
+    createTaskConfigHandler('Lambda', setIsLambdaModalOpen)(config),
+    [createTaskConfigHandler]
+  );
+
+  const handleSaveOperatorInlineConfig = useCallback((config: InlineConfig) =>
+    createTaskConfigHandler('Inline Operator', setIsOperatorInlineModalOpen)(config),
+    [createTaskConfigHandler]
+  );
+
+  const handleSaveJoinConfig = useCallback((config: JoinConfig) =>
+    createTaskConfigHandler('Join', setIsJoinModalOpen)(config),
+    [createTaskConfigHandler]
+  );
+
+  const handleSaveExclusiveJoinConfig = useCallback((config: ExclusiveJoinConfig) =>
+    createTaskConfigHandler('Exclusive Join', setIsExclusiveJoinModalOpen)(config),
+    [createTaskConfigHandler]
+  );
+
+  const handleSaveOperatorSubWorkflowConfig = useCallback((config: SubWorkflowConfig) =>
+    createTaskConfigHandler('Sub Workflow Operator', setIsOperatorSubWorkflowModalOpen)(config),
+    [createTaskConfigHandler]
+  );
+
   const handleSaveSimpleTaskConfig = useCallback((config: WorkflowTaskConfig, nodeId?: string) => {
     // Get the node ID from selectedNodeForConfig, pendingNodeForAutoConfig, or parameter
     const targetNodeId = nodeId || selectedNodeForConfig?.id || pendingNodeForAutoConfig?.id;
@@ -707,8 +803,8 @@ export function WorkflowDesigner() {
       const taskId = event.dataTransfer.getData('application/reactflow');
       if (!taskId) return;
 
-      // Search in both system tasks and worker tasks
-      const task = systemTasks.find((t) => t.id === taskId) || workerTasks.find((t) => t.id === taskId);
+      // Search in system tasks, worker tasks, and operators
+      const task = systemTasks.find((t) => t.id === taskId) || workerTasks.find((t) => t.id === taskId) || operators.find((t) => t.id === taskId);
       if (!task) return;
 
       const reactFlowBounds = event.currentTarget.getBoundingClientRect();
@@ -815,12 +911,39 @@ export function WorkflowDesigner() {
         case 'SIMPLE':
           setIsSimpleTaskModalOpen(true);
           break;
+        case 'FORK_JOIN':
+          setIsForkJoinModalOpen(true);
+          break;
+        case 'FORK_JOIN_DYNAMIC':
+          setIsForkJoinDynamicModalOpen(true);
+          break;
+        case 'SWITCH':
+          setIsSwitchModalOpen(true);
+          break;
+        case 'DO_WHILE':
+          setIsDoWhileModalOpen(true);
+          break;
+        case 'LAMBDA':
+          setIsLambdaModalOpen(true);
+          break;
+        case 'INLINE_OPERATOR':
+          setIsOperatorInlineModalOpen(true);
+          break;
+        case 'JOIN':
+          setIsJoinModalOpen(true);
+          break;
+        case 'EXCLUSIVE_JOIN':
+          setIsExclusiveJoinModalOpen(true);
+          break;
+        case 'SUB_WORKFLOW_OPERATOR':
+          setIsOperatorSubWorkflowModalOpen(true);
+          break;
         default:
           // For tasks without modals, just clear the pending node
           setPendingNodeForAutoConfig(null);
       }
     },
-    [setNodes, setEdges, handleEditNode, handleDeleteNode]
+    [setNodes, setEdges, handleEditNode, handleDeleteNode, setIsHttpConfigModalOpen, setIsKafkaPublishModalOpen, setIsGrpcModalOpen, setIsJsonJqTransformModalOpen, setIsJsonJqTransformStringModalOpen, setIsNoopModalOpen, setIsEventModalOpen, setIsWaitModalOpen, setIsSetVariableModalOpen, setIsSubWorkflowModalOpen, setIsTerminateModalOpen, setIsInlineModalOpen, setIsSimpleTaskModalOpen, setIsForkJoinModalOpen, setIsForkJoinDynamicModalOpen, setIsSwitchModalOpen, setIsDoWhileModalOpen, setIsLambdaModalOpen, setIsOperatorInlineModalOpen, setIsJoinModalOpen, setIsExclusiveJoinModalOpen, setIsOperatorSubWorkflowModalOpen]
   );
 
   const handleAutoArrange = useCallback(() => {
@@ -1931,6 +2054,169 @@ export function WorkflowDesigner() {
             handleSaveSimpleTaskConfig(config, targetNode.id);
           }
         }}
+      />
+
+      {/* Operator Modals */}
+      <ForkJoinModal
+        open={isForkJoinModalOpen}
+        onOpenChange={(open) => {
+          setIsForkJoinModalOpen(open);
+          if (!open) {
+            if (pendingNodeForAutoConfig && !selectedNodeForConfig) {
+              setNodes((nds) => nds.filter((n) => n.id !== pendingNodeForAutoConfig.id));
+              setEdges((eds) => eds.filter((e) =>
+                e.source !== pendingNodeForAutoConfig.id && e.target !== pendingNodeForAutoConfig.id
+              ));
+            }
+            setPendingNodeForAutoConfig(null);
+            setSelectedNodeForConfig(null);
+          }
+        }}
+        onSave={handleSaveForkJoinConfig}
+      />
+
+      <ForkJoinDynamicModal
+        open={isForkJoinDynamicModalOpen}
+        onOpenChange={(open) => {
+          setIsForkJoinDynamicModalOpen(open);
+          if (!open) {
+            if (pendingNodeForAutoConfig && !selectedNodeForConfig) {
+              setNodes((nds) => nds.filter((n) => n.id !== pendingNodeForAutoConfig.id));
+              setEdges((eds) => eds.filter((e) =>
+                e.source !== pendingNodeForAutoConfig.id && e.target !== pendingNodeForAutoConfig.id
+              ));
+            }
+            setPendingNodeForAutoConfig(null);
+            setSelectedNodeForConfig(null);
+          }
+        }}
+        onSave={handleSaveForkJoinDynamicConfig}
+      />
+
+      <SwitchModal
+        open={isSwitchModalOpen}
+        onOpenChange={(open) => {
+          setIsSwitchModalOpen(open);
+          if (!open) {
+            if (pendingNodeForAutoConfig && !selectedNodeForConfig) {
+              setNodes((nds) => nds.filter((n) => n.id !== pendingNodeForAutoConfig.id));
+              setEdges((eds) => eds.filter((e) =>
+                e.source !== pendingNodeForAutoConfig.id && e.target !== pendingNodeForAutoConfig.id
+              ));
+            }
+            setPendingNodeForAutoConfig(null);
+            setSelectedNodeForConfig(null);
+          }
+        }}
+        onSave={handleSaveSwitchConfig}
+      />
+
+      <DoWhileModal
+        open={isDoWhileModalOpen}
+        onOpenChange={(open) => {
+          setIsDoWhileModalOpen(open);
+          if (!open) {
+            if (pendingNodeForAutoConfig && !selectedNodeForConfig) {
+              setNodes((nds) => nds.filter((n) => n.id !== pendingNodeForAutoConfig.id));
+              setEdges((eds) => eds.filter((e) =>
+                e.source !== pendingNodeForAutoConfig.id && e.target !== pendingNodeForAutoConfig.id
+              ));
+            }
+            setPendingNodeForAutoConfig(null);
+            setSelectedNodeForConfig(null);
+          }
+        }}
+        onSave={handleSaveDoWhileConfig}
+      />
+
+      <LambdaModal
+        open={isLambdaModalOpen}
+        onOpenChange={(open) => {
+          setIsLambdaModalOpen(open);
+          if (!open) {
+            if (pendingNodeForAutoConfig && !selectedNodeForConfig) {
+              setNodes((nds) => nds.filter((n) => n.id !== pendingNodeForAutoConfig.id));
+              setEdges((eds) => eds.filter((e) =>
+                e.source !== pendingNodeForAutoConfig.id && e.target !== pendingNodeForAutoConfig.id
+              ));
+            }
+            setPendingNodeForAutoConfig(null);
+            setSelectedNodeForConfig(null);
+          }
+        }}
+        onSave={handleSaveLambdaConfig}
+      />
+
+      <InlineModal
+        open={isOperatorInlineModalOpen}
+        onOpenChange={(open) => {
+          setIsOperatorInlineModalOpen(open);
+          if (!open) {
+            if (pendingNodeForAutoConfig && !selectedNodeForConfig) {
+              setNodes((nds) => nds.filter((n) => n.id !== pendingNodeForAutoConfig.id));
+              setEdges((eds) => eds.filter((e) =>
+                e.source !== pendingNodeForAutoConfig.id && e.target !== pendingNodeForAutoConfig.id
+              ));
+            }
+            setPendingNodeForAutoConfig(null);
+            setSelectedNodeForConfig(null);
+          }
+        }}
+        onSave={handleSaveOperatorInlineConfig}
+      />
+
+      <JoinModal
+        open={isJoinModalOpen}
+        onOpenChange={(open) => {
+          setIsJoinModalOpen(open);
+          if (!open) {
+            if (pendingNodeForAutoConfig && !selectedNodeForConfig) {
+              setNodes((nds) => nds.filter((n) => n.id !== pendingNodeForAutoConfig.id));
+              setEdges((eds) => eds.filter((e) =>
+                e.source !== pendingNodeForAutoConfig.id && e.target !== pendingNodeForAutoConfig.id
+              ));
+            }
+            setPendingNodeForAutoConfig(null);
+            setSelectedNodeForConfig(null);
+          }
+        }}
+        onSave={handleSaveJoinConfig}
+      />
+
+      <ExclusiveJoinModal
+        open={isExclusiveJoinModalOpen}
+        onOpenChange={(open) => {
+          setIsExclusiveJoinModalOpen(open);
+          if (!open) {
+            if (pendingNodeForAutoConfig && !selectedNodeForConfig) {
+              setNodes((nds) => nds.filter((n) => n.id !== pendingNodeForAutoConfig.id));
+              setEdges((eds) => eds.filter((e) =>
+                e.source !== pendingNodeForAutoConfig.id && e.target !== pendingNodeForAutoConfig.id
+              ));
+            }
+            setPendingNodeForAutoConfig(null);
+            setSelectedNodeForConfig(null);
+          }
+        }}
+        onSave={handleSaveExclusiveJoinConfig}
+      />
+
+      <SubWorkflowModal
+        open={isOperatorSubWorkflowModalOpen}
+        onOpenChange={(open) => {
+          setIsOperatorSubWorkflowModalOpen(open);
+          if (!open) {
+            if (pendingNodeForAutoConfig && !selectedNodeForConfig) {
+              setNodes((nds) => nds.filter((n) => n.id !== pendingNodeForAutoConfig.id));
+              setEdges((eds) => eds.filter((e) =>
+                e.source !== pendingNodeForAutoConfig.id && e.target !== pendingNodeForAutoConfig.id
+              ));
+            }
+            setPendingNodeForAutoConfig(null);
+            setSelectedNodeForConfig(null);
+          }
+        }}
+        onSave={handleSaveOperatorSubWorkflowConfig}
       />
     </>
   );

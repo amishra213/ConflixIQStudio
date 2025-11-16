@@ -1,4 +1,4 @@
-import { ReactNode, useState, useEffect } from 'react';
+import { ReactNode, useState, useEffect, useRef } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -62,17 +62,37 @@ export function BaseTaskModal<T extends BaseTaskConfig>({
   const [jsonError, setJsonError] = useState('');
   const [isEditingJson, setIsEditingJson] = useState(false);
 
+  const isFirstOpen = useRef(true);
+
   useEffect(() => {
     if (open) {
-      if (initialConfig) {
-        setConfig(initialConfig);
-        setCompleteConfigJson(JSON.stringify(initialConfig, null, 2));
-      } else {
-        setConfig({} as T);
-        setCompleteConfigJson(JSON.stringify({}, null, 2));
+      if (isFirstOpen.current) {
+        // First time modal opens - initialize with initialConfig
+        if (initialConfig) {
+          setConfig(initialConfig);
+          setCompleteConfigJson(JSON.stringify(initialConfig, null, 2));
+        } else {
+          setConfig({} as T);
+          setCompleteConfigJson(JSON.stringify({}, null, 2));
+        }
+        setJsonError('');
+        setIsEditingJson(false);
+        isFirstOpen.current = false;
+      } else if (initialConfig) {
+        // Modal already open - merge initialConfig into existing config
+        // This preserves user-edited fields while updating custom fields
+        setConfig((prev) => ({
+          ...initialConfig,
+          // Preserve base fields that user may have edited
+          name: prev.name || initialConfig.name,
+          taskReferenceName: prev.taskReferenceName || initialConfig.taskReferenceName,
+          description: prev.description || initialConfig.description,
+          taskRefId: prev.taskRefId || initialConfig.taskRefId,
+        }));
       }
-      setJsonError('');
-      setIsEditingJson(false);
+    } else {
+      // Reset the flag when modal closes
+      isFirstOpen.current = true;
     }
   }, [open, initialConfig]);
 

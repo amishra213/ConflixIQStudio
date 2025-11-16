@@ -6,7 +6,8 @@
       "Bash(git rm:*)",
       "Bash(npm run build:*)",
       "Bash(npx tsc --noEmit)",
-      "Bash(timeout 10 npm run dev:*)"
+      "Bash(timeout 10 npm run dev:*)",
+      "Bash(test:*)"
     ],
     "deny": [],
     "ask": []
