@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { BaseTaskModal, BaseTaskConfig } from '../BaseTaskModal';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
+import { JsonTextarea } from '@/components/ui/json-textarea';
 import { Button } from '@/components/ui/button';
 import { Plus, Trash2 } from 'lucide-react';
 
@@ -22,16 +22,17 @@ interface GrpcTaskModalProps {
   readonly open: boolean;
   readonly onOpenChange: (open: boolean) => void;
   readonly onSave: (config: GrpcTaskConfig) => void;
+  readonly initialConfig?: GrpcTaskConfig | null;
 }
 
-export function GrpcTaskModal({ open, onOpenChange, onSave }: GrpcTaskModalProps) {
+export function GrpcTaskModal({ open, onOpenChange, onSave, initialConfig }: GrpcTaskModalProps) {
   const [config, setConfig] = useState<GrpcTaskConfig>({
     type: 'GRPC',
     name: '',
     taskReferenceName: '',
     grpc_request: {
-      endpoint: '',
-      method: '',
+      endpoint: 'localhost:50051',
+      method: 'grpc.ServiceName/MethodName',
       headers: {},
     },
   });
@@ -41,20 +42,32 @@ export function GrpcTaskModal({ open, onOpenChange, onSave }: GrpcTaskModalProps
 
   useEffect(() => {
     if (open) {
-      setConfig({
-        type: 'GRPC',
-        name: '',
-        taskReferenceName: '',
-        grpc_request: {
-          endpoint: '',
-          method: '',
-          headers: {},
-        },
-      });
-      setHeaders([]);
-      setBodyText('');
+      if (initialConfig) {
+        setConfig(initialConfig);
+        const headerEntries = Object.entries(initialConfig.grpc_request.headers || {});
+        const headerList = headerEntries.map(([key, value], index) => ({
+          id: `header-${Date.now()}-${index}`,
+          key,
+          value: String(value),
+        }));
+        setHeaders(headerList);
+        setBodyText(initialConfig.grpc_request.body ? JSON.stringify(initialConfig.grpc_request.body, null, 2) : '');
+      } else {
+        setConfig({
+          type: 'GRPC',
+          name: '',
+          taskReferenceName: '',
+          grpc_request: {
+            endpoint: 'localhost:50051',
+            method: 'grpc.ServiceName/MethodName',
+            headers: {},
+          },
+        });
+        setHeaders([]);
+        setBodyText('');
+      }
     }
-  }, [open]);
+  }, [open, initialConfig]);
 
   const handleAddHeader = () => {
     const newId = `header-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
@@ -139,7 +152,7 @@ export function GrpcTaskModal({ open, onOpenChange, onSave }: GrpcTaskModalProps
     id: 'grpc',
     label: 'GRPC Config',
     content: (
-      <div className="space-y-3">
+      <div className="space-y-3" style={{ '--line-height': '1.5rem' } as React.CSSProperties}>
         <div>
           <Label className="text-white">Endpoint *</Label>
           <Input
@@ -172,17 +185,17 @@ export function GrpcTaskModal({ open, onOpenChange, onSave }: GrpcTaskModalProps
 
         <div>
           <Label className="text-white">Body (JSON)</Label>
-          <Textarea
+          <JsonTextarea
             value={bodyText}
-            onChange={(e) => {
-              setBodyText(e.target.value);
+            onChange={(value) => {
+              setBodyText(value);
               // Sync to config
               let body: any = undefined;
-              if (e.target.value.trim()) {
+              if (value.trim()) {
                 try {
-                  body = JSON.parse(e.target.value);
+                  body = JSON.parse(value);
                 } catch {
-                  body = e.target.value;
+                  body = value;
                 }
               }
               setConfig({
@@ -191,7 +204,7 @@ export function GrpcTaskModal({ open, onOpenChange, onSave }: GrpcTaskModalProps
               });
             }}
             placeholder='{"field": "value"}'
-            className="mt-1 bg-[#1a1f2e] text-white border-[#2a3142] font-mono text-sm min-h-[100px]"
+            className="mt-1 bg-[#1a1f2e] text-white font-mono text-sm min-h-[100px]"
           />
         </div>
 

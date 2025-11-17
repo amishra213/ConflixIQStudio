@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { BaseTaskModal, BaseTaskConfig } from '../BaseTaskModal';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
+import { JsonTextarea } from '@/components/ui/json-textarea';
 
 export interface JsonJqTransformTaskConfig extends BaseTaskConfig {
   type: 'JSON_JQ_TRANSFORM';
@@ -12,39 +12,45 @@ interface JsonJqTransformTaskModalProps {
   readonly open: boolean;
   readonly onOpenChange: (open: boolean) => void;
   readonly onSave: (config: JsonJqTransformTaskConfig) => void;
+  readonly initialConfig?: JsonJqTransformTaskConfig | null;
 }
 
 export function JsonJqTransformTaskModal({
   open,
   onOpenChange,
   onSave,
+  initialConfig,
 }: JsonJqTransformTaskModalProps) {
   const [config, setConfig] = useState<JsonJqTransformTaskConfig>({
     type: 'JSON_JQ_TRANSFORM',
     name: '',
     taskReferenceName: '',
-    queryExpression: '',
+    queryExpression: '.',
   });
 
   useEffect(() => {
     if (open) {
-      setConfig({
-        type: 'JSON_JQ_TRANSFORM',
-        name: '',
-        taskReferenceName: '',
-        queryExpression: '',
-      });
+      if (initialConfig) {
+        setConfig(initialConfig);
+      } else {
+        setConfig({
+          type: 'JSON_JQ_TRANSFORM',
+          name: '',
+          taskReferenceName: '',
+          queryExpression: '.',
+        });
+      }
     }
-  }, [open]);
+  }, [open, initialConfig]);
 
   const customBasicFields = (
-    <div>
+    <div style={{ '--line-height': '1.5rem' } as React.CSSProperties}>
       <Label className="text-white">Query Expression *</Label>
-      <Textarea
+      <JsonTextarea
         value={config.queryExpression}
-        onChange={(e) => setConfig({ ...config, queryExpression: e.target.value })}
+        onChange={(value) => setConfig({ ...config, queryExpression: value })}
         placeholder=".field | select(.value > 10)"
-        className="mt-1 bg-[#1a1f2e] text-white border-[#2a3142] font-mono text-sm min-h-[120px]"
+        className="mt-1 bg-[#1a1f2e] text-white font-mono text-sm min-h-[120px]"
       />
       <p className="text-xs text-gray-400 mt-1">
         Enter a valid jq query expression

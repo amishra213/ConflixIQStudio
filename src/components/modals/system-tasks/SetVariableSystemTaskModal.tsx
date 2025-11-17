@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { BaseTaskModal, BaseTaskConfig } from '../BaseTaskModal';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
+import { JsonTextarea } from '@/components/ui/json-textarea';
 
 export interface SetVariableSystemTaskConfig extends BaseTaskConfig {
   type: 'SET_VARIABLE';
@@ -16,18 +16,20 @@ interface SetVariableSystemTaskModalProps {
   readonly open: boolean;
   readonly onOpenChange: (open: boolean) => void;
   readonly onSave: (config: SetVariableSystemTaskConfig) => void;
+  readonly initialConfig?: SetVariableSystemTaskConfig | null;
 }
 
 export function SetVariableSystemTaskModal({
   open,
   onOpenChange,
   onSave,
+  initialConfig,
 }: SetVariableSystemTaskModalProps) {
   const [config, setConfig] = useState<SetVariableSystemTaskConfig>({
     type: 'SET_VARIABLE',
     name: '',
     taskReferenceName: '',
-    variableName: '',
+    variableName: 'myVariable',
     value: {},
   });
 
@@ -35,19 +37,26 @@ export function SetVariableSystemTaskModal({
 
   useEffect(() => {
     if (open) {
-      setConfig({
-        type: 'SET_VARIABLE',
-        name: '',
-        taskReferenceName: '',
-        variableName: '',
-        value: {},
-      });
-      setValueText('');
+      if (initialConfig) {
+        setConfig(initialConfig);
+        setValueText(typeof initialConfig.value === 'object'
+          ? JSON.stringify(initialConfig.value, null, 2)
+          : String(initialConfig.value));
+      } else {
+        setConfig({
+          type: 'SET_VARIABLE',
+          name: '',
+          taskReferenceName: '',
+          variableName: 'myVariable',
+          value: {},
+        });
+        setValueText('');
+      }
     }
-  }, [open]);
+  }, [open, initialConfig]);
 
   const customBasicFields = (
-    <>
+    <div style={{ '--line-height': '1.5rem' } as React.CSSProperties}>
       <div>
         <Label className="text-white">Variable Name *</Label>
         <Input
@@ -59,14 +68,14 @@ export function SetVariableSystemTaskModal({
       </div>
       <div>
         <Label className="text-white">Value (JSON or text)</Label>
-        <Textarea
+        <JsonTextarea
           value={valueText}
-          onChange={(e) => setValueText(e.target.value)}
+          onChange={(value) => setValueText(value)}
           placeholder='{"key": "value"} or simple text'
-          className="mt-1 bg-[#1a1f2e] text-white border-[#2a3142] font-mono text-sm min-h-[100px]"
+          className="mt-1 bg-[#1a1f2e] text-white font-mono text-sm min-h-[100px]"
         />
       </div>
-    </>
+    </div>
   );
 
   const handleSaveWithValue = (finalConfig: SetVariableSystemTaskConfig) => {

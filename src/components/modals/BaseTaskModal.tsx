@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import { JsonTextarea } from '@/components/ui/json-textarea';
 import { Card } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
@@ -285,15 +286,15 @@ export function BaseTaskModal<T extends BaseTaskConfig>({
             {/* JSON Config Tab */}
             {!hideJsonTab && (
               <TabsContent value="json" className="space-y-4">
-                <Card className="p-6 bg-[#0f1419] border-[#2a3142]">
+                <Card className="p-6 bg-[#0f1419] border-[#2a3142]" style={{ '--line-height': '1.5rem' } as React.CSSProperties}>
                   <h3 className="text-lg font-semibold text-white mb-4">Complete Configuration JSON</h3>
                   <p className="text-sm text-gray-400 mb-4">
                     You can edit the JSON directly here. Changes will override form values.
                   </p>
-                  <Textarea
+                  <JsonTextarea
                     value={completeConfigJson}
-                    onChange={(e) => handleCompleteConfigChange(e.target.value)}
-                    className="font-mono text-sm bg-[#1a1f2e] text-white border-[#2a3142] min-h-[500px]"
+                    onChange={(value) => handleCompleteConfigChange(value)}
+                    className="font-mono text-sm bg-[#1a1f2e] text-white min-h-[500px]"
                   />
                 </Card>
               </TabsContent>

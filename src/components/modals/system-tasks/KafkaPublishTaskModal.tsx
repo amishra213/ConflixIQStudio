@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import { BaseTaskModal, BaseTaskConfig } from '../BaseTaskModal';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
+import { JsonTextarea } from '@/components/ui/json-textarea';
 import { Button } from '@/components/ui/button';
 import { Plus, Trash2 } from 'lucide-react';
 
@@ -22,24 +22,40 @@ interface KafkaPublishTaskModalProps {
   readonly open: boolean;
   readonly onOpenChange: (open: boolean) => void;
   readonly onSave: (config: KafkaPublishTaskConfig) => void;
+  readonly initialConfig?: KafkaPublishTaskConfig | null;
 }
 
-export function KafkaPublishTaskModal({ open, onOpenChange, onSave }: KafkaPublishTaskModalProps) {
+export function KafkaPublishTaskModal({ open, onOpenChange, onSave, initialConfig }: KafkaPublishTaskModalProps) {
   // Use state for kafka-specific fields to ensure they persist across tab changes
-  const [topic, setTopic] = useState('');
+  const [topic, setTopic] = useState('my-topic');
   const [key, setKey] = useState('');
   const [headers, setHeaders] = useState<Array<{id: string; key: string; value: string}>>([]);
-  const [valueText, setValueText] = useState('');
+  const [valueText, setValueText] = useState('{"message": "hello"}');
 
   // Reset local state when modal opens
   useEffect(() => {
     if (open) {
-      setTopic('');
-      setKey('');
-      setHeaders([]);
-      setValueText('');
+      if (initialConfig) {
+        setTopic(initialConfig.kafka_request.topic);
+        setKey(initialConfig.kafka_request.key || '');
+        const headerEntries = Object.entries(initialConfig.kafka_request.headers || {});
+        const headerList = headerEntries.map(([key, value], index) => ({
+          id: `header-${Date.now()}-${index}`,
+          key,
+          value: String(value),
+        }));
+        setHeaders(headerList);
+        setValueText(typeof initialConfig.kafka_request.value === 'object'
+          ? JSON.stringify(initialConfig.kafka_request.value, null, 2)
+          : String(initialConfig.kafka_request.value));
+      } else {
+        setTopic('my-topic');
+        setKey('');
+        setHeaders([]);
+        setValueText('{"message": "hello"}');
+      }
     }
-  }, [open]);
+  }, [open, initialConfig]);
 
   const handleAddHeader = () => {
     const newId = `header-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
@@ -95,9 +111,9 @@ export function KafkaPublishTaskModal({ open, onOpenChange, onSave }: KafkaPubli
     onSave(updatedConfig);
   }, [topic, key, valueText, headers, onSave]);
 
-  // Build initial config with current kafka fields for JSON preview
+  // Build current config with current kafka fields for JSON preview
   // This will update when kafka fields change, showing them in JSON tab
-  const initialConfig = useMemo<KafkaPublishTaskConfig>(() => {
+  const currentConfig = useMemo<KafkaPublishTaskConfig>(() => {
     const headersObj: Record<string, string> = {};
     for (const h of headers) {
       if (h.key && h.value) {
@@ -132,7 +148,7 @@ export function KafkaPublishTaskModal({ open, onOpenChange, onSave }: KafkaPubli
     id: 'kafka',
     label: 'Kafka Config',
     content: (
-      <div className="space-y-3">
+      <div className="space-y-3" style={{ '--line-height': '1.5rem' } as React.CSSProperties}>
         <div>
           <Label className="text-white">Topic *</Label>
           <Input
@@ -155,13 +171,13 @@ export function KafkaPublishTaskModal({ open, onOpenChange, onSave }: KafkaPubli
 
         <div>
           <Label className="text-white">Value (JSON) *</Label>
-          <Textarea
+          <JsonTextarea
             value={valueText}
-            onChange={(e) => {
-              setValueText(e.target.value);
+            onChange={(value) => {
+              setValueText(value);
             }}
             placeholder='{"message": "hello"}'
-            className="mt-1 bg-[#1a1f2e] text-white border-[#2a3142] font-mono text-sm min-h-[100px]"
+            className="mt-1 bg-[#1a1f2e] text-white font-mono text-sm min-h-[100px]"
           />
         </div>
 
@@ -213,7 +229,7 @@ export function KafkaPublishTaskModal({ open, onOpenChange, onSave }: KafkaPubli
       open={open}
       onOpenChange={onOpenChange}
       onSave={handleSaveWithMerge}
-      initialConfig={initialConfig}
+      initialConfig={currentConfig}
       title="Create Kafka Publish Task"
       description="Configure a Kafka publish task to send messages to Kafka topics."
       buttonLabel="Save Configuration"

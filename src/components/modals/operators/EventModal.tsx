@@ -16,25 +16,34 @@ interface EventModalProps {
   readonly open: boolean;
   readonly onOpenChange: (open: boolean) => void;
   readonly onSave: (config: EventConfig) => void;
+  readonly initialConfig?: EventConfig | null;
 }
 
-export function EventModal({ open, onOpenChange, onSave }: EventModalProps) {
+export function EventModal({ open, onOpenChange, onSave, initialConfig }: EventModalProps) {
   const [config, setConfig] = useState<EventConfig>({
     taskRefId: 'event-1',
     name: 'Event',
     taskType: 'EVENT',
+    event: 'my_event',
+    action: 'COMPLETE',
   });
 
   useEffect(() => {
     if (open) {
-      const timestamp = Date.now();
-      setConfig({
-        taskRefId: `event-${timestamp}`,
-        name: 'Event',
-        taskType: 'EVENT',
-      });
+      if (initialConfig) {
+        setConfig(initialConfig);
+      } else {
+        const timestamp = Date.now();
+        setConfig({
+          taskRefId: `event-${timestamp}`,
+          name: 'Event',
+          taskType: 'EVENT',
+          event: 'my_event',
+          action: 'COMPLETE',
+        });
+      }
     }
-  }, [open]);
+  }, [open, initialConfig]);
 
   const customBasicFields = (
     <>

@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea';
-import { ScrollArea } from '@/components/ui/scroll-area';
+import { JsonTextarea } from '@/components/ui/json-textarea';
 import { useWorkflowStore } from '@/stores/workflowStore';
 import { useToast } from '@/hooks/use-toast';
 import { AlertCircleIcon, CheckCircle2Icon, SaveIcon, RefreshCwIcon } from 'lucide-react';
@@ -239,25 +238,15 @@ export default function EditableJsonView() {
         </div>
       )}
 
-      <ScrollArea className="flex-1 rounded-lg border border-border flex">
-        <div className="flex w-full">
-          {/* Line Numbers */}
-          <div className="bg-muted/50 border-r border-border p-4 text-right select-none">
-            {jsonText.split('\n').map((line, i) => (
-              <div key={`line-${i}-${line.length}`} className="text-xs text-muted-foreground font-mono leading-6 h-6">
-                {i + 1}
-              </div>
-            ))}
-          </div>
-          {/* Code Editor */}
-          <Textarea
-            value={jsonText}
-            onChange={(e) => handleJsonChange(e.target.value)}
-            className="min-h-[600px] font-mono text-xs bg-background text-foreground border-0 focus-visible:ring-0 resize-none flex-1"
-            placeholder="Workflow JSON will appear here..."
-          />
-        </div>
-      </ScrollArea>
+      <div className="flex-1" style={{ '--line-height': '1.5rem' } as React.CSSProperties}>
+        <JsonTextarea
+          value={jsonText}
+          onChange={(value) => handleJsonChange(value)}
+          className="font-mono text-xs bg-[#1a1f2e] text-white resize-none p-3"
+          placeholder="Workflow JSON will appear here..."
+          spellCheck={false}
+        />
+      </div>
 
       <div className="p-3 rounded-lg bg-primary/10 border border-primary/20">
         <p className="text-xs font-medium text-foreground mb-2">JSON Editor Tips:</p>

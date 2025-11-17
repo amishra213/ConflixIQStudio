@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { BaseTaskModal, BaseTaskConfig } from '../BaseTaskModal';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
+import { JsonTextarea } from '@/components/ui/json-textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 export interface TerminateSystemTaskConfig extends BaseTaskConfig {
@@ -41,7 +41,7 @@ export function TerminateSystemTaskModal({ open, onOpenChange, onSave }: Termina
   }, [open]);
 
   const customBasicFields = (
-    <>
+    <div style={{ '--line-height': '1.5rem' } as React.CSSProperties}>
       <div>
         <Label className="text-white">Termination Status *</Label>
         <Select
@@ -64,15 +64,15 @@ export function TerminateSystemTaskModal({ open, onOpenChange, onSave }: Termina
       </div>
       <div>
         <Label className="text-white">Workflow Output (JSON)</Label>
-        <Textarea
+        <JsonTextarea
           value={outputText}
-          onChange={(e) => setOutputText(e.target.value)}
+          onChange={(value) => setOutputText(value)}
           placeholder='{"result": "success"}'
-          className="mt-1 bg-[#1a1f2e] text-white border-[#2a3142] font-mono text-sm min-h-[100px]"
+          className="mt-1 bg-[#1a1f2e] text-white font-mono text-sm min-h-[100px]"
         />
         <p className="text-xs text-gray-400 mt-1">Optional: Output to return when workflow terminates</p>
       </div>
-    </>
+    </div>
   );
 
   const handleSaveWithOutput = (finalConfig: TerminateSystemTaskConfig) => {

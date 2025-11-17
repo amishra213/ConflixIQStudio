@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { BaseTaskModal, BaseTaskConfig } from '../BaseTaskModal';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
+import { JsonTextarea } from '@/components/ui/json-textarea';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Plus, Trash2 } from 'lucide-react';
@@ -194,7 +194,7 @@ export function HttpTaskModal({
     id: 'http',
     label: 'HTTP Request',
     content: (
-      <div className="space-y-4">
+      <div className="space-y-4" style={{ '--line-height': '1.5rem' } as React.CSSProperties}>
         <div className="p-6 bg-[#0f1419] border border-[#2a3142] rounded-lg">
           <h3 className="text-lg font-semibold text-white mb-4">HTTP Request Configuration</h3>
           <div className="space-y-4">
@@ -427,17 +427,17 @@ export function HttpTaskModal({
           <p className="text-xs text-gray-400 mb-2">
             Required for POST, PUT, and PATCH methods
           </p>
-          <Textarea
+          <JsonTextarea
             value={bodyJson}
-            onChange={(e) => {
-              setBodyJson(e.target.value);
+            onChange={(value) => {
+              setBodyJson(value);
               // Sync to config
               let body: any = undefined;
-              if (e.target.value.trim()) {
+              if (value.trim()) {
                 try {
-                  body = JSON.parse(e.target.value);
+                  body = JSON.parse(value);
                 } catch {
-                  body = e.target.value;
+                  body = value;
                 }
               }
               setConfig({
@@ -448,7 +448,7 @@ export function HttpTaskModal({
                 },
               });
             }}
-            className="mt-2 font-mono text-sm bg-[#1a1f2e] text-white border-[#2a3142] min-h-[150px]"
+            className="mt-2 font-mono text-sm bg-[#1a1f2e] text-white min-h-[150px]"
             placeholder='{"key": "value"}'
           />
         </div>

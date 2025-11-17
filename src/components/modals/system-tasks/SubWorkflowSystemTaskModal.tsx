@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { BaseTaskModal, BaseTaskConfig } from '../BaseTaskModal';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
+import { JsonTextarea } from '@/components/ui/json-textarea';
 import { Card } from '@/components/ui/card';
 
 export interface SubWorkflowParam {
@@ -22,15 +22,16 @@ interface SubWorkflowSystemTaskModalProps {
   readonly open: boolean;
   readonly onOpenChange: (open: boolean) => void;
   readonly onSave: (config: SubWorkflowSystemTaskConfig) => void;
+  readonly initialConfig?: SubWorkflowSystemTaskConfig | null;
 }
 
-export function SubWorkflowSystemTaskModal({ open, onOpenChange, onSave }: SubWorkflowSystemTaskModalProps) {
+export function SubWorkflowSystemTaskModal({ open, onOpenChange, onSave, initialConfig }: SubWorkflowSystemTaskModalProps) {
   const [config, setConfig] = useState<SubWorkflowSystemTaskConfig>({
     type: 'SUB_WORKFLOW',
     name: '',
     taskReferenceName: '',
     subWorkflowParam: {
-      name: '',
+      name: 'my_subworkflow',
       version: 1,
     },
   });
@@ -39,18 +40,25 @@ export function SubWorkflowSystemTaskModal({ open, onOpenChange, onSave }: SubWo
 
   useEffect(() => {
     if (open) {
-      setConfig({
-        type: 'SUB_WORKFLOW',
-        name: '',
-        taskReferenceName: '',
-        subWorkflowParam: {
+      if (initialConfig) {
+        setConfig(initialConfig);
+        setWorkflowDefText(initialConfig.subWorkflowParam.workflowDefinition
+          ? JSON.stringify(initialConfig.subWorkflowParam.workflowDefinition, null, 2)
+          : '');
+      } else {
+        setConfig({
+          type: 'SUB_WORKFLOW',
           name: '',
-          version: 1,
-        },
-      });
-      setWorkflowDefText('');
+          taskReferenceName: '',
+          subWorkflowParam: {
+            name: 'my_subworkflow',
+            version: 1,
+          },
+        });
+        setWorkflowDefText('');
+      }
     }
-  }, [open]);
+  }, [open, initialConfig]);
 
   const customBasicFields = (
     <>
@@ -94,15 +102,15 @@ export function SubWorkflowSystemTaskModal({ open, onOpenChange, onSave }: SubWo
     id: 'workflow',
     label: 'Workflow Definition',
     content: (
-      <Card className="p-6 bg-[#0f1419] border-[#2a3142]">
+      <Card className="p-6 bg-[#0f1419] border-[#2a3142]" style={{ '--line-height': '1.5rem' } as React.CSSProperties}>
         <div className="space-y-3">
           <div>
             <Label className="text-white">Workflow Definition (JSON)</Label>
-            <Textarea
+            <JsonTextarea
               value={workflowDefText}
-              onChange={(e) => setWorkflowDefText(e.target.value)}
+              onChange={(value) => setWorkflowDefText(value)}
               placeholder='{"name": "subwf", "tasks": [...]}'
-              className="mt-1 bg-[#1a1f2e] text-white border-[#2a3142] font-mono text-sm min-h-[300px]"
+              className="mt-1 bg-[#1a1f2e] text-white font-mono text-sm min-h-[300px]"
             />
             <p className="text-xs text-gray-400 mt-1">
               Optional: Inline workflow definition (alternative to referencing by name/version)

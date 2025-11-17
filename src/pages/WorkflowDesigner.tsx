@@ -20,6 +20,7 @@ import { SaveIcon, PlayIcon, EyeIcon, LayoutGridIcon } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
+import { JsonTextarea } from '@/components/ui/json-textarea';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
@@ -1210,7 +1211,7 @@ export function WorkflowDesigner() {
 
             {activeTab === 'json' && (
               <div className="h-full overflow-y-auto p-6 bg-[#0f1419]">
-                <Card className="max-w-4xl mx-auto p-6 bg-[#1a1f2e] border-[#2a3142]">
+                <Card className="max-w-4xl mx-auto p-6 bg-[#1a1f2e] border-[#2a3142]" style={{ '--line-height': '1.5rem' } as React.CSSProperties}>
                   <div className="flex items-center justify-between mb-4">
                     <h3 className="text-xl font-semibold text-white">Workflow Definition (JSON)</h3>
                     <Button
@@ -1251,8 +1252,8 @@ export function WorkflowDesigner() {
                       Copy JSON
                     </Button>
                   </div>
-                  <pre className="text-xs text-gray-300 font-mono bg-[#0f1419] p-4 rounded-lg border border-[#2a3142] overflow-x-auto max-h-[600px] overflow-y-auto">
-                    {JSON.stringify({
+                  <JsonTextarea
+                    value={JSON.stringify({
                       name: workflowName,
                       description: workflowSettings.description,
                       version: workflowSettings.version,
@@ -1279,7 +1280,10 @@ export function WorkflowDesigner() {
                       restartable: workflowSettings.restartable,
                       schemaVersion: workflowSettings.schemaVersion,
                     }, null, 2)}
-                  </pre>
+                    onChange={() => {}}
+                    className="font-mono text-xs bg-[#0f1419] text-white min-h-[600px]"
+                    readOnly
+                  />
                 </Card>
               </div>
               )}

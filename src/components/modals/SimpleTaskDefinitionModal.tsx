@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import { JsonTextarea } from '@/components/ui/json-textarea';
 import { Card } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -450,11 +451,14 @@ export function SimpleTaskCreateModal({
             </TabsContent>
 
             <TabsContent value="json" className="space-y-4">
-              <Card className="p-6 bg-[#0f1419] border-[#2a3142]">
+              <Card className="p-6 bg-[#0f1419] border-[#2a3142]" style={{ '--line-height': '1.5rem' } as React.CSSProperties}>
                 <h3 className="text-lg font-semibold text-white mb-4">Complete Definition JSON</h3>
-                <pre className="text-xs text-gray-300 font-mono bg-[#1a1f2e] p-4 rounded-lg border border-[#2a3142] overflow-x-auto max-h-[500px] overflow-y-auto">
-                  {JSON.stringify(config, null, 2)}
-                </pre>
+                <JsonTextarea
+                  value={JSON.stringify(config, null, 2)}
+                  onChange={() => {}}
+                  className="font-mono text-xs bg-[#1a1f2e] text-white min-h-[500px]"
+                  readOnly
+                />
               </Card>
             </TabsContent>
           </Tabs>

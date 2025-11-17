@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { BaseTaskModal, BaseTaskConfig } from '../BaseTaskModal';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
+import { JsonTextarea } from '@/components/ui/json-textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 export interface InlineSystemTaskConfig extends BaseTaskConfig {
@@ -16,31 +16,36 @@ interface InlineSystemTaskModalProps {
   readonly open: boolean;
   readonly onOpenChange: (open: boolean) => void;
   readonly onSave: (config: InlineSystemTaskConfig) => void;
+  readonly initialConfig?: InlineSystemTaskConfig | null;
 }
 
-export function InlineSystemTaskModal({ open, onOpenChange, onSave }: InlineSystemTaskModalProps) {
+export function InlineSystemTaskModal({ open, onOpenChange, onSave, initialConfig }: InlineSystemTaskModalProps) {
   const [config, setConfig] = useState<InlineSystemTaskConfig>({
     type: 'INLINE',
     name: '',
     taskReferenceName: '',
     evaluatorType: 'javascript',
-    expression: '',
+    expression: 'function() { return { result: true }; }',
   });
 
   useEffect(() => {
     if (open) {
-      setConfig({
-        type: 'INLINE',
-        name: '',
-        taskReferenceName: '',
-        evaluatorType: 'javascript',
-        expression: '',
-      });
+      if (initialConfig) {
+        setConfig(initialConfig);
+      } else {
+        setConfig({
+          type: 'INLINE',
+          name: '',
+          taskReferenceName: '',
+          evaluatorType: 'javascript',
+          expression: 'function() { return { result: true }; }',
+        });
+      }
     }
-  }, [open]);
+  }, [open, initialConfig]);
 
   const customBasicFields = (
-    <>
+    <div style={{ '--line-height': '1.5rem' } as React.CSSProperties}>
       <div>
         <Label className="text-white">Evaluator Type *</Label>
         <Select
@@ -63,15 +68,15 @@ export function InlineSystemTaskModal({ open, onOpenChange, onSave }: InlineSyst
       </div>
       <div>
         <Label className="text-white">Expression *</Label>
-        <Textarea
+        <JsonTextarea
           value={config.expression}
-          onChange={(e) => setConfig({ ...config, expression: e.target.value })}
+          onChange={(value) => setConfig({ ...config, expression: value })}
           placeholder='function() { return { result: $.input + 1 }; }'
-          className="mt-1 bg-[#1a1f2e] text-white border-[#2a3142] font-mono text-sm min-h-[120px]"
+          className="mt-1 bg-[#1a1f2e] text-white font-mono text-sm min-h-[120px]"
         />
         <p className="text-xs text-gray-400 mt-1">JavaScript expression to evaluate inline</p>
       </div>
-    </>
+    </div>
   );
 
   const validateConfig = (cfg: InlineSystemTaskConfig): string | null => {

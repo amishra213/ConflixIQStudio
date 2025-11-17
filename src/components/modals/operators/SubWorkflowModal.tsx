@@ -14,27 +14,34 @@ interface SubWorkflowModalProps {
   readonly open: boolean;
   readonly onOpenChange: (open: boolean) => void;
   readonly onSave: (config: SubWorkflowConfig) => void;
+  readonly initialConfig?: SubWorkflowConfig | null;
 }
 
-export function SubWorkflowModal({ open, onOpenChange, onSave }: SubWorkflowModalProps) {
+export function SubWorkflowModal({ open, onOpenChange, onSave, initialConfig }: SubWorkflowModalProps) {
   const [config, setConfig] = useState<SubWorkflowConfig>({
     taskRefId: 'subWorkflow-1',
     name: 'Sub Workflow',
     taskType: 'SUB_WORKFLOW',
+    subWorkflowName: 'my_subworkflow',
     subWorkflowVersion: 1,
   });
 
   useEffect(() => {
     if (open) {
-      const timestamp = Date.now();
-      setConfig({
-        taskRefId: `subWorkflow-${timestamp}`,
-        name: 'Sub Workflow',
-        taskType: 'SUB_WORKFLOW',
-        subWorkflowVersion: 1,
-      });
+      if (initialConfig) {
+        setConfig(initialConfig);
+      } else {
+        const timestamp = Date.now();
+        setConfig({
+          taskRefId: `subWorkflow-${timestamp}`,
+          name: 'Sub Workflow',
+          taskType: 'SUB_WORKFLOW',
+          subWorkflowName: 'my_subworkflow',
+          subWorkflowVersion: 1,
+        });
+      }
     }
-  }, [open]);
+  }, [open, initialConfig]);
 
   const customBasicFields = (
     <div className="space-y-3">
@@ -62,6 +69,13 @@ export function SubWorkflowModal({ open, onOpenChange, onSave }: SubWorkflowModa
     </div>
   );
 
+  const validateConfig = (cfg: SubWorkflowConfig): string | null => {
+    if (!cfg.subWorkflowName || cfg.subWorkflowName.trim() === '') {
+      return 'Sub Workflow Name is required';
+    }
+    return null;
+  };
+
   return (
     <BaseTaskModal
       open={open}
@@ -72,6 +86,7 @@ export function SubWorkflowModal({ open, onOpenChange, onSave }: SubWorkflowModa
       description="Execute a sub-workflow as part of your workflow"
       buttonLabel="Create Operator"
       customBasicFields={customBasicFields}
+      validateConfig={validateConfig}
     />
   );
 }

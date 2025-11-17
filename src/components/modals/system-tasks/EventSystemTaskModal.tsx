@@ -16,28 +16,33 @@ interface EventSystemTaskModalProps {
   readonly open: boolean;
   readonly onOpenChange: (open: boolean) => void;
   readonly onSave: (config: EventSystemTaskConfig) => void;
+  readonly initialConfig?: EventSystemTaskConfig | null;
 }
 
-export function EventSystemTaskModal({ open, onOpenChange, onSave }: EventSystemTaskModalProps) {
+export function EventSystemTaskModal({ open, onOpenChange, onSave, initialConfig }: EventSystemTaskModalProps) {
   const [config, setConfig] = useState<EventSystemTaskConfig>({
     type: 'EVENT',
     name: '',
     taskReferenceName: '',
-    sink: '',
+    sink: 'conductor',
     asyncComplete: false,
   });
 
   useEffect(() => {
     if (open) {
-      setConfig({
-        type: 'EVENT',
-        name: '',
-        taskReferenceName: '',
-        sink: '',
-        asyncComplete: false,
-      });
+      if (initialConfig) {
+        setConfig(initialConfig);
+      } else {
+        setConfig({
+          type: 'EVENT',
+          name: '',
+          taskReferenceName: '',
+          sink: 'conductor',
+          asyncComplete: false,
+        });
+      }
     }
-  }, [open]);
+  }, [open, initialConfig]);
 
   const customBasicFields = (
     <>

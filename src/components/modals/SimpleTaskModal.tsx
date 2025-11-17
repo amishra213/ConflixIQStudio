@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { JsonTextarea } from "@/components/ui/json-textarea";
 import { Card } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
@@ -385,7 +386,7 @@ export function SimpleTaskModal({
             </TabsContent>
 
             <TabsContent value="preview" className="space-y-4">
-              <Card className="p-6 bg-[#0f1419] border-[#2a3142]">
+              <Card className="p-6 bg-[#0f1419] border-[#2a3142]" style={{ '--line-height': '1.5rem' } as React.CSSProperties}>
                 <div className="flex items-center justify-between mb-4">
                   <div>
                     <h3 className="text-lg font-semibold text-white">JSON Preview</h3>
@@ -401,10 +402,10 @@ export function SimpleTaskModal({
                 </div>
 
                 <div className="space-y-2">
-                  <Textarea
+                  <JsonTextarea
                     value={jsonEditable || JSON.stringify(getJsonPreview(), null, 2)}
-                    onChange={(e) => handleJsonChange(e.target.value)}
-                    className="font-mono text-xs bg-[#1a1f2e] text-white border-[#2a3142] min-h-[400px] max-h-[500px] overflow-y-auto"
+                    onChange={(value) => handleJsonChange(value)}
+                    className="font-mono text-xs bg-[#1a1f2e] text-white min-h-[400px]"
                     placeholder="JSON will appear here..."
                     readOnly
                   />
