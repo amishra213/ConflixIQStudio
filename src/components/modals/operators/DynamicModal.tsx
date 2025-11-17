@@ -41,7 +41,7 @@ export function DynamicModal({
   useEffect(() => {
     if (open) {
       if (initialConfig) {
-        setConfig(initialConfig);
+        setConfig({ ...initialConfig });
         setInputParametersText(JSON.stringify(initialConfig.inputParameters || {}, null, 2));
       } else {
         const timestamp = Date.now();

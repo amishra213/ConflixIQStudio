@@ -87,6 +87,8 @@ export function WorkflowDesigner() {
   });
   const [activeTab, setActiveTab] = useState('design');
   const [searchQuery, setSearchQuery] = useState('');
+  const [jsonText, setJsonText] = useState('');
+  const [jsonError, setJsonError] = useState('');
 
   // Declare nodes and edges state before useEffect hooks that depend on them
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
@@ -289,6 +291,78 @@ export function WorkflowDesigner() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [nodes, edges, workflow?.id]); // Only depend on workflow.id, not the entire workflow object
+
+  // Sync JSON text when nodes, settings, or workflowName change
+  useEffect(() => {
+    const workflowJson = {
+      name: workflowName,
+      description: workflowSettings.description,
+      version: workflowSettings.version,
+      tasks: [...nodes]
+        .sort((a, b) => (a.data.sequenceNo || 0) - (b.data.sequenceNo || 0))
+        .map(node => {
+          if (node.data.config) {
+            return node.data.config;
+          }
+          return {
+            name: node.data.taskName,
+            taskReferenceName: node.id,
+            type: node.data.taskType,
+            inputParameters: {},
+            optional: false,
+          };
+        }),
+      inputParameters: workflowSettings.inputParameters,
+      outputParameters: workflowSettings.outputParameters,
+      timeoutSeconds: workflowSettings.timeoutSeconds,
+      restartable: workflowSettings.restartable,
+      schemaVersion: workflowSettings.schemaVersion,
+    };
+    setJsonText(JSON.stringify(workflowJson, null, 2));
+  }, [nodes, workflowSettings, workflowName]);
+
+  const handleJsonChange = (value: string) => {
+    setJsonText(value);
+    try {
+      JSON.parse(value);
+      setJsonError('');
+    } catch (error) {
+      setJsonError(error instanceof Error ? error.message : 'Invalid JSON format');
+    }
+  };
+
+  const handleSaveJson = () => {
+    try {
+      const parsedJson = JSON.parse(jsonText);
+      
+      // Update workflow name and settings
+      setWorkflowName(parsedJson.name || workflowName);
+      setWorkflowSettings({
+        description: parsedJson.description || '',
+        version: parsedJson.version || 1,
+        timeoutSeconds: parsedJson.timeoutSeconds || 3600,
+        restartable: parsedJson.restartable ?? true,
+        schemaVersion: parsedJson.schemaVersion || 2,
+        effectiveDate: workflowSettings.effectiveDate,
+        endDate: workflowSettings.endDate,
+        status: workflowSettings.status,
+        inputParameters: parsedJson.inputParameters || [],
+        outputParameters: parsedJson.outputParameters || {},
+      });
+
+      toast({
+        title: 'JSON Saved',
+        description: 'Workflow definition has been updated from JSON.',
+      });
+      setJsonError('');
+    } catch (error) {
+      toast({
+        title: 'Invalid JSON',
+        description: error instanceof Error ? error.message : 'Failed to parse JSON.',
+        variant: 'destructive',
+      });
+    }
+  };
 
   const onConnect = useCallback(
     (params: Connection | Edge) => {
@@ -1214,75 +1288,42 @@ export function WorkflowDesigner() {
                 <Card className="max-w-4xl mx-auto p-6 bg-[#1a1f2e] border-[#2a3142]" style={{ '--line-height': '1.5rem' } as React.CSSProperties}>
                   <div className="flex items-center justify-between mb-4">
                     <h3 className="text-xl font-semibold text-white">Workflow Definition (JSON)</h3>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        const json = JSON.stringify({
-                          name: workflowName,
-                          description: workflowSettings.description,
-                          version: workflowSettings.version,
-                          tasks: [...nodes]
-                            .sort((a, b) => (a.data.sequenceNo || 0) - (b.data.sequenceNo || 0))
-                            .map(node => {
-                              // If task has config, use it directly (it should be in proper OSS Conductor format)
-                              if (node.data.config) {
-                                return node.data.config;
-                              }
-
-                              // Fallback for tasks without config
-                              return {
-                                name: node.data.taskName,
-                                taskReferenceName: node.id,
-                                type: node.data.taskType,
-                                inputParameters: {},
-                                optional: false,
-                              };
-                            }),
-                          inputParameters: workflowSettings.inputParameters,
-                          outputParameters: workflowSettings.outputParameters,
-                          timeoutSeconds: workflowSettings.timeoutSeconds,
-                          restartable: workflowSettings.restartable,
-                          schemaVersion: workflowSettings.schemaVersion,
-                        }, null, 2);
-                        navigator.clipboard.writeText(json);
-                      }}
-                      className="text-cyan-500 border-[#2a3142]"
-                    >
-                      Copy JSON
-                    </Button>
+                    <div className="flex items-center gap-2">
+                      {jsonError && (
+                        <div className="flex items-center gap-2 text-destructive mr-4">
+                          <span className="text-sm font-medium">Invalid JSON</span>
+                        </div>
+                      )}
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleSaveJson}
+                        disabled={!!jsonError}
+                        className="bg-cyan-500 text-white hover:bg-cyan-600 border-cyan-500 disabled:opacity-50"
+                      >
+                        <SaveIcon className="w-4 h-4 mr-2" />
+                        Save JSON
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          navigator.clipboard.writeText(jsonText);
+                          toast({
+                            title: 'Copied',
+                            description: 'JSON copied to clipboard.',
+                          });
+                        }}
+                        className="text-cyan-500 border-[#2a3142]"
+                      >
+                        Copy JSON
+                      </Button>
+                    </div>
                   </div>
                   <JsonTextarea
-                    value={JSON.stringify({
-                      name: workflowName,
-                      description: workflowSettings.description,
-                      version: workflowSettings.version,
-                      tasks: [...nodes]
-                        .sort((a, b) => (a.data.sequenceNo || 0) - (b.data.sequenceNo || 0))
-                        .map(node => {
-                          // If task has config, use it directly (it should be in proper OSS Conductor format)
-                          if (node.data.config) {
-                            return node.data.config;
-                          }
-
-                          // Fallback for tasks without config
-                          return {
-                            name: node.data.taskName,
-                            taskReferenceName: node.id,
-                            type: node.data.taskType,
-                            inputParameters: {},
-                            optional: false,
-                          };
-                        }),
-                      inputParameters: workflowSettings.inputParameters,
-                      outputParameters: workflowSettings.outputParameters,
-                      timeoutSeconds: workflowSettings.timeoutSeconds,
-                      restartable: workflowSettings.restartable,
-                      schemaVersion: workflowSettings.schemaVersion,
-                    }, null, 2)}
-                    onChange={() => {}}
-                    className="font-mono text-xs bg-[#0f1419] text-white min-h-[600px]"
-                    readOnly
+                    value={jsonText}
+                    onChange={handleJsonChange}
+                    className="font-mono text-xs bg-[#0f1419] text-white"
                   />
                 </Card>
               </div>
@@ -1334,6 +1375,7 @@ export function WorkflowDesigner() {
             setSelectedNodeForConfig(null);
           }
         }}
+        initialConfig={getInitialConfig('KAFKA_PUBLISH')}
         onSave={handleSaveKafkaTaskConfig}
       />
 
@@ -1352,6 +1394,7 @@ export function WorkflowDesigner() {
             setSelectedNodeForConfig(null);
           }
         }}
+        initialConfig={getInitialConfig('GRPC')}
         onSave={handleSaveGrpcTaskConfig}
       />
 
@@ -1370,6 +1413,7 @@ export function WorkflowDesigner() {
             setSelectedNodeForConfig(null);
           }
         }}
+        initialConfig={getInitialConfig('JSON_JQ_TRANSFORM')}
         onSave={handleSaveJsonJqTransformConfig}
       />
 
@@ -1388,6 +1432,7 @@ export function WorkflowDesigner() {
             setSelectedNodeForConfig(null);
           }
         }}
+        initialConfig={getInitialConfig('JSON_JQ_TRANSFORM_STRING')}
         onSave={handleSaveJsonJqTransformStringConfig}
       />
 
@@ -1406,6 +1451,7 @@ export function WorkflowDesigner() {
             setSelectedNodeForConfig(null);
           }
         }}
+        initialConfig={getInitialConfig('NOOP')}
         onSave={handleSaveNoopConfig}
       />
 
@@ -1424,6 +1470,7 @@ export function WorkflowDesigner() {
             setSelectedNodeForConfig(null);
           }
         }}
+        initialConfig={getInitialConfig('EVENT')}
         onSave={handleSaveEventConfig}
       />
 
@@ -1442,6 +1489,7 @@ export function WorkflowDesigner() {
             setSelectedNodeForConfig(null);
           }
         }}
+        initialConfig={getInitialConfig('WAIT')}
         onSave={handleSaveWaitConfig}
       />
 
@@ -1460,6 +1508,7 @@ export function WorkflowDesigner() {
             setSelectedNodeForConfig(null);
           }
         }}
+        initialConfig={getInitialConfig('SET_VARIABLE')}
         onSave={handleSaveSetVariableConfig}
       />
 
@@ -1478,6 +1527,7 @@ export function WorkflowDesigner() {
             setSelectedNodeForConfig(null);
           }
         }}
+        initialConfig={getInitialConfig('SUB_WORKFLOW')}
         onSave={handleSaveSubWorkflowConfig}
       />
 
@@ -1496,6 +1546,7 @@ export function WorkflowDesigner() {
             setSelectedNodeForConfig(null);
           }
         }}
+        initialConfig={getInitialConfig('TERMINATE')}
         onSave={handleSaveTerminateConfig}
       />
 
@@ -1514,6 +1565,7 @@ export function WorkflowDesigner() {
             setSelectedNodeForConfig(null);
           }
         }}
+        initialConfig={getInitialConfig('INLINE')}
         onSave={handleSaveInlineConfig}
       />
 
@@ -1555,6 +1607,7 @@ export function WorkflowDesigner() {
             setSelectedNodeForConfig(null);
           }
         }}
+        initialConfig={getInitialConfig('FORK_JOIN')}
         onSave={handleSaveForkJoinConfig}
       />
 
@@ -1573,6 +1626,7 @@ export function WorkflowDesigner() {
             setSelectedNodeForConfig(null);
           }
         }}
+        initialConfig={getInitialConfig('FORK_JOIN_DYNAMIC')}
         onSave={handleSaveForkJoinDynamicConfig}
       />
 
@@ -1591,6 +1645,7 @@ export function WorkflowDesigner() {
             setSelectedNodeForConfig(null);
           }
         }}
+        initialConfig={getInitialConfig('SWITCH')}
         onSave={handleSaveSwitchConfig}
       />
 
@@ -1609,6 +1664,7 @@ export function WorkflowDesigner() {
             setSelectedNodeForConfig(null);
           }
         }}
+        initialConfig={getInitialConfig('DO_WHILE')}
         onSave={handleSaveDoWhileConfig}
       />
 
@@ -1627,6 +1683,7 @@ export function WorkflowDesigner() {
             setSelectedNodeForConfig(null);
           }
         }}
+        initialConfig={getInitialConfig('DYNAMIC')}
         onSave={handleSaveDynamicConfig}
       />
 
@@ -1645,6 +1702,7 @@ export function WorkflowDesigner() {
             setSelectedNodeForConfig(null);
           }
         }}
+        initialConfig={getInitialConfig('LAMBDA')}
         onSave={handleSaveLambdaConfig}
       />
 
@@ -1663,6 +1721,7 @@ export function WorkflowDesigner() {
             setSelectedNodeForConfig(null);
           }
         }}
+        initialConfig={getInitialConfig('INLINE')}
         onSave={handleSaveOperatorInlineConfig}
       />
 
@@ -1681,6 +1740,7 @@ export function WorkflowDesigner() {
             setSelectedNodeForConfig(null);
           }
         }}
+        initialConfig={getInitialConfig('JOIN')}
         onSave={handleSaveJoinConfig}
       />
 
@@ -1699,6 +1759,7 @@ export function WorkflowDesigner() {
             setSelectedNodeForConfig(null);
           }
         }}
+        initialConfig={getInitialConfig('EXCLUSIVE_JOIN')}
         onSave={handleSaveExclusiveJoinConfig}
       />
 

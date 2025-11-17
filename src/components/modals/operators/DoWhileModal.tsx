@@ -104,7 +104,8 @@ export function DoWhileModal({ open, onOpenChange, onSave, initialConfig }: DoWh
   useEffect(() => {
     if (open) {
       if (initialConfig) {
-        setConfig(initialConfig);
+        // Load existing configuration preserving ALL properties including loopOver tasks
+        setConfig({ ...initialConfig });
       } else {
         const timestamp = Date.now();
         setConfig({
@@ -342,9 +343,9 @@ export function DoWhileModal({ open, onOpenChange, onSave, initialConfig }: DoWh
         onOpenChange={onOpenChange}
         onSave={onSave}
         initialConfig={config}
-        title="Create Do While Operator"
+        title="Do While Operator"
         description="Configure a loop that executes tasks while a condition is true"
-        buttonLabel="Create Operator"
+        buttonLabel="Save Operator"
         customBasicFields={customBasicFields}
         customTabs={[
           {

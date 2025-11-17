@@ -117,8 +117,8 @@ export function SetVariableModal({ open, onOpenChange, onSave }: SetVariableModa
       onOpenChange={onOpenChange}
       onSave={handleSaveWithVariables}
       initialConfig={config}
-      title="Create Set Variable Operator"
-      buttonLabel="Create Operator"
+      title="Set Variable Operator"
+      buttonLabel="Save Operator"
       customBasicFields={customBasicFields}
     />
   );

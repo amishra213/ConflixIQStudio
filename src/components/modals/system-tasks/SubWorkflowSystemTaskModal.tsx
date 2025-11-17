@@ -41,7 +41,7 @@ export function SubWorkflowSystemTaskModal({ open, onOpenChange, onSave, initial
   useEffect(() => {
     if (open) {
       if (initialConfig) {
-        setConfig(initialConfig);
+        setConfig({ ...initialConfig });
         setWorkflowDefText(initialConfig.subWorkflowParam.workflowDefinition
           ? JSON.stringify(initialConfig.subWorkflowParam.workflowDefinition, null, 2)
           : '');

@@ -15,9 +15,10 @@ interface InlineModalProps {
   readonly open: boolean;
   readonly onOpenChange: (open: boolean) => void;
   readonly onSave: (config: InlineConfig) => void;
+  readonly initialConfig?: InlineConfig;
 }
 
-export function InlineModal({ open, onOpenChange, onSave }: InlineModalProps) {
+export function InlineModal({ open, onOpenChange, onSave, initialConfig }: InlineModalProps) {
   const [config, setConfig] = useState<InlineConfig>({
     taskRefId: 'inline-1',
     name: 'Inline',
@@ -27,15 +28,19 @@ export function InlineModal({ open, onOpenChange, onSave }: InlineModalProps) {
 
   useEffect(() => {
     if (open) {
-      const timestamp = Date.now();
-      setConfig({
-        taskRefId: `inline-${timestamp}`,
-        name: 'Inline',
-        taskType: 'INLINE',
-        evaluatorType: 'javascript',
-      });
+      if (initialConfig) {
+        setConfig({ ...initialConfig });
+      } else {
+        const timestamp = Date.now();
+        setConfig({
+          taskRefId: `inline-${timestamp}`,
+          name: 'Inline',
+          taskType: 'INLINE',
+          evaluatorType: 'javascript',
+        });
+      }
     }
-  }, [open]);
+  }, [open, initialConfig]);
 
   const customBasicFields = (
     <div className="space-y-3">

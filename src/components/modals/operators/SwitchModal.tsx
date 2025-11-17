@@ -52,6 +52,7 @@ interface SwitchModalProps {
   readonly open: boolean;
   readonly onOpenChange: (open: boolean) => void;
   readonly onSave: (config: SwitchConfig) => void;
+  readonly initialConfig?: SwitchConfig;
 }
 
 const AVAILABLE_TASK_TYPES = [
@@ -86,10 +87,10 @@ interface TaskModalState {
   initialConfig: any;
 }
 
-export function SwitchModal({ open, onOpenChange, onSave }: SwitchModalProps) {
+export function SwitchModal({ open, onOpenChange, onSave, initialConfig }: SwitchModalProps) {
   // Generate unique ID for this modal instance to avoid conflicts with nested Switch modals
   const [instanceId] = useState(() => `switch-modal-${Math.random().toString(36).substring(2, 11)}`);
-  
+
   const [config, setConfig] = useState<SwitchConfig>({
     taskRefId: 'switch-1',
     name: 'Switch',
@@ -117,20 +118,28 @@ export function SwitchModal({ open, onOpenChange, onSave }: SwitchModalProps) {
 
   useEffect(() => {
     if (open) {
-      const timestamp = Date.now();
-      setConfig({
-        taskRefId: `switch-${timestamp}`,
-        name: 'Switch',
-        taskType: 'SWITCH',
-        evaluatorType: 'value-param',
-        expression: 'switchCaseValue',
-        inputParameters: {
-          switchCaseValue: '${workflow.input}',
-        },
-        decisionCases: {},
-        defaultCase: [],
-      });
-      setExpandedCases(new Set());
+      if (initialConfig) {
+        // Load existing configuration including ALL properties, nested decision cases and default case
+        setConfig({ ...initialConfig });
+        // Expand all cases by default when editing
+        const caseNames = Object.keys(initialConfig.decisionCases || {});
+        setExpandedCases(new Set(caseNames));
+      } else {
+        const timestamp = Date.now();
+        setConfig({
+          taskRefId: `switch-${timestamp}`,
+          name: 'Switch',
+          taskType: 'SWITCH',
+          evaluatorType: 'value-param',
+          expression: 'switchCaseValue',
+          inputParameters: {
+            switchCaseValue: '${workflow.input}',
+          },
+          decisionCases: {},
+          defaultCase: [],
+        });
+        setExpandedCases(new Set());
+      }
       setTaskModalState({
         isOpen: false,
         taskType: null,
@@ -141,7 +150,7 @@ export function SwitchModal({ open, onOpenChange, onSave }: SwitchModalProps) {
       setCaseSelectValues({});
       setDefaultCaseSelectValue('');
     }
-  }, [open]);
+  }, [open, initialConfig]);
 
   const handleAddCase = (caseName: string) => {
     if (caseName.trim()) {
@@ -598,9 +607,9 @@ export function SwitchModal({ open, onOpenChange, onSave }: SwitchModalProps) {
         onOpenChange={onOpenChange}
         onSave={onSave}
         initialConfig={config}
-        title="Create Switch Operator"
+        title="Switch Operator"
         description="Configure conditional branching with multiple cases and task execution paths"
-        buttonLabel="Create Operator"
+        buttonLabel="Save Operator"
         customBasicFields={customBasicFields}
         customTabs={[
           {

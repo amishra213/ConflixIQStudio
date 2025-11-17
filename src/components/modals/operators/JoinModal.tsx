@@ -16,9 +16,10 @@ interface JoinModalProps {
   readonly open: boolean;
   readonly onOpenChange: (open: boolean) => void;
   readonly onSave: (config: JoinConfig) => void;
+  readonly initialConfig?: JoinConfig;
 }
 
-export function JoinModal({ open, onOpenChange, onSave }: JoinModalProps) {
+export function JoinModal({ open, onOpenChange, onSave, initialConfig }: JoinModalProps) {
   const [config, setConfig] = useState<JoinConfig>({
     taskRefId: 'join-1',
     name: 'Join',
@@ -30,16 +31,21 @@ export function JoinModal({ open, onOpenChange, onSave }: JoinModalProps) {
 
   useEffect(() => {
     if (open) {
-      const timestamp = Date.now();
-      setConfig({
-        taskRefId: `join-${timestamp}`,
-        name: 'Join',
-        taskType: 'JOIN',
-        joinOn: [],
-      });
-      setJoinOnInput('');
+      if (initialConfig) {
+        setConfig({ ...initialConfig });
+        setJoinOnInput('');
+      } else {
+        const timestamp = Date.now();
+        setConfig({
+          taskRefId: `join-${timestamp}`,
+          name: 'Join',
+          taskType: 'JOIN',
+          joinOn: [],
+        });
+        setJoinOnInput('');
+      }
     }
-  }, [open]);
+  }, [open, initialConfig]);
 
   const handleAddJoinOn = () => {
     if (joinOnInput.trim()) {

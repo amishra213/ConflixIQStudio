@@ -11,9 +11,10 @@ interface NoopSystemTaskModalProps {
   readonly open: boolean;
   readonly onOpenChange: (open: boolean) => void;
   readonly onSave: (config: NoopSystemTaskConfig) => void;
+  readonly initialConfig?: NoopSystemTaskConfig;
 }
 
-export function NoopSystemTaskModal({ open, onOpenChange, onSave }: NoopSystemTaskModalProps) {
+export function NoopSystemTaskModal({ open, onOpenChange, onSave, initialConfig }: NoopSystemTaskModalProps) {
   const [config, setConfig] = useState<NoopSystemTaskConfig>({
     type: 'NOOP',
     name: '',
@@ -22,13 +23,17 @@ export function NoopSystemTaskModal({ open, onOpenChange, onSave }: NoopSystemTa
 
   useEffect(() => {
     if (open) {
-      setConfig({
-        type: 'NOOP',
-        name: '',
-        taskReferenceName: '',
-      });
+      if (initialConfig) {
+        setConfig({ ...initialConfig });
+      } else {
+        setConfig({
+          type: 'NOOP',
+          name: '',
+          taskReferenceName: '',
+        });
+      }
     }
-  }, [open]);
+  }, [open, initialConfig]);
 
   return (
     <BaseTaskModal

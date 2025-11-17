@@ -31,7 +31,7 @@ export function JsonJqTransformTaskModal({
   useEffect(() => {
     if (open) {
       if (initialConfig) {
-        setConfig(initialConfig);
+        setConfig({ ...initialConfig });
       } else {
         setConfig({
           type: 'JSON_JQ_TRANSFORM',

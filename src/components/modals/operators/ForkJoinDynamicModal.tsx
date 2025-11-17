@@ -58,7 +58,7 @@ export function ForkJoinDynamicModal({
   useEffect(() => {
     if (open) {
       if (initialConfig) {
-        setConfig(initialConfig);
+        setConfig({ ...initialConfig });
         setInputParametersText(JSON.stringify(initialConfig.inputParameters || {}, null, 2));
 
         // Detect mode from config

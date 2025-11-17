@@ -53,14 +53,22 @@ const JsonTextarea = React.forwardRef<HTMLTextAreaElement, JsonTextareaProps>(
 
     const lines = value.split('\n');
     const lineCount = Math.max(lines.length, 1);
+    
+    // Calculate height based on line count and line height
+    const lineHeight = 24; // 1.5rem = 24px
+    const padding = 16; // py-2 = 8px top + 8px bottom for each side
+    const calculatedHeight = (lineCount * lineHeight) + padding;
 
     return (
-      <div className="flex rounded-md border border-input overflow-hidden w-full h-full">
+      <div 
+        className="flex rounded-md border border-input overflow-hidden w-full"
+        style={{ height: `${calculatedHeight}px`, maxHeight: '600px' }}
+      >
         {/* Line Numbers */}
         <div
           ref={lineNumbersRef}
-          className="bg-slate-800 border-r border-slate-700 px-3 py-2 text-right select-none overflow-hidden flex-shrink-0"
-          style={{ overflowY: 'hidden', minWidth: '3.5rem', width: 'auto' }}
+          className="bg-slate-800 border-r border-slate-700 px-3 py-2 text-right select-none overflow-y-auto flex-shrink-0"
+          style={{ minWidth: '3.5rem', width: 'auto' }}
         >
           {Array.from({ length: lineCount }, (_, i) => (
             <div
@@ -76,7 +84,7 @@ const JsonTextarea = React.forwardRef<HTMLTextAreaElement, JsonTextareaProps>(
           ))}
         </div>
         {/* Textarea */}
-        <div className="flex-1 overflow-hidden h-full">
+        <div className="flex-1 overflow-y-auto">
           <Textarea
             ref={textareaRef}
             value={value}

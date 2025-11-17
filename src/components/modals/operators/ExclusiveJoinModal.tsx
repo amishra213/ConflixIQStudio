@@ -15,9 +15,10 @@ interface ExclusiveJoinModalProps {
   readonly open: boolean;
   readonly onOpenChange: (open: boolean) => void;
   readonly onSave: (config: ExclusiveJoinConfig) => void;
+  readonly initialConfig?: ExclusiveJoinConfig;
 }
 
-export function ExclusiveJoinModal({ open, onOpenChange, onSave }: ExclusiveJoinModalProps) {
+export function ExclusiveJoinModal({ open, onOpenChange, onSave, initialConfig }: ExclusiveJoinModalProps) {
   const [config, setConfig] = useState<ExclusiveJoinConfig>({
     taskRefId: 'exclusiveJoin-1',
     name: 'Exclusive Join',
@@ -29,16 +30,26 @@ export function ExclusiveJoinModal({ open, onOpenChange, onSave }: ExclusiveJoin
 
   useEffect(() => {
     if (open) {
-      const timestamp = Date.now();
-      setConfig({
-        taskRefId: `exclusiveJoin-${timestamp}`,
-        name: 'Exclusive Join',
-        taskType: 'EXCLUSIVE_JOIN',
-        joinOn: [],
-      });
-      setJoinOnItems([]);
+      if (initialConfig) {
+        setConfig(initialConfig);
+        // Convert existing joinOn array to items with IDs for editing
+        const loadedItems = (initialConfig.joinOn || []).map((value, index) => ({
+          id: `join-${index}-${Date.now()}`,
+          value: value,
+        }));
+        setJoinOnItems(loadedItems);
+      } else {
+        const timestamp = Date.now();
+        setConfig({
+          taskRefId: `exclusiveJoin-${timestamp}`,
+          name: 'Exclusive Join',
+          taskType: 'EXCLUSIVE_JOIN',
+          joinOn: [],
+        });
+        setJoinOnItems([]);
+      }
     }
-  }, [open]);
+  }, [open, initialConfig]);
 
   const handleAddJoinOn = () => {
     const newId = `join-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;

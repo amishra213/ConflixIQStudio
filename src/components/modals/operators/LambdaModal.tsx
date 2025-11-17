@@ -13,9 +13,10 @@ interface LambdaModalProps {
   readonly open: boolean;
   readonly onOpenChange: (open: boolean) => void;
   readonly onSave: (config: LambdaConfig) => void;
+  readonly initialConfig?: LambdaConfig;
 }
 
-export function LambdaModal({ open, onOpenChange, onSave }: LambdaModalProps) {
+export function LambdaModal({ open, onOpenChange, onSave, initialConfig }: LambdaModalProps) {
   const [config, setConfig] = useState<LambdaConfig>({
     taskRefId: 'lambda-1',
     name: 'Lambda',
@@ -24,14 +25,18 @@ export function LambdaModal({ open, onOpenChange, onSave }: LambdaModalProps) {
 
   useEffect(() => {
     if (open) {
-      const timestamp = Date.now();
-      setConfig({
-        taskRefId: `lambda-${timestamp}`,
-        name: 'Lambda',
-        taskType: 'LAMBDA',
-      });
+      if (initialConfig) {
+        setConfig({ ...initialConfig });
+      } else {
+        const timestamp = Date.now();
+        setConfig({
+          taskRefId: `lambda-${timestamp}`,
+          name: 'Lambda',
+          taskType: 'LAMBDA',
+        });
+      }
     }
-  }, [open]);
+  }, [open, initialConfig]);
 
   const customBasicFields = (
     <div>

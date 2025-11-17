@@ -31,7 +31,7 @@ export function EventModal({ open, onOpenChange, onSave, initialConfig }: EventM
   useEffect(() => {
     if (open) {
       if (initialConfig) {
-        setConfig(initialConfig);
+        setConfig({ ...initialConfig });
       } else {
         const timestamp = Date.now();
         setConfig({
@@ -74,8 +74,8 @@ export function EventModal({ open, onOpenChange, onSave, initialConfig }: EventM
       onOpenChange={onOpenChange}
       onSave={onSave}
       initialConfig={config}
-      title="Create Event Operator"
-      buttonLabel="Create Operator"
+      title="Event Operator"
+      buttonLabel="Save Operator"
       customBasicFields={customBasicFields}
     />
   );

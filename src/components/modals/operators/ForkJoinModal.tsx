@@ -22,6 +22,7 @@ interface ForkJoinModalProps {
   readonly open: boolean;
   readonly onOpenChange: (open: boolean) => void;
   readonly onSave: (config: ForkJoinConfig) => void;
+  readonly initialConfig?: ForkJoinConfig;
 }
 
 interface ForkTask {
@@ -31,7 +32,7 @@ interface ForkTask {
   taskType: string;
 }
 
-export function ForkJoinModal({ open, onOpenChange, onSave }: ForkJoinModalProps) {
+export function ForkJoinModal({ open, onOpenChange, onSave, initialConfig }: ForkJoinModalProps) {
   const [config, setConfig] = useState<ForkJoinConfig>({
     taskRefId: 'fork-join-1',
     name: 'Fork Join',
@@ -44,17 +45,30 @@ export function ForkJoinModal({ open, onOpenChange, onSave }: ForkJoinModalProps
 
   useEffect(() => {
     if (open) {
-      const timestamp = Date.now();
-      setConfig({
-        taskRefId: `fork-join-${timestamp}`,
-        name: 'Fork Join',
-        taskType: 'FORK_JOIN',
-        numWorkers: 0,
-        forkTasks: [],
-      });
-      setForkTasks([]);
+      if (initialConfig) {
+        // Load existing configuration including ALL properties and forkTasks
+        setConfig({ ...initialConfig });
+        // Convert existing forkTasks to the format with IDs for editing
+        const loadedTasks = (initialConfig.forkTasks || []).map((task, index) => ({
+          id: `existing-${index}-${Date.now()}`,
+          taskRefId: task.taskRefId || '',
+          taskId: task.taskId || '',
+          taskType: task.taskType || 'SIMPLE',
+        }));
+        setForkTasks(loadedTasks);
+      } else {
+        const timestamp = Date.now();
+        setConfig({
+          taskRefId: `fork-join-${timestamp}`,
+          name: 'Fork Join',
+          taskType: 'FORK_JOIN',
+          numWorkers: 0,
+          forkTasks: [],
+        });
+        setForkTasks([]);
+      }
     }
-  }, [open]);
+  }, [open, initialConfig]);
 
   const handleAddTask = () => {
     setForkTasks([
@@ -174,9 +188,9 @@ export function ForkJoinModal({ open, onOpenChange, onSave }: ForkJoinModalProps
       onOpenChange={onOpenChange}
       onSave={handleSaveModal}
       initialConfig={config}
-      title="Create Fork Join Operator"
+      title="Fork Join Operator"
       description="Execute multiple tasks in parallel and wait for all to complete"
-      buttonLabel="Create Operator"
+      buttonLabel="Save Operator"
       customBasicFields={customBasicFields}
     />
   );

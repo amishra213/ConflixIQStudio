@@ -29,7 +29,7 @@ export function SubWorkflowModal({ open, onOpenChange, onSave, initialConfig }: 
   useEffect(() => {
     if (open) {
       if (initialConfig) {
-        setConfig(initialConfig);
+        setConfig({ ...initialConfig });
       } else {
         const timestamp = Date.now();
         setConfig({

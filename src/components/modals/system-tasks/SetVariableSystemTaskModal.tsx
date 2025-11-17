@@ -38,7 +38,7 @@ export function SetVariableSystemTaskModal({
   useEffect(() => {
     if (open) {
       if (initialConfig) {
-        setConfig(initialConfig);
+        setConfig({ ...initialConfig });
         setValueText(typeof initialConfig.value === 'object'
           ? JSON.stringify(initialConfig.value, null, 2)
           : String(initialConfig.value));

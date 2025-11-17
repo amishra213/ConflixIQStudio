@@ -68,8 +68,8 @@ export function WaitModal({ open, onOpenChange, onSave }: WaitModalProps) {
       onOpenChange={onOpenChange}
       onSave={onSave}
       initialConfig={config}
-      title="Create Wait Operator"
-      buttonLabel="Create Operator"
+      title="Wait Operator"
+      buttonLabel="Save Operator"
       customBasicFields={customBasicFields}
     />
   );

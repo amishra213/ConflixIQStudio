@@ -14,9 +14,10 @@ interface WaitSystemTaskModalProps {
   readonly open: boolean;
   readonly onOpenChange: (open: boolean) => void;
   readonly onSave: (config: WaitSystemTaskConfig) => void;
+  readonly initialConfig?: WaitSystemTaskConfig;
 }
 
-export function WaitSystemTaskModal({ open, onOpenChange, onSave }: WaitSystemTaskModalProps) {
+export function WaitSystemTaskModal({ open, onOpenChange, onSave, initialConfig }: WaitSystemTaskModalProps) {
   const [config, setConfig] = useState<WaitSystemTaskConfig>({
     type: 'WAIT',
     name: '',
@@ -26,14 +27,18 @@ export function WaitSystemTaskModal({ open, onOpenChange, onSave }: WaitSystemTa
 
   useEffect(() => {
     if (open) {
-      setConfig({
-        type: 'WAIT',
-        name: '',
-        taskReferenceName: '',
-        duration: '',
-      });
+      if (initialConfig) {
+        setConfig({ ...initialConfig });
+      } else {
+        setConfig({
+          type: 'WAIT',
+          name: '',
+          taskReferenceName: '',
+          duration: '',
+        });
+      }
     }
-  }, [open]);
+  }, [open, initialConfig]);
 
   const customBasicFields = (
     <div>

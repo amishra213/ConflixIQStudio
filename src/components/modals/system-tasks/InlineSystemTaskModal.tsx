@@ -31,7 +31,7 @@ export function InlineSystemTaskModal({ open, onOpenChange, onSave, initialConfi
   useEffect(() => {
     if (open) {
       if (initialConfig) {
-        setConfig(initialConfig);
+        setConfig({ ...initialConfig });
       } else {
         setConfig({
           type: 'INLINE',

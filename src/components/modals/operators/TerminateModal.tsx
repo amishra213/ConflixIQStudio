@@ -86,8 +86,8 @@ export function TerminateModal({ open, onOpenChange, onSave }: TerminateModalPro
       onOpenChange={onOpenChange}
       onSave={onSave}
       initialConfig={config}
-      title="Create Terminate Operator"
-      buttonLabel="Create Operator"
+      title="Terminate Operator"
+      buttonLabel="Save Operator"
       customBasicFields={customBasicFields}
     />
   );

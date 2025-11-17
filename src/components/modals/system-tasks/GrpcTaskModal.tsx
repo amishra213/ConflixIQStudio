@@ -43,7 +43,7 @@ export function GrpcTaskModal({ open, onOpenChange, onSave, initialConfig }: Grp
   useEffect(() => {
     if (open) {
       if (initialConfig) {
-        setConfig(initialConfig);
+        setConfig({ ...initialConfig });
         const headerEntries = Object.entries(initialConfig.grpc_request.headers || {});
         const headerList = headerEntries.map(([key, value], index) => ({
           id: `header-${Date.now()}-${index}`,

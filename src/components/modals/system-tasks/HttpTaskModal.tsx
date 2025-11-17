@@ -65,7 +65,7 @@ export function HttpTaskModal({
   useEffect(() => {
     if (open) {
       if (initialConfig) {
-        setConfig(initialConfig);
+        setConfig({ ...initialConfig });
 
         // Extract headers
         const headerEntries = Object.entries(initialConfig.inputParameters.http_request.headers || {});

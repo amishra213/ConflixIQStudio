@@ -31,7 +31,7 @@ export function EventSystemTaskModal({ open, onOpenChange, onSave, initialConfig
   useEffect(() => {
     if (open) {
       if (initialConfig) {
-        setConfig(initialConfig);
+        setConfig({ ...initialConfig });
       } else {
         setConfig({
           type: 'EVENT',

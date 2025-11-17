@@ -16,9 +16,10 @@ interface TerminateSystemTaskModalProps {
   readonly open: boolean;
   readonly onOpenChange: (open: boolean) => void;
   readonly onSave: (config: TerminateSystemTaskConfig) => void;
+  readonly initialConfig?: TerminateSystemTaskConfig;
 }
 
-export function TerminateSystemTaskModal({ open, onOpenChange, onSave }: TerminateSystemTaskModalProps) {
+export function TerminateSystemTaskModal({ open, onOpenChange, onSave, initialConfig }: TerminateSystemTaskModalProps) {
   const [config, setConfig] = useState<TerminateSystemTaskConfig>({
     type: 'TERMINATE',
     name: '',
@@ -30,15 +31,20 @@ export function TerminateSystemTaskModal({ open, onOpenChange, onSave }: Termina
 
   useEffect(() => {
     if (open) {
-      setConfig({
-        type: 'TERMINATE',
-        name: '',
-        taskReferenceName: '',
-        terminationStatus: 'COMPLETED',
-      });
-      setOutputText('');
+      if (initialConfig) {
+        setConfig({ ...initialConfig });
+        setOutputText(initialConfig.workflowOutput ? JSON.stringify(initialConfig.workflowOutput, null, 2) : '');
+      } else {
+        setConfig({
+          type: 'TERMINATE',
+          name: '',
+          taskReferenceName: '',
+          terminationStatus: 'COMPLETED',
+        });
+        setOutputText('');
+      }
     }
-  }, [open]);
+  }, [open, initialConfig]);
 
   const customBasicFields = (
     <div style={{ '--line-height': '1.5rem' } as React.CSSProperties}>
