@@ -12,6 +12,7 @@ import { Label } from '@/components/ui/label';
 import { Card } from '@/components/ui/card';
 import { PlayIcon, AlertCircleIcon } from 'lucide-react';
 import { Workflow } from '@/stores/workflowStore';
+import { validateJsonString, generateLineNumbersHtml } from '@/utils/jsonValidation';
 
 interface ExecuteWorkflowModalProps {
   open: boolean;
@@ -56,66 +57,10 @@ export function ExecuteWorkflowModal({
   }, [open, workflow]);
 
   const validateJson = (value: string) => {
-    try {
-      if (value.trim() === '') {
-        setJsonError('');
-        setIsValidJson(true);
-        setErrorLine(null);
-        return;
-      }
-      JSON.parse(value);
-      setJsonError('');
-      setIsValidJson(true);
-      setErrorLine(null);
-    } catch (error) {
-      let errorMessage = 'Invalid JSON format';
-      let lineNumber: number | null = null;
-      
-      if (error instanceof Error) {
-        errorMessage = error.message;
-        
-        // Try to extract position from error message
-        const positionRegexes = [
-          /position (\d+)/i,
-          /at position (\d+)/i,
-          /character (\d+)/i
-        ];
-        let positionMatch: RegExpExecArray | null = null;
-        for (const regex of positionRegexes) {
-          positionMatch = regex.exec(errorMessage);
-          if (positionMatch) break;
-        }
-        
-        if (positionMatch) {
-          const position = Number.parseInt(positionMatch[1]);
-          // Calculate line number from position
-          const textBeforeError = value.substring(0, position);
-          lineNumber = textBeforeError.split('\n').length;
-          
-          // Get column number
-          const lastNewline = textBeforeError.lastIndexOf('\n');
-          const column = position - lastNewline;
-          
-          errorMessage = errorMessage.replace(/position \d+/i, `line ${lineNumber}, column ${column}`);
-        }
-        
-        // Some browsers include line number directly
-        const directLineRegex = /line (\d+)/i;
-        const directLineMatch = directLineRegex.exec(errorMessage);
-        if (directLineMatch && !lineNumber) {
-          lineNumber = Number.parseInt(directLineMatch[1]);
-        }
-      }
-      
-      setErrorLine(lineNumber);
-      
-      if (lineNumber) {
-        setJsonError(`Line ${lineNumber}: ${errorMessage}`);
-      } else {
-        setJsonError(errorMessage);
-      }
-      setIsValidJson(false);
-    }
+    const result = validateJsonString(value);
+    setJsonError(result.errorMessage);
+    setIsValidJson(result.isValid);
+    setErrorLine(result.errorLine);
   };
 
   const handleInputChange = (value: string) => {
@@ -129,14 +74,7 @@ export function ExecuteWorkflowModal({
   const updateLineNumbers = (text: string) => {
     const lines = text.split('\n').length;
     if (lineNumbersRef.current) {
-      lineNumbersRef.current.innerHTML = Array.from(
-        { length: lines },
-        (_, i) => {
-          const lineNum = i + 1;
-          const isErrorLine = errorLine === lineNum;
-          return `<div class="line-number ${isErrorLine ? 'error-line' : ''}">${lineNum}</div>`;
-        }
-      ).join('');
+      lineNumbersRef.current.innerHTML = generateLineNumbersHtml(lines, errorLine);
     }
   };
 
@@ -155,25 +93,27 @@ export function ExecuteWorkflowModal({
   const handleExecute = () => {
     if (!workflow) return;
 
-    let parsedInput = {};
-    
-    if (inputJson.trim() !== '') {
-      try {
-        parsedInput = JSON.parse(inputJson);
-      } catch (error) {
-        let errorMessage = 'Please fix JSON errors before executing';
-        if (error instanceof Error) {
-          errorMessage = error.message;
-        }
-        setJsonError(errorMessage);
-        setIsValidJson(false);
-        setErrorLine(null);
-        return;
-      }
-    }
+    const parsedInput = parseInputJson();
+    if (parsedInput === null) return;
 
     onExecute(workflow.id, parsedInput);
     onOpenChange(false);
+  };
+
+  const parseInputJson = () => {
+    if (inputJson.trim() === '') {
+      return {};
+    }
+
+    try {
+      return JSON.parse(inputJson);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Please fix JSON errors before executing';
+      setJsonError(errorMessage);
+      setIsValidJson(false);
+      setErrorLine(null);
+      return null;
+    }
   };
 
   const handleCancel = () => {

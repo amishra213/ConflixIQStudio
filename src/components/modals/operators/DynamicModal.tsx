@@ -136,7 +136,7 @@ export function DynamicModal({
       initialConfig={config}
       title="Create Dynamic Operator"
       description="Configure a dynamic operator that executes another task determined at runtime"
-      buttonLabel="Create Operator"
+      buttonLabel="Save Operator"
       customBasicFields={customBasicFields}
       validateConfig={validateConfig}
     />

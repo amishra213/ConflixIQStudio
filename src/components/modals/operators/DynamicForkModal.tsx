@@ -30,7 +30,7 @@ export interface ForkJoinDynamicConfig extends BaseTaskConfig {
   };
 }
 
-interface ForkJoinDynamicModalProps {
+interface DynamicForkModalProps {
   readonly open: boolean;
   readonly onOpenChange: (open: boolean) => void;
   readonly onSave: (config: ForkJoinDynamicConfig) => void;
@@ -39,12 +39,12 @@ interface ForkJoinDynamicModalProps {
 
 type ConfigMode = 'different-tasks' | 'same-task' | 'subworkflow';
 
-export function ForkJoinDynamicModal({
+export function DynamicForkModal({
   open,
   onOpenChange,
   onSave,
   initialConfig,
-}: ForkJoinDynamicModalProps) {
+}: DynamicForkModalProps) {
   const [configMode, setConfigMode] = useState<ConfigMode>('different-tasks');
   const [config, setConfig] = useState<ForkJoinDynamicConfig>({
     taskRefId: 'fork-join-dynamic-1',
@@ -417,9 +417,9 @@ export function ForkJoinDynamicModal({
       onOpenChange={onOpenChange}
       onSave={handleSaveWithInputParameters}
       initialConfig={config}
-      title="Create Fork Join Dynamic Operator"
+      title="Create Dynamic Fork Operator"
       description="Execute multiple tasks dynamically in parallel - must be followed by a JOIN"
-      buttonLabel="Create Operator"
+      buttonLabel="Save Operator"
       customBasicFields={customBasicFields}
       validateConfig={validateConfig}
     />

@@ -106,7 +106,7 @@ export function JoinModal({ open, onOpenChange, onSave, initialConfig }: JoinMod
       onSave={onSave}
       initialConfig={config}
       title="Create Join Operator"
-      buttonLabel="Create Operator"
+      buttonLabel="Save Operator"
       customBasicFields={customBasicFields}
     />
   );

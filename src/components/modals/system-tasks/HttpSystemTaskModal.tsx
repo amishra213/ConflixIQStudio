@@ -44,11 +44,11 @@ export function HttpTaskModal({
 }: Readonly<HttpTaskModalProps>) {
   const [config, setConfig] = useState<HttpTaskConfig>({
     type: 'HTTP',
-    name: '',
-    taskReferenceName: '',
+    name: 'http_task',
+    taskReferenceName: 'http_task_ref',
     inputParameters: {
       http_request: {
-        uri: '',
+        uri: 'http://localhost:8080/api',
         method: 'GET',
         accept: 'application/json',
         contentType: 'application/json',
@@ -65,10 +65,27 @@ export function HttpTaskModal({
   useEffect(() => {
     if (open) {
       if (initialConfig) {
-        setConfig({ ...initialConfig });
+        // Safely access http_request from initialConfig
+        const httpRequest = initialConfig.inputParameters?.http_request || {};
+        
+        setConfig({ 
+          ...initialConfig,
+          inputParameters: {
+            ...initialConfig.inputParameters,
+            http_request: {
+              uri: httpRequest.uri || 'http://localhost:8080/api',
+              method: (httpRequest.method as any) || 'GET',
+              accept: httpRequest.accept || 'application/json',
+              contentType: httpRequest.contentType || 'application/json',
+              connectionTimeOut: httpRequest.connectionTimeOut ?? 100,
+              readTimeOut: httpRequest.readTimeOut ?? 150,
+              asyncComplete: httpRequest.asyncComplete || false,
+            }
+          }
+        });
 
         // Extract headers
-        const headerEntries = Object.entries(initialConfig.inputParameters.http_request.headers || {});
+        const headerEntries = Object.entries(httpRequest.headers || {});
         const headerList = headerEntries.map(([key, value], index) => ({
           id: `header-${Date.now()}-${index}`,
           key,
@@ -77,16 +94,16 @@ export function HttpTaskModal({
         setHeaders(headerList.length > 0 ? headerList : []);
 
         // Set body JSON
-        const body = initialConfig.inputParameters.http_request.body;
+        const body = httpRequest.body;
         setBodyJson(body ? JSON.stringify(body, null, 2) : '');
       } else {
         const defaultConfig: HttpTaskConfig = {
           type: 'HTTP',
-          name: '',
-          taskReferenceName: '',
+          name: 'http_task',
+          taskReferenceName: 'http_task_ref',
           inputParameters: {
             http_request: {
-              uri: '',
+              uri: 'http://localhost:8080/api',
               method: 'GET',
               accept: 'application/json',
               contentType: 'application/json',

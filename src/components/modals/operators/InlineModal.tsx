@@ -75,7 +75,7 @@ export function InlineModal({ open, onOpenChange, onSave, initialConfig }: Inlin
       initialConfig={config}
       title="Create Inline Operator"
       description="Execute inline code or expressions in your workflow"
-      buttonLabel="Create Operator"
+      buttonLabel="Save Operator"
       customBasicFields={customBasicFields}
     />
   );

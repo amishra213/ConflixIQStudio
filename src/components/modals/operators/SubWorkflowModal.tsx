@@ -84,7 +84,7 @@ export function SubWorkflowModal({ open, onOpenChange, onSave, initialConfig }: 
       initialConfig={config}
       title="Create Sub Workflow Operator"
       description="Execute a sub-workflow as part of your workflow"
-      buttonLabel="Create Operator"
+      buttonLabel="Save Operator"
       customBasicFields={customBasicFields}
       validateConfig={validateConfig}
     />

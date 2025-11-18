@@ -18,24 +18,18 @@ import { Plus, X, ChevronDown, ChevronUp, Edit2 } from 'lucide-react';
 import {
   HttpTaskModal,
   KafkaPublishTaskModal,
-  GrpcTaskModal,
   JsonJqTransformTaskModal,
-  JsonJqTransformStringTaskModal,
   InlineSystemTaskModal,
   EventSystemTaskModal,
   WaitSystemTaskModal,
   NoopSystemTaskModal,
-  SetVariableSystemTaskModal,
-  SubWorkflowSystemTaskModal,
   TerminateSystemTaskModal,
 } from '../system-tasks';
 import { SimpleTaskModal } from '../SimpleTaskModal';
 import { ForkJoinModal } from './ForkJoinModal';
-import { ForkJoinDynamicModal } from './ForkJoinDynamicModal';
+import { DynamicForkModal } from './DynamicForkModal';
 import { DoWhileModal } from './DoWhileModal';
-import { LambdaModal } from './LambdaModal';
 import { JoinModal } from './JoinModal';
-import { ExclusiveJoinModal } from './ExclusiveJoinModal';
 import { DynamicModal } from './DynamicModal';
 
 export interface SwitchConfig extends BaseTaskConfig {
@@ -59,24 +53,22 @@ const AVAILABLE_TASK_TYPES = [
   'SIMPLE',
   'HTTP',
   'KAFKA_PUBLISH',
-  'GRPC',
   'JSON_JQ_TRANSFORM',
-  'JSON_JQ_TRANSFORM_STRING',
   'NOOP',
   'EVENT',
   'WAIT',
+  'INLINE',
+  'HUMAN',
   'SET_VARIABLE',
   'SUB_WORKFLOW',
+  'START_WORKFLOW',
   'TERMINATE',
-  'INLINE',
   'FORK_JOIN',
   'FORK_JOIN_DYNAMIC',
   'SWITCH',
   'DO_WHILE',
   'DYNAMIC',
-  'LAMBDA',
   'JOIN',
-  'EXCLUSIVE_JOIN',
 ];
 
 interface TaskModalState {
@@ -343,22 +335,14 @@ export function SwitchModal({ open, onOpenChange, onSave, initialConfig }: Switc
         return <HttpTaskModal {...commonProps} />;
       case 'KAFKA_PUBLISH':
         return <KafkaPublishTaskModal {...commonProps} />;
-      case 'GRPC':
-        return <GrpcTaskModal {...commonProps} />;
       case 'JSON_JQ_TRANSFORM':
         return <JsonJqTransformTaskModal {...commonProps} />;
-      case 'JSON_JQ_TRANSFORM_STRING':
-        return <JsonJqTransformStringTaskModal {...commonProps} />;
       case 'NOOP':
         return <NoopSystemTaskModal {...commonProps} />;
       case 'EVENT':
         return <EventSystemTaskModal {...commonProps} />;
       case 'WAIT':
         return <WaitSystemTaskModal {...commonProps} />;
-      case 'SET_VARIABLE':
-        return <SetVariableSystemTaskModal {...commonProps} />;
-      case 'SUB_WORKFLOW':
-        return <SubWorkflowSystemTaskModal {...commonProps} />;
       case 'TERMINATE':
         return <TerminateSystemTaskModal {...commonProps} />;
       case 'INLINE':
@@ -366,19 +350,15 @@ export function SwitchModal({ open, onOpenChange, onSave, initialConfig }: Switc
       case 'FORK_JOIN':
         return <ForkJoinModal {...commonProps} />;
       case 'FORK_JOIN_DYNAMIC':
-        return <ForkJoinDynamicModal {...commonProps} />;
+        return <DynamicForkModal {...commonProps} />;
       case 'SWITCH':
         return <SwitchModal {...commonProps} />;
       case 'DO_WHILE':
         return <DoWhileModal {...commonProps} />;
       case 'DYNAMIC':
         return <DynamicModal {...commonProps} />;
-      case 'LAMBDA':
-        return <LambdaModal {...commonProps} />;
       case 'JOIN':
         return <JoinModal {...commonProps} />;
-      case 'EXCLUSIVE_JOIN':
-        return <ExclusiveJoinModal {...commonProps} />;
       default:
         return null;
     }

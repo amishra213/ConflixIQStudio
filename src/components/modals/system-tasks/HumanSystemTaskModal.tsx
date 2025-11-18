@@ -28,10 +28,10 @@ interface GrpcTaskModalProps {
 export function GrpcTaskModal({ open, onOpenChange, onSave, initialConfig }: GrpcTaskModalProps) {
   const [config, setConfig] = useState<GrpcTaskConfig>({
     type: 'GRPC',
-    name: '',
-    taskReferenceName: '',
+    name: 'grpc_task',
+    taskReferenceName: 'grpc_task_ref',
     grpc_request: {
-      endpoint: 'localhost:50051',
+      endpoint: 'http://localhost:8080/api',
       method: 'grpc.ServiceName/MethodName',
       headers: {},
     },
@@ -43,22 +43,32 @@ export function GrpcTaskModal({ open, onOpenChange, onSave, initialConfig }: Grp
   useEffect(() => {
     if (open) {
       if (initialConfig) {
-        setConfig({ ...initialConfig });
-        const headerEntries = Object.entries(initialConfig.grpc_request.headers || {});
+        // Handle both structures: direct grpc_request or nested in initialConfig
+        const grpcRequest = initialConfig.grpc_request || {};
+        setConfig({
+          ...initialConfig,
+          grpc_request: {
+            endpoint: grpcRequest.endpoint || 'http://localhost:8080/api',
+            method: grpcRequest.method || 'grpc.ServiceName/MethodName',
+            headers: grpcRequest.headers || {},
+          }
+        });
+        
+        const headerEntries = Object.entries(grpcRequest.headers || {});
         const headerList = headerEntries.map(([key, value], index) => ({
           id: `header-${Date.now()}-${index}`,
           key,
           value: String(value),
         }));
-        setHeaders(headerList);
-        setBodyText(initialConfig.grpc_request.body ? JSON.stringify(initialConfig.grpc_request.body, null, 2) : '');
+        setHeaders(headerList.length > 0 ? headerList : []);
+        setBodyText(grpcRequest.body ? JSON.stringify(grpcRequest.body, null, 2) : '');
       } else {
         setConfig({
           type: 'GRPC',
-          name: '',
-          taskReferenceName: '',
+          name: 'grpc_task',
+          taskReferenceName: 'grpc_task_ref',
           grpc_request: {
-            endpoint: 'localhost:50051',
+            endpoint: 'http://localhost:8080/api',
             method: 'grpc.ServiceName/MethodName',
             headers: {},
           },
@@ -163,7 +173,7 @@ export function GrpcTaskModal({ open, onOpenChange, onSave, initialConfig }: Grp
                 grpc_request: { ...config.grpc_request, endpoint: e.target.value },
               })
             }
-            placeholder="localhost:50051"
+            placeholder="http://localhost:8080/api"
             className="mt-1 bg-[#1a1f2e] text-white border-[#2a3142]"
           />
         </div>

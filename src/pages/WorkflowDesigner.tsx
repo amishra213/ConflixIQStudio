@@ -26,31 +26,27 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { ExecuteWorkflowModal } from '@/components/modals/ExecuteWorkflowModal';
-import { HttpTaskModal } from '@/components/modals/system-tasks/HttpTaskModal';
+import { HttpTaskModal } from '@/components/modals/system-tasks/HttpSystemTaskModal';
 import { KafkaPublishTaskModal, KafkaPublishTaskConfig } from '@/components/modals/system-tasks/KafkaPublishTaskModal';
-import { GrpcTaskModal, GrpcTaskConfig } from '@/components/modals/system-tasks/GrpcTaskModal';
 import { JsonJqTransformTaskModal, JsonJqTransformTaskConfig } from '@/components/modals/system-tasks/JsonJqTransformTaskModal';
-import { JsonJqTransformStringTaskModal, JsonJqTransformStringTaskConfig } from '@/components/modals/system-tasks/JsonJqTransformStringTaskModal';
 import { NoopSystemTaskModal, NoopSystemTaskConfig } from '@/components/modals/system-tasks/NoopSystemTaskModal';
 import { EventSystemTaskModal, EventSystemTaskConfig } from '@/components/modals/system-tasks/EventSystemTaskModal';
 import { WaitSystemTaskModal, WaitSystemTaskConfig } from '@/components/modals/system-tasks/WaitSystemTaskModal';
-import { SetVariableSystemTaskModal, SetVariableSystemTaskConfig } from '@/components/modals/system-tasks/SetVariableSystemTaskModal';
-import { SubWorkflowSystemTaskModal, SubWorkflowSystemTaskConfig } from '@/components/modals/system-tasks/SubWorkflowSystemTaskModal';
 import { TerminateSystemTaskModal, TerminateSystemTaskConfig } from '@/components/modals/system-tasks/TerminateSystemTaskModal';
 import { InlineSystemTaskModal, InlineSystemTaskConfig } from '@/components/modals/system-tasks/InlineSystemTaskModal';
+import { HumanTaskModal, HumanTaskConfig } from '@/components/modals/system-tasks/HumanTaskModal';
 import { SimpleTaskModal, WorkflowTaskConfig } from '@/components/modals/SimpleTaskModal';
 
 // Operator Modals
 import { ForkJoinModal, ForkJoinConfig } from '@/components/modals/operators/ForkJoinModal';
-import { ForkJoinDynamicModal, ForkJoinDynamicConfig } from '@/components/modals/operators/ForkJoinDynamicModal';
+import { DynamicForkModal, ForkJoinDynamicConfig } from '@/components/modals/operators/DynamicForkModal';
 import { SwitchModal, SwitchConfig } from '@/components/modals/operators/SwitchModal';
 import { DoWhileModal, DoWhileConfig } from '@/components/modals/operators/DoWhileModal';
 import { DynamicModal, DynamicConfig } from '@/components/modals/operators/DynamicModal';
-import { LambdaModal, LambdaConfig } from '@/components/modals/operators/LambdaModal';
 import { InlineModal, InlineConfig } from '@/components/modals/operators/InlineModal';
 import { JoinModal, JoinConfig } from '@/components/modals/operators/JoinModal';
-import { ExclusiveJoinModal, ExclusiveJoinConfig } from '@/components/modals/operators/ExclusiveJoinModal';
 import { SubWorkflowModal, SubWorkflowConfig } from '@/components/modals/operators/SubWorkflowModal';
+import { StartWorkflowModal, StartWorkflowConfig } from '@/components/modals/operators/StartWorkflowModal';
 
 // Extracted modules
 import { CustomNode } from '@/components/workflow/CustomNode';
@@ -134,18 +130,30 @@ export function WorkflowDesigner() {
     setNodes((nds) => {
       const filteredNodes = nds.filter((n) => n.id !== nodeId);
       
-      // Recalculate sequence numbers after deletion
-      return filteredNodes.map((node, index) => ({
-        ...node,
-        data: {
-          ...node.data,
-          sequenceNo: index + 1,
-        },
-      }));
+      // Recalculate sequence numbers after deletion (for UI only)
+      const updatedNodes = filteredNodes.map((node, index) => {
+        const newSequenceNo = index + 1;
+        return {
+          ...node,
+          data: {
+            ...node.data,
+            sequenceNo: newSequenceNo,
+            // Keep config as-is, sequenceNo is only for UI ordering
+          },
+        };
+      });
+
+      // Update workflow tasks array
+      if (workflow) {
+        const workflowTasks = extractWorkflowTasks(updatedNodes);
+        updateWorkflow(workflow.id, { tasks: workflowTasks });
+      }
+
+      return updatedNodes;
     });
     
     setEdges((eds) => eds.filter((e) => e.source !== nodeId && e.target !== nodeId));
-  }, [setNodes, setEdges]);
+  }, [setNodes, setEdges, workflow, updateWorkflow]);
 
   // Load workflow data on mount or when workflow changes
   useEffect(() => {
@@ -302,7 +310,9 @@ export function WorkflowDesigner() {
         .sort((a, b) => (a.data.sequenceNo || 0) - (b.data.sequenceNo || 0))
         .map(node => {
           if (node.data.config) {
-            return node.data.config;
+            // Remove sequenceNo from config as it's UI-only, not a Conductor field
+            const { sequenceNo, ...cleanConfig } = node.data.config;
+            return cleanConfig;
           }
           return {
             name: node.data.taskName,
@@ -423,7 +433,12 @@ export function WorkflowDesigner() {
     const sortedNodes = [...nodes];
     sortedNodes.sort((a, b) => (a.data.sequenceNo || 0) - (b.data.sequenceNo || 0));
     return sortedNodes
-      .map(node => node.data.config)
+      .map(node => {
+        if (!node.data.config) return null;
+        // Remove sequenceNo from config as it's UI-only, not a Conductor field
+        const { sequenceNo, ...cleanConfig } = node.data.config;
+        return cleanConfig;
+      })
       .filter(Boolean); // Remove nodes without config
   };
 
@@ -440,6 +455,9 @@ export function WorkflowDesigner() {
       setNodes((nds) => {
         const sequenceNo = nds.length + 1;
         
+        // Do NOT add sequenceNo to config - it's UI-only, stored in node.data
+        // Config should only contain Conductor-supported fields
+        
         const newNode: Node = {
           id: taskRefId,
           type: 'custom',
@@ -450,8 +468,8 @@ export function WorkflowDesigner() {
             taskType: pendingTaskDrop.taskType,
             taskName: pendingTaskDrop.taskName,
             color: pendingTaskDrop.color,
-            sequenceNo: sequenceNo,
-            config: config,
+            sequenceNo: sequenceNo, // UI-only field for ordering
+            config: config, // Clean config without sequenceNo
             onEdit: handleEditNode,
             onDelete: handleDeleteNode,
           },
@@ -476,7 +494,14 @@ export function WorkflowDesigner() {
       if (!targetNode?.id) return;
 
       setNodes((nds) => {
-        const updatedNodes = nds.map((node) => updateNodeWithConfig(node, targetNode.id, config));
+        const updatedNodes = nds.map((node) => {
+          if (node.id === targetNode.id) {
+            // Update node config without including sequenceNo in config
+            // sequenceNo is maintained in node.data for UI ordering only
+            return updateNodeWithConfig(node, targetNode.id, config);
+          }
+          return node;
+        });
 
         // Update workflow tasks array with all configured tasks
         if (workflow) {
@@ -513,21 +538,10 @@ export function WorkflowDesigner() {
     [createTaskConfigHandler, modalActions]
   );
 
-  const handleSaveGrpcTaskConfig = useCallback((config: GrpcTaskConfig) =>
-    createTaskConfigHandler(modalActions.setIsGrpcModalOpen)(config),
-    [createTaskConfigHandler, modalActions]
-  );
-
   const handleSaveJsonJqTransformConfig = useCallback((config: JsonJqTransformTaskConfig) =>
     createTaskConfigHandler(modalActions.setIsJsonJqTransformModalOpen)(config),
     [createTaskConfigHandler, modalActions]
   );
-
-  const handleSaveJsonJqTransformStringConfig = useCallback((config: JsonJqTransformStringTaskConfig) =>
-    createTaskConfigHandler(modalActions.setIsJsonJqTransformStringModalOpen)(config),
-    [createTaskConfigHandler, modalActions]
-  );
-
   const handleSaveNoopConfig = useCallback((config: NoopSystemTaskConfig) =>
     createTaskConfigHandler(modalActions.setIsNoopModalOpen)(config),
     [createTaskConfigHandler, modalActions]
@@ -543,16 +557,6 @@ export function WorkflowDesigner() {
     [createTaskConfigHandler, modalActions]
   );
 
-  const handleSaveSetVariableConfig = useCallback((config: SetVariableSystemTaskConfig) =>
-    createTaskConfigHandler(modalActions.setIsSetVariableModalOpen)(config),
-    [createTaskConfigHandler, modalActions]
-  );
-
-  const handleSaveSubWorkflowConfig = useCallback((config: SubWorkflowSystemTaskConfig) =>
-    createTaskConfigHandler(modalActions.setIsSubWorkflowModalOpen)(config),
-    [createTaskConfigHandler, modalActions]
-  );
-
   const handleSaveTerminateConfig = useCallback((config: TerminateSystemTaskConfig) =>
     createTaskConfigHandler(modalActions.setIsTerminateModalOpen)(config),
     [createTaskConfigHandler, modalActions]
@@ -560,6 +564,11 @@ export function WorkflowDesigner() {
 
   const handleSaveInlineConfig = useCallback((config: InlineSystemTaskConfig) =>
     createTaskConfigHandler(modalActions.setIsInlineModalOpen)(config),
+    [createTaskConfigHandler, modalActions]
+  );
+
+  const handleSaveHumanTaskConfig = useCallback((config: HumanTaskConfig) =>
+    createTaskConfigHandler(modalActions.setIsHumanTaskModalOpen)(config),
     [createTaskConfigHandler, modalActions]
   );
 
@@ -589,11 +598,6 @@ export function WorkflowDesigner() {
     [createTaskConfigHandler, modalActions]
   );
 
-  const handleSaveLambdaConfig = useCallback((config: LambdaConfig) =>
-    createTaskConfigHandler(modalActions.setIsLambdaModalOpen)(config),
-    [createTaskConfigHandler, modalActions]
-  );
-
   const handleSaveOperatorInlineConfig = useCallback((config: InlineConfig) =>
     createTaskConfigHandler(modalActions.setIsOperatorInlineModalOpen)(config),
     [createTaskConfigHandler, modalActions]
@@ -604,13 +608,13 @@ export function WorkflowDesigner() {
     [createTaskConfigHandler, modalActions]
   );
 
-  const handleSaveExclusiveJoinConfig = useCallback((config: ExclusiveJoinConfig) =>
-    createTaskConfigHandler(modalActions.setIsExclusiveJoinModalOpen)(config),
+  const handleSaveOperatorSubWorkflowConfig = useCallback((config: SubWorkflowConfig) =>
+    createTaskConfigHandler(modalActions.setIsOperatorSubWorkflowModalOpen)(config),
     [createTaskConfigHandler, modalActions]
   );
 
-  const handleSaveOperatorSubWorkflowConfig = useCallback((config: SubWorkflowConfig) =>
-    createTaskConfigHandler(modalActions.setIsOperatorSubWorkflowModalOpen)(config),
+  const handleSaveStartWorkflowConfig = useCallback((config: StartWorkflowConfig) =>
+    createTaskConfigHandler(modalActions.setIsStartWorkflowModalOpen)(config),
     [createTaskConfigHandler, modalActions]
   );
 
@@ -847,9 +851,27 @@ export function WorkflowDesigner() {
   );
 
   const getInitialConfig = (taskType: string) => {
+    // For editing existing node - read latest config from workflow definition
     if (selectedNodeForConfig?.data?.taskType === taskType) {
-      return selectedNodeForConfig.data.config;
+      // Find the task in workflow definition by taskReferenceName
+      const nodeConfig = selectedNodeForConfig.data.config;
+      if (workflow?.tasks && nodeConfig) {
+        // Try to find the latest config in workflow.tasks array by taskReferenceName
+        const latestTask = workflow.tasks.find(
+          (task: any) => task.taskReferenceName === nodeConfig.taskReferenceName
+        );
+        if (latestTask) {
+          // Add back the sequenceNo from node data for UI consistency
+          return {
+            ...latestTask,
+            sequenceNo: selectedNodeForConfig.data.sequenceNo
+          };
+        }
+      }
+      // Fallback to node data if not found in workflow definition
+      return nodeConfig;
     }
+    // For auto-config during creation
     if (pendingNodeForAutoConfig?.data?.taskType === taskType) {
       return pendingNodeForAutoConfig.data.config;
     }
@@ -1379,25 +1401,6 @@ export function WorkflowDesigner() {
         onSave={handleSaveKafkaTaskConfig}
       />
 
-      <GrpcTaskModal
-        open={modalStates.isGrpcModalOpen}
-        onOpenChange={(open) => {
-          modalActions.setIsGrpcModalOpen(open);
-          if (!open) {
-            if (pendingNodeForAutoConfig && !selectedNodeForConfig) {
-              setNodes((nds) => nds.filter((n) => n.id !== pendingNodeForAutoConfig.id));
-              setEdges((eds) => eds.filter((e) =>
-                e.source !== pendingNodeForAutoConfig.id && e.target !== pendingNodeForAutoConfig.id
-              ));
-            }
-            setPendingNodeForAutoConfig(null);
-            setSelectedNodeForConfig(null);
-          }
-        }}
-        initialConfig={getInitialConfig('GRPC')}
-        onSave={handleSaveGrpcTaskConfig}
-      />
-
       <JsonJqTransformTaskModal
         open={modalStates.isJsonJqTransformModalOpen}
         onOpenChange={(open) => {
@@ -1415,25 +1418,6 @@ export function WorkflowDesigner() {
         }}
         initialConfig={getInitialConfig('JSON_JQ_TRANSFORM')}
         onSave={handleSaveJsonJqTransformConfig}
-      />
-
-      <JsonJqTransformStringTaskModal
-        open={modalStates.isJsonJqTransformStringModalOpen}
-        onOpenChange={(open) => {
-          modalActions.setIsJsonJqTransformStringModalOpen(open);
-          if (!open) {
-            if (pendingNodeForAutoConfig && !selectedNodeForConfig) {
-              setNodes((nds) => nds.filter((n) => n.id !== pendingNodeForAutoConfig.id));
-              setEdges((eds) => eds.filter((e) =>
-                e.source !== pendingNodeForAutoConfig.id && e.target !== pendingNodeForAutoConfig.id
-              ));
-            }
-            setPendingNodeForAutoConfig(null);
-            setSelectedNodeForConfig(null);
-          }
-        }}
-        initialConfig={getInitialConfig('JSON_JQ_TRANSFORM_STRING')}
-        onSave={handleSaveJsonJqTransformStringConfig}
       />
 
       <NoopSystemTaskModal
@@ -1493,44 +1477,6 @@ export function WorkflowDesigner() {
         onSave={handleSaveWaitConfig}
       />
 
-      <SetVariableSystemTaskModal
-        open={modalStates.isSetVariableModalOpen}
-        onOpenChange={(open) => {
-          modalActions.setIsSetVariableModalOpen(open);
-          if (!open) {
-            if (pendingNodeForAutoConfig && !selectedNodeForConfig) {
-              setNodes((nds) => nds.filter((n) => n.id !== pendingNodeForAutoConfig.id));
-              setEdges((eds) => eds.filter((e) =>
-                e.source !== pendingNodeForAutoConfig.id && e.target !== pendingNodeForAutoConfig.id
-              ));
-            }
-            setPendingNodeForAutoConfig(null);
-            setSelectedNodeForConfig(null);
-          }
-        }}
-        initialConfig={getInitialConfig('SET_VARIABLE')}
-        onSave={handleSaveSetVariableConfig}
-      />
-
-      <SubWorkflowSystemTaskModal
-        open={modalStates.isSubWorkflowModalOpen}
-        onOpenChange={(open) => {
-          modalActions.setIsSubWorkflowModalOpen(open);
-          if (!open) {
-            if (pendingNodeForAutoConfig && !selectedNodeForConfig) {
-              setNodes((nds) => nds.filter((n) => n.id !== pendingNodeForAutoConfig.id));
-              setEdges((eds) => eds.filter((e) =>
-                e.source !== pendingNodeForAutoConfig.id && e.target !== pendingNodeForAutoConfig.id
-              ));
-            }
-            setPendingNodeForAutoConfig(null);
-            setSelectedNodeForConfig(null);
-          }
-        }}
-        initialConfig={getInitialConfig('SUB_WORKFLOW')}
-        onSave={handleSaveSubWorkflowConfig}
-      />
-
       <TerminateSystemTaskModal
         open={modalStates.isTerminateModalOpen}
         onOpenChange={(open) => {
@@ -1567,6 +1513,25 @@ export function WorkflowDesigner() {
         }}
         initialConfig={getInitialConfig('INLINE')}
         onSave={handleSaveInlineConfig}
+      />
+
+      <HumanTaskModal
+        open={modalStates.isHumanTaskModalOpen}
+        onOpenChange={(open) => {
+          modalActions.setIsHumanTaskModalOpen(open);
+          if (!open) {
+            if (pendingNodeForAutoConfig && !selectedNodeForConfig) {
+              setNodes((nds) => nds.filter((n) => n.id !== pendingNodeForAutoConfig.id));
+              setEdges((eds) => eds.filter((e) =>
+                e.source !== pendingNodeForAutoConfig.id && e.target !== pendingNodeForAutoConfig.id
+              ));
+            }
+            setPendingNodeForAutoConfig(null);
+            setSelectedNodeForConfig(null);
+          }
+        }}
+        initialConfig={getInitialConfig('HUMAN')}
+        onSave={handleSaveHumanTaskConfig}
       />
 
       <SimpleTaskModal
@@ -1611,7 +1576,7 @@ export function WorkflowDesigner() {
         onSave={handleSaveForkJoinConfig}
       />
 
-      <ForkJoinDynamicModal
+      <DynamicForkModal
         open={modalStates.isForkJoinDynamicModalOpen}
         onOpenChange={(open) => {
           modalActions.setIsForkJoinDynamicModalOpen(open);
@@ -1687,25 +1652,6 @@ export function WorkflowDesigner() {
         onSave={handleSaveDynamicConfig}
       />
 
-      <LambdaModal
-        open={modalStates.isLambdaModalOpen}
-        onOpenChange={(open) => {
-          modalActions.setIsLambdaModalOpen(open);
-          if (!open) {
-            if (pendingNodeForAutoConfig && !selectedNodeForConfig) {
-              setNodes((nds) => nds.filter((n) => n.id !== pendingNodeForAutoConfig.id));
-              setEdges((eds) => eds.filter((e) =>
-                e.source !== pendingNodeForAutoConfig.id && e.target !== pendingNodeForAutoConfig.id
-              ));
-            }
-            setPendingNodeForAutoConfig(null);
-            setSelectedNodeForConfig(null);
-          }
-        }}
-        initialConfig={getInitialConfig('LAMBDA')}
-        onSave={handleSaveLambdaConfig}
-      />
-
       <InlineModal
         open={modalStates.isOperatorInlineModalOpen}
         onOpenChange={(open) => {
@@ -1744,25 +1690,6 @@ export function WorkflowDesigner() {
         onSave={handleSaveJoinConfig}
       />
 
-      <ExclusiveJoinModal
-        open={modalStates.isExclusiveJoinModalOpen}
-        onOpenChange={(open) => {
-          modalActions.setIsExclusiveJoinModalOpen(open);
-          if (!open) {
-            if (pendingNodeForAutoConfig && !selectedNodeForConfig) {
-              setNodes((nds) => nds.filter((n) => n.id !== pendingNodeForAutoConfig.id));
-              setEdges((eds) => eds.filter((e) =>
-                e.source !== pendingNodeForAutoConfig.id && e.target !== pendingNodeForAutoConfig.id
-              ));
-            }
-            setPendingNodeForAutoConfig(null);
-            setSelectedNodeForConfig(null);
-          }
-        }}
-        initialConfig={getInitialConfig('EXCLUSIVE_JOIN')}
-        onSave={handleSaveExclusiveJoinConfig}
-      />
-
       <SubWorkflowModal
         open={modalStates.isOperatorSubWorkflowModalOpen}
         onOpenChange={(open) => {
@@ -1779,6 +1706,25 @@ export function WorkflowDesigner() {
           }
         }}
         onSave={handleSaveOperatorSubWorkflowConfig}
+      />
+
+      <StartWorkflowModal
+        open={modalStates.isStartWorkflowModalOpen}
+        onOpenChange={(open) => {
+          modalActions.setIsStartWorkflowModalOpen(open);
+          if (!open) {
+            if (pendingNodeForAutoConfig && !selectedNodeForConfig) {
+              setNodes((nds) => nds.filter((n) => n.id !== pendingNodeForAutoConfig.id));
+              setEdges((eds) => eds.filter((e) =>
+                e.source !== pendingNodeForAutoConfig.id && e.target !== pendingNodeForAutoConfig.id
+              ));
+            }
+            setPendingNodeForAutoConfig(null);
+            setSelectedNodeForConfig(null);
+          }
+        }}
+        initialConfig={getInitialConfig('START_WORKFLOW')}
+        onSave={handleSaveStartWorkflowConfig}
       />
     </>
   );

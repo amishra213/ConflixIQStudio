@@ -15,6 +15,7 @@ export interface ModalStates {
   isSubWorkflowModalOpen: boolean;
   isTerminateModalOpen: boolean;
   isInlineModalOpen: boolean;
+  isHumanTaskModalOpen: boolean;
   isSimpleTaskModalOpen: boolean;
   
   // Operators
@@ -28,6 +29,7 @@ export interface ModalStates {
   isJoinModalOpen: boolean;
   isExclusiveJoinModalOpen: boolean;
   isOperatorSubWorkflowModalOpen: boolean;
+  isStartWorkflowModalOpen: boolean;
   
   // Other
   executeModalOpen: boolean;
@@ -46,6 +48,7 @@ export interface ModalActions {
   setIsSubWorkflowModalOpen: (open: boolean) => void;
   setIsTerminateModalOpen: (open: boolean) => void;
   setIsInlineModalOpen: (open: boolean) => void;
+  setIsHumanTaskModalOpen: (open: boolean) => void;
   setIsSimpleTaskModalOpen: (open: boolean) => void;
   setIsForkJoinModalOpen: (open: boolean) => void;
   setIsForkJoinDynamicModalOpen: (open: boolean) => void;
@@ -57,6 +60,7 @@ export interface ModalActions {
   setIsJoinModalOpen: (open: boolean) => void;
   setIsExclusiveJoinModalOpen: (open: boolean) => void;
   setIsOperatorSubWorkflowModalOpen: (open: boolean) => void;
+  setIsStartWorkflowModalOpen: (open: boolean) => void;
   setExecuteModalOpen: (open: boolean) => void;
   openModalForTaskType: (taskType: string) => void;
 }
@@ -75,6 +79,7 @@ export function useTaskModals() {
   const [isSubWorkflowModalOpen, setIsSubWorkflowModalOpen] = useState(false);
   const [isTerminateModalOpen, setIsTerminateModalOpen] = useState(false);
   const [isInlineModalOpen, setIsInlineModalOpen] = useState(false);
+  const [isHumanTaskModalOpen, setIsHumanTaskModalOpen] = useState(false);
   const [isSimpleTaskModalOpen, setIsSimpleTaskModalOpen] = useState(false);
   const [isForkJoinModalOpen, setIsForkJoinModalOpen] = useState(false);
   const [isForkJoinDynamicModalOpen, setIsForkJoinDynamicModalOpen] = useState(false);
@@ -86,6 +91,7 @@ export function useTaskModals() {
   const [isJoinModalOpen, setIsJoinModalOpen] = useState(false);
   const [isExclusiveJoinModalOpen, setIsExclusiveJoinModalOpen] = useState(false);
   const [isOperatorSubWorkflowModalOpen, setIsOperatorSubWorkflowModalOpen] = useState(false);
+  const [isStartWorkflowModalOpen, setIsStartWorkflowModalOpen] = useState(false);
 
   const [selectedNodeForConfig, setSelectedNodeForConfig] = useState<Node | null>(null);
   const [pendingNodeForAutoConfig, setPendingNodeForAutoConfig] = useState<Node | null>(null);
@@ -134,6 +140,9 @@ export function useTaskModals() {
       case 'INLINE':
         setIsInlineModalOpen(true);
         break;
+      case 'HUMAN':
+        setIsHumanTaskModalOpen(true);
+        break;
       case 'SIMPLE':
         setIsSimpleTaskModalOpen(true);
         break;
@@ -167,6 +176,9 @@ export function useTaskModals() {
       case 'SUB_WORKFLOW_OPERATOR':
         setIsOperatorSubWorkflowModalOpen(true);
         break;
+      case 'START_WORKFLOW':
+        setIsStartWorkflowModalOpen(true);
+        break;
     }
   }, []);
 
@@ -185,6 +197,7 @@ export function useTaskModals() {
       isSubWorkflowModalOpen,
       isTerminateModalOpen,
       isInlineModalOpen,
+      isHumanTaskModalOpen,
       isSimpleTaskModalOpen,
       isForkJoinModalOpen,
       isForkJoinDynamicModalOpen,
@@ -196,6 +209,7 @@ export function useTaskModals() {
       isJoinModalOpen,
       isExclusiveJoinModalOpen,
       isOperatorSubWorkflowModalOpen,
+      isStartWorkflowModalOpen,
     },
     actions: {
       setExecuteModalOpen,
@@ -211,6 +225,7 @@ export function useTaskModals() {
       setIsSubWorkflowModalOpen,
       setIsTerminateModalOpen,
       setIsInlineModalOpen,
+      setIsHumanTaskModalOpen,
       setIsSimpleTaskModalOpen,
       setIsForkJoinModalOpen,
       setIsForkJoinDynamicModalOpen,
@@ -222,6 +237,7 @@ export function useTaskModals() {
       setIsJoinModalOpen,
       setIsExclusiveJoinModalOpen,
       setIsOperatorSubWorkflowModalOpen,
+      setIsStartWorkflowModalOpen,
       openModalForTaskType,
     },
     selectedNodeForConfig,

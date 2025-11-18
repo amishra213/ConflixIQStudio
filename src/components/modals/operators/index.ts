@@ -1,6 +1,6 @@
 // Fork and Join Operators
 export { ForkJoinModal, type ForkJoinConfig } from './ForkJoinModal';
-export { ForkJoinDynamicModal, type ForkJoinDynamicConfig } from './ForkJoinDynamicModal';
+export { DynamicForkModal, type ForkJoinDynamicConfig } from './DynamicForkModal';
 export { JoinModal, type JoinConfig } from './JoinModal';
 export { ExclusiveJoinModal, type ExclusiveJoinConfig } from './ExclusiveJoinModal';
 
@@ -20,3 +20,5 @@ export { TerminateModal, type TerminateConfig } from './TerminateModal';
 // Variable and Subprocess Operators
 export { SetVariableModal, type SetVariableConfig } from './SetVariableModal';
 export { SubWorkflowModal, type SubWorkflowConfig } from './SubWorkflowModal';
+export { StartWorkflowModal, type StartWorkflowConfig } from './StartWorkflowModal';
+
