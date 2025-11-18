@@ -34,10 +34,10 @@ export default function LogsViewer() {
 
   const filteredLogs = useMemo(() => {
     return getFilteredLogs({
-      type: selectedType === 'all' ? undefined : selectedType as any,
+      type: selectedType === 'all' ? undefined : (selectedType as 'request' | 'response' | 'error' | undefined),
       operation: searchQuery || undefined,
     });
-  }, [logs, searchQuery, selectedType, getFilteredLogs]);
+  }, [searchQuery, selectedType, getFilteredLogs]);
 
   const logStats = useMemo(() => {
     return {

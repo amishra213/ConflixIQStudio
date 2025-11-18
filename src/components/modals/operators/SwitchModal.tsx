@@ -111,14 +111,29 @@ export function SwitchModal({ open, onOpenChange, onSave, initialConfig }: Switc
   useEffect(() => {
     if (open) {
       if (initialConfig) {
-        // Load existing configuration including ALL properties, nested decision cases and default case
-        setConfig({ ...initialConfig });
-        // Expand all cases by default when editing
-        const caseNames = Object.keys(initialConfig.decisionCases || {});
+        // Deep load of existing configuration to ensure all properties are correctly set
+        const loadedConfig: SwitchConfig = {
+          taskRefId: initialConfig.taskRefId || `switch-${Date.now()}`,
+          name: initialConfig.name || 'Switch',
+          taskType: 'SWITCH',
+          evaluatorType: initialConfig.evaluatorType || 'value-param',
+          expression: initialConfig.expression || 'switchCaseValue',
+          inputParameters: initialConfig.inputParameters ? { ...initialConfig.inputParameters } : { switchCaseValue: '${workflow.input}' },
+          decisionCases: initialConfig.decisionCases ? { ...initialConfig.decisionCases } : {},
+          defaultCase: initialConfig.defaultCase ? [...initialConfig.defaultCase] : [],
+        };
+        
+        setConfig(loadedConfig);
+        
+        // Expand all cases by default when editing to show the configuration
+        const caseNames = Object.keys(loadedConfig.decisionCases || {});
         setExpandedCases(new Set(caseNames));
+        
+        console.log('SwitchModal loaded with config:', loadedConfig);
       } else {
+        // Create new configuration with fresh defaults
         const timestamp = Date.now();
-        setConfig({
+        const newConfig: SwitchConfig = {
           taskRefId: `switch-${timestamp}`,
           name: 'Switch',
           taskType: 'SWITCH',
@@ -129,9 +144,15 @@ export function SwitchModal({ open, onOpenChange, onSave, initialConfig }: Switc
           },
           decisionCases: {},
           defaultCase: [],
-        });
+        };
+        
+        setConfig(newConfig);
         setExpandedCases(new Set());
+        
+        console.log('SwitchModal created with new config:', newConfig);
       }
+      
+      // Always reset task modal state and select values when opening
       setTaskModalState({
         isOpen: false,
         taskType: null,

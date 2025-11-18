@@ -2,6 +2,7 @@ import { useState, useCallback } from 'react';
 import { WorkflowDefinition, WorkflowExecution } from '@/utils/workflowToMermaid';
 import { useWorkflowStore } from '@/stores/workflowStore';
 import { useSettingsStore } from '@/stores/settingsStore';
+import { APILogger } from '@/utils/apiLogger';
 import type { TaskDefinition } from '@/types/taskDefinition';
 
 interface UseConductorApiOptions {
@@ -314,28 +315,44 @@ export function useConductorApi(options: UseConductorApiOptions = {}) {
       headers['X-Conductor-API-Key'] = apiKey;
     }
 
-    const response = await fetch(`${proxyServer.proxyEndpoint}`, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify({
-        query: mutation,
-        variables: { task: taskDef },
-      }),
-    });
+    // Explicitly log the GraphQL request
+    APILogger.logGraphQLRequest(mutation, { task: taskDef }, proxyServer.proxyEndpoint);
 
-    const responseData = await response.json();
-    
-    if (responseData.errors) {
-      const errorMessage = responseData.errors[0]?.message || 'GraphQL error';
-      throw new Error(errorMessage);
+    try {
+      const response = await fetch(`${proxyServer.proxyEndpoint}`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          query: mutation,
+          variables: { task: taskDef },
+        }),
+      });
+
+      const responseData = await response.json();
+      
+      if (responseData.errors) {
+        // Log GraphQL error
+        APILogger.logGraphQLError(mutation, { errors: responseData.errors }, 0, 200, proxyServer.proxyEndpoint);
+        const errorMessage = responseData.errors[0]?.message || 'GraphQL error';
+        throw new Error(errorMessage);
+      }
+
+      // Log successful GraphQL response
+      APILogger.logGraphQLResponse(mutation, responseData.data, 0, 200, proxyServer.proxyEndpoint);
+
+      // Check for successful response - resolver returns task object with name
+      if (!responseData.data?.registerTask?.name) {
+        throw new Error('Failed to register task');
+      }
+
+      return true;
+    } catch (error) {
+      // Log error if not already logged by GraphQL error handler
+      if (!(error instanceof Error) || !error.message.includes('GraphQL error')) {
+        APILogger.logGraphQLError(mutation, { message: error instanceof Error ? error.message : String(error) }, 0, 500, proxyServer.proxyEndpoint);
+      }
+      throw error;
     }
-
-    // Check for successful response - resolver returns task object with name
-    if (!responseData.data?.registerTask?.name) {
-      throw new Error('Failed to register task');
-    }
-
-    return true;
   }, [apiKey, proxyServer.proxyEndpoint]);
 
   const createTaskDefinitionViaRest = useCallback(async (taskDef: any): Promise<boolean> => {
@@ -345,26 +362,45 @@ export function useConductorApi(options: UseConductorApiOptions = {}) {
     if (apiKey) {
       headers['X-Conductor-API-Key'] = apiKey;
     }
-    const response = await fetch(`${baseUrl}/metadata/taskdefs`, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify([taskDef]),
-    });
-    if (!response.ok) {
-      let errorMessage = `Failed to create task definition: ${response.statusText}`;
-      try {
-        const errorBody = await response.json();
-        if (errorBody?.message) {
-          errorMessage = errorBody.message;
-        } else if (typeof errorBody === 'string') {
-          errorMessage = errorBody;
+    
+    // Explicitly log the REST request
+    APILogger.logRestRequest('POST', `${baseUrl}/metadata/taskdefs`, [taskDef], headers);
+
+    try {
+      const response = await fetch(`${baseUrl}/metadata/taskdefs`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify([taskDef]),
+      });
+      
+      if (!response.ok) {
+        let errorMessage = `Failed to create task definition: ${response.statusText}`;
+        try {
+          const errorBody = await response.json();
+          if (errorBody?.message) {
+            errorMessage = errorBody.message;
+          } else if (typeof errorBody === 'string') {
+            errorMessage = errorBody;
+          }
+        } catch (parseError) {
+          console.debug('Failed to parse error response:', parseError);
         }
-      } catch (parseError) {
-        console.debug('Failed to parse error response:', parseError);
+        
+        // Log REST error
+        APILogger.logRestError('POST', `${baseUrl}/metadata/taskdefs`, { message: errorMessage }, response.status, 0);
+        throw new Error(errorMessage);
       }
-      throw new Error(errorMessage);
+      
+      // Log successful REST response
+      APILogger.logRestResponse('POST', `${baseUrl}/metadata/taskdefs`, { success: true }, response.status, 0);
+      return true;
+    } catch (error) {
+      // Log error if not already logged
+      if (!(error instanceof Error) || !error.message.includes('Failed to create task definition')) {
+        APILogger.logRestError('POST', `${baseUrl}/metadata/taskdefs`, { message: error instanceof Error ? error.message : String(error) }, 0, 0);
+      }
+      throw error;
     }
-    return true;
   }, [baseUrl, apiKey]);
 
   const createTaskDefinition = useCallback(async (taskDef: any): Promise<boolean> => {

@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { useEffect } from 'react';
 import { AppShell } from './components/layout/AppShell';
 import { Dashboard } from './pages/Dashboard';
 import { Tasks } from './pages/Tasks';
@@ -12,10 +13,16 @@ import { Executions } from './pages/Executions';
 import { ExecutionDetails } from './pages/ExecutionDetails';
 import { Settings } from './pages/Settings';
 import LogsViewer from './pages/LogsViewer';
+import { APILogger } from './utils/apiLogger';
 
 const queryClient = new QueryClient();
 
 function App() {
+  useEffect(() => {
+    // Initialize API logging interceptor
+    APILogger.createFetchInterceptor();
+  }, []);
+
   return (
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
