@@ -322,7 +322,7 @@ export function Workflows() {
                       <Badge
                         className={getStatusBadgeClass(workflow.status)}
                       >
-                        {workflow.status.toUpperCase()}
+                        {workflow.status ? workflow.status.toUpperCase() : ''}
                       </Badge>
                     </td>
                     <td className="px-6 py-4">

@@ -156,13 +156,15 @@ export function WorkflowDesigner() {
   }, [setNodes, setEdges, workflow, updateWorkflow]);
 
   // Load workflow data on mount or when workflow changes
+  // NOTE: Workflows are automatically persisted to localStorage via Zustand persist middleware
+  // This ensures WIP workflows survive page refreshes and browser restarts
   useEffect(() => {
     if (workflow) {
       setWorkflowName(workflow.name);
       if (workflow.settings) {
         setWorkflowSettings(workflow.settings);
       }
-      // Load nodes and edges from the workflow
+      // Load nodes and edges from the workflow (restored from localStorage if available)
       if (workflow.nodes && workflow.nodes.length > 0) {
         setNodes(workflow.nodes.map(node => ({ 
           ...node, 
@@ -284,44 +286,33 @@ export function WorkflowDesigner() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [nodes.length]); // Only run when node count changes
 
-  // Auto-save nodes and edges whenever they change
+  // Auto-save nodes and edges whenever they change (real-time, no debounce)
+  // NOTE: This triggers Zustand persist middleware which saves to localStorage automatically
+  // WIP workflows are cached in browser and survive page refreshes
+  // Removed debounce to ensure real-time updates to workflow JSON and cache
   useEffect(() => {
     if (workflow && (nodes.length > 0 || edges.length > 0)) {
-      // Debounce the save to avoid too frequent updates
-      const timeoutId = setTimeout(() => {
-        updateWorkflow(workflow.id, {
-          nodes: nodes,
-          edges: edges,
-        });
-      }, 500);
-
-      return () => clearTimeout(timeoutId);
+      // Extract and save the tasks array along with nodes and edges
+      // No debounce - save immediately for real-time persistence
+      const workflowTasks = extractWorkflowTasks(nodes);
+      updateWorkflow(workflow.id, {
+        nodes: nodes,
+        edges: edges,
+        tasks: workflowTasks, // Real-time auto-save tasks JSON
+      });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [nodes, edges, workflow?.id]); // Only depend on workflow.id, not the entire workflow object
 
-  // Sync JSON text when nodes, settings, or workflowName change
+  // Sync JSON text when workflow tasks, settings, or workflowName change
   useEffect(() => {
     const workflowJson = {
       name: workflowName,
       description: workflowSettings.description,
       version: workflowSettings.version,
-      tasks: [...nodes]
-        .sort((a, b) => (a.data.sequenceNo || 0) - (b.data.sequenceNo || 0))
-        .map(node => {
-          if (node.data.config) {
-            // Remove sequenceNo from config as it's UI-only, not a Conductor field
-            const { sequenceNo, ...cleanConfig } = node.data.config;
-            return cleanConfig;
-          }
-          return {
-            name: node.data.taskName,
-            taskReferenceName: node.id,
-            type: node.data.taskType,
-            inputParameters: {},
-            optional: false,
-          };
-        }),
+      // Read tasks from workflow.tasks (auto-saved) instead of extracting from nodes
+      // This ensures the JSON always reflects the saved state
+      tasks: workflow?.tasks || [],
       inputParameters: workflowSettings.inputParameters,
       outputParameters: workflowSettings.outputParameters,
       timeoutSeconds: workflowSettings.timeoutSeconds,
@@ -329,7 +320,7 @@ export function WorkflowDesigner() {
       schemaVersion: workflowSettings.schemaVersion,
     };
     setJsonText(JSON.stringify(workflowJson, null, 2));
-  }, [nodes, workflowSettings, workflowName]);
+  }, [workflow?.tasks, workflowSettings, workflowName]);
 
   const handleJsonChange = (value: string) => {
     setJsonText(value);
@@ -851,26 +842,26 @@ export function WorkflowDesigner() {
   );
 
   const getInitialConfig = (taskType: string) => {
-    // For editing existing node - read latest config from workflow definition
-    if (selectedNodeForConfig?.data?.taskType === taskType) {
-      // Find the task in workflow definition by taskReferenceName
-      const nodeConfig = selectedNodeForConfig.data.config;
-      if (workflow?.tasks && nodeConfig) {
-        // Try to find the latest config in workflow.tasks array by taskReferenceName
-        const latestTask = workflow.tasks.find(
-          (task: any) => task.taskReferenceName === nodeConfig.taskReferenceName
+    // For editing existing node - read latest config from workflow.tasks (source of truth)
+    if (selectedNodeForConfig?.id && selectedNodeForConfig?.data?.taskType === taskType) {
+      // First, try to find the task in workflow.tasks by taskReferenceName
+      if (workflow?.tasks) {
+        const taskRefName = selectedNodeForConfig.data.config?.taskReferenceName;
+        const taskInWorkflow = workflow.tasks.find(
+          (t: any) => t.taskReferenceName === taskRefName
         );
-        if (latestTask) {
-          // Add back the sequenceNo from node data for UI consistency
-          return {
-            ...latestTask,
-            sequenceNo: selectedNodeForConfig.data.sequenceNo
-          };
+        if (taskInWorkflow) {
+          return taskInWorkflow;
         }
       }
-      // Fallback to node data if not found in workflow definition
-      return nodeConfig;
+      
+      // Fallback to node.data.config if not found in workflow.tasks
+      const currentNode = nodes.find(n => n.id === selectedNodeForConfig.id);
+      if (currentNode?.data?.config) {
+        return currentNode.data.config;
+      }
     }
+    
     // For auto-config during creation
     if (pendingNodeForAutoConfig?.data?.taskType === taskType) {
       return pendingNodeForAutoConfig.data.config;
@@ -1550,7 +1541,7 @@ export function WorkflowDesigner() {
             setSelectedNodeForConfig(null);
           }
         }}
-        initialConfig={selectedNodeForConfig?.data?.config}
+        initialConfig={getInitialConfig('SIMPLE')}
         onSave={async (config) => {
           handleSaveSimpleTaskConfig(config);
         }}
