@@ -6,13 +6,13 @@ export {
   KafkaPublishTaskModal,
   type KafkaPublishTaskConfig,
   type KafkaRequest,
-} from './KafkaPublishTaskModal';
+} from './KafkaPublishSystemTaskModal';
 
 // JSON JQ Transform
 export {
   JsonJqTransformTaskModal,
   type JsonJqTransformTaskConfig,
-} from './JsonJqTransformTaskModal';
+} from './JsonJqTransformSystemTaskModal';
 
 // INLINE
 export {
@@ -46,21 +46,21 @@ export {
 
 // HUMAN
 export {
-  HumanTaskModal,
+  HumanSystemTaskModal,
   type HumanTaskConfig,
-} from './HumanTaskModal';
+} from './HumanSystemTaskModal';
 
 // Type unions for all system tasks
 export type SystemTaskConfig =
   | import('./HttpSystemTaskModal').HttpTaskConfig
-  | import('./KafkaPublishTaskModal').KafkaPublishTaskConfig
-  | import('./JsonJqTransformTaskModal').JsonJqTransformTaskConfig
+  | import('./KafkaPublishSystemTaskModal').KafkaPublishTaskConfig
+  | import('./JsonJqTransformSystemTaskModal').JsonJqTransformTaskConfig
   | import('./InlineSystemTaskModal').InlineSystemTaskConfig
   | import('./EventSystemTaskModal').EventSystemTaskConfig
   | import('./WaitSystemTaskModal').WaitSystemTaskConfig
   | import('./NoopSystemTaskModal').NoopSystemTaskConfig
   | import('./TerminateSystemTaskModal').TerminateSystemTaskConfig
-  | import('./HumanTaskModal').HumanTaskConfig;
+  | import('./HumanSystemTaskModal').HumanTaskConfig;
 
 export type SystemTaskType =
   | 'HTTP'

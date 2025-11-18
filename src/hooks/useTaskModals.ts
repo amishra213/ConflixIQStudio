@@ -5,7 +5,6 @@ export interface ModalStates {
   // System Tasks
   isHttpConfigModalOpen: boolean;
   isKafkaPublishModalOpen: boolean;
-  isGrpcModalOpen: boolean;
   isJsonJqTransformModalOpen: boolean;
   isJsonJqTransformStringModalOpen: boolean;
   isNoopModalOpen: boolean;
@@ -38,7 +37,6 @@ export interface ModalStates {
 export interface ModalActions {
   setIsHttpConfigModalOpen: (open: boolean) => void;
   setIsKafkaPublishModalOpen: (open: boolean) => void;
-  setIsGrpcModalOpen: (open: boolean) => void;
   setIsJsonJqTransformModalOpen: (open: boolean) => void;
   setIsJsonJqTransformStringModalOpen: (open: boolean) => void;
   setIsNoopModalOpen: (open: boolean) => void;
@@ -69,7 +67,6 @@ export function useTaskModals() {
   const [executeModalOpen, setExecuteModalOpen] = useState(false);
   const [isHttpConfigModalOpen, setIsHttpConfigModalOpen] = useState(false);
   const [isKafkaPublishModalOpen, setIsKafkaPublishModalOpen] = useState(false);
-  const [isGrpcModalOpen, setIsGrpcModalOpen] = useState(false);
   const [isJsonJqTransformModalOpen, setIsJsonJqTransformModalOpen] = useState(false);
   const [isJsonJqTransformStringModalOpen, setIsJsonJqTransformStringModalOpen] = useState(false);
   const [isNoopModalOpen, setIsNoopModalOpen] = useState(false);
@@ -109,9 +106,6 @@ export function useTaskModals() {
         break;
       case 'KAFKA_PUBLISH':
         setIsKafkaPublishModalOpen(true);
-        break;
-      case 'GRPC':
-        setIsGrpcModalOpen(true);
         break;
       case 'JSON_JQ_TRANSFORM':
         setIsJsonJqTransformModalOpen(true);
@@ -187,7 +181,6 @@ export function useTaskModals() {
       executeModalOpen,
       isHttpConfigModalOpen,
       isKafkaPublishModalOpen,
-      isGrpcModalOpen,
       isJsonJqTransformModalOpen,
       isJsonJqTransformStringModalOpen,
       isNoopModalOpen,
@@ -215,7 +208,6 @@ export function useTaskModals() {
       setExecuteModalOpen,
       setIsHttpConfigModalOpen,
       setIsKafkaPublishModalOpen,
-      setIsGrpcModalOpen,
       setIsJsonJqTransformModalOpen,
       setIsJsonJqTransformStringModalOpen,
       setIsNoopModalOpen,

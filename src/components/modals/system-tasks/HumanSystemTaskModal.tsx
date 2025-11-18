@@ -1,261 +1,109 @@
 import { useState, useEffect } from 'react';
 import { BaseTaskModal, BaseTaskConfig } from '../BaseTaskModal';
 import { Label } from '@/components/ui/label';
-import { Input } from '@/components/ui/input';
-import { JsonTextarea } from '@/components/ui/json-textarea';
-import { Button } from '@/components/ui/button';
-import { Plus, Trash2 } from 'lucide-react';
+import { Textarea } from '@/components/ui/textarea';
 
-export interface GrpcRequest {
-  endpoint: string;
-  method: string;
-  headers?: Record<string, string>;
-  body?: any;
+export interface HumanTaskConfig extends BaseTaskConfig {
+  type: 'HUMAN';
+  inputParameters: Record<string, any>;
 }
 
-export interface GrpcTaskConfig extends BaseTaskConfig {
-  type: 'GRPC';
-  grpc_request: GrpcRequest;
-}
-
-interface GrpcTaskModalProps {
+interface HumanTaskModalProps {
   readonly open: boolean;
   readonly onOpenChange: (open: boolean) => void;
-  readonly onSave: (config: GrpcTaskConfig) => void;
-  readonly initialConfig?: GrpcTaskConfig | null;
+  readonly onSave: (config: HumanTaskConfig) => void;
+  readonly initialConfig?: HumanTaskConfig | null;
 }
 
-export function GrpcTaskModal({ open, onOpenChange, onSave, initialConfig }: GrpcTaskModalProps) {
-  const [config, setConfig] = useState<GrpcTaskConfig>({
-    type: 'GRPC',
-    name: 'grpc_task',
-    taskReferenceName: 'grpc_task_ref',
-    grpc_request: {
-      endpoint: 'http://localhost:8080/api',
-      method: 'grpc.ServiceName/MethodName',
-      headers: {},
-    },
+export function HumanSystemTaskModal({
+  open,
+  onOpenChange,
+  onSave,
+  initialConfig,
+}: HumanTaskModalProps) {
+  const [config, setConfig] = useState<HumanTaskConfig>({
+    type: 'HUMAN',
+    name: 'human',
+    taskReferenceName: 'human_ref',
+    inputParameters: {},
   });
-
-  const [headers, setHeaders] = useState<Array<{id: string; key: string; value: string}>>([]);
-  const [bodyText, setBodyText] = useState('');
 
   useEffect(() => {
     if (open) {
       if (initialConfig) {
-        // Handle both structures: direct grpc_request or nested in initialConfig
-        const grpcRequest = initialConfig.grpc_request || {};
         setConfig({
-          ...initialConfig,
-          grpc_request: {
-            endpoint: grpcRequest.endpoint || 'http://localhost:8080/api',
-            method: grpcRequest.method || 'grpc.ServiceName/MethodName',
-            headers: grpcRequest.headers || {},
-          }
+          type: 'HUMAN',
+          name: initialConfig.name || 'human',
+          taskReferenceName: initialConfig.taskReferenceName || 'human_ref',
+          description: initialConfig.description,
+          taskRefId: initialConfig.taskRefId,
+          taskType: initialConfig.taskType,
+          inputParameters: initialConfig.inputParameters || {},
         });
-        
-        const headerEntries = Object.entries(grpcRequest.headers || {});
-        const headerList = headerEntries.map(([key, value], index) => ({
-          id: `header-${Date.now()}-${index}`,
-          key,
-          value: String(value),
-        }));
-        setHeaders(headerList.length > 0 ? headerList : []);
-        setBodyText(grpcRequest.body ? JSON.stringify(grpcRequest.body, null, 2) : '');
       } else {
         setConfig({
-          type: 'GRPC',
-          name: 'grpc_task',
-          taskReferenceName: 'grpc_task_ref',
-          grpc_request: {
-            endpoint: 'http://localhost:8080/api',
-            method: 'grpc.ServiceName/MethodName',
-            headers: {},
-          },
+          type: 'HUMAN',
+          name: 'human',
+          taskReferenceName: 'human_ref',
+          inputParameters: {},
         });
-        setHeaders([]);
-        setBodyText('');
       }
     }
   }, [open, initialConfig]);
 
-  const handleAddHeader = () => {
-    const newId = `header-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
-    setHeaders([...headers, { id: newId, key: '', value: '' }]);
-  };
-
-  const handleRemoveHeader = (id: string) => {
-    const updated = headers.filter((h) => h.id !== id);
-    setHeaders(updated);
-    // Sync to config
-    const headersObj: Record<string, string> = {};
-    for (const h of updated) {
-      if (h.key && h.value) {
-        headersObj[h.key] = h.value;
-      }
+  const validateConfig = (cfg: HumanTaskConfig): string | null => {
+    if (!cfg.name || cfg.name.trim() === '') {
+      return 'Task name is required';
     }
-    setConfig({
-      ...config,
-      grpc_request: { ...config.grpc_request, headers: Object.keys(headersObj).length > 0 ? headersObj : undefined },
-    });
-  };
-
-  const handleHeaderChange = (id: string, field: 'key' | 'value', val: string) => {
-    const updated = headers.map((h) => 
-      h.id === id ? { ...h, [field]: val } : h
-    );
-    setHeaders(updated);
-    // Sync to config
-    const headersObj: Record<string, string> = {};
-    for (const h of updated) {
-      if (h.key && h.value) {
-        headersObj[h.key] = h.value;
-      }
-    }
-    setConfig({
-      ...config,
-      grpc_request: { ...config.grpc_request, headers: Object.keys(headersObj).length > 0 ? headersObj : undefined },
-    });
-  };
-
-  const validateConfig = (cfg: GrpcTaskConfig): string | null => {
-    if (!cfg.grpc_request.endpoint || cfg.grpc_request.endpoint.trim() === '') {
-      return 'Endpoint is required';
-    }
-    if (!cfg.grpc_request.method || cfg.grpc_request.method.trim() === '') {
-      return 'Method is required';
+    if (!cfg.taskReferenceName || cfg.taskReferenceName.trim() === '') {
+      return 'Task Reference Name is required';
     }
     return null;
   };
 
-  // Before saving, merge headers and body into grpc_request
-  const handleSaveWithMerge = (cfg: GrpcTaskConfig) => {
-    const headersObj: Record<string, string> = {};
-    for (const h of headers) {
-      if (h.key && h.value) {
-        headersObj[h.key] = h.value;
-      }
-    }
-
-    let body: any = undefined;
-    if (bodyText.trim()) {
-      try {
-        body = JSON.parse(bodyText);
-      } catch {
-        body = bodyText;
-      }
-    }
-
-    const updatedConfig: GrpcTaskConfig = {
-      ...cfg,
-      grpc_request: {
-        ...cfg.grpc_request,
-        headers: Object.keys(headersObj).length > 0 ? headersObj : undefined,
-        body: body,
-      },
-    };
-
-    onSave(updatedConfig);
-  };
-
-  const grpcTab = {
-    id: 'grpc',
-    label: 'GRPC Config',
+  const humanTab = {
+    id: 'human',
+    label: 'Human Task Info',
     content: (
       <div className="space-y-3" style={{ '--line-height': '1.5rem' } as React.CSSProperties}>
+        <div className="bg-blue-500/10 border border-blue-500/20 rounded p-3 mb-4">
+          <p className="text-sm text-blue-300">
+            <strong>Human Task:</strong> This task pauses the workflow and waits for an external
+            signal. It remains IN_PROGRESS until marked as COMPLETED or FAILED by an external
+            trigger.
+          </p>
+        </div>
+
         <div>
-          <Label className="text-white">Endpoint *</Label>
-          <Input
-            value={config.grpc_request.endpoint}
-            onChange={(e) =>
-              setConfig({
-                ...config,
-                grpc_request: { ...config.grpc_request, endpoint: e.target.value },
-              })
-            }
-            placeholder="http://localhost:8080/api"
-            className="mt-1 bg-[#1a1f2e] text-white border-[#2a3142]"
+          <Label className="text-white">Task Name *</Label>
+          <input
+            type="text"
+            value={config.name || ''}
+            onChange={(e) => setConfig({ ...config, name: e.target.value })}
+            placeholder="human"
+            className="w-full mt-1 px-3 py-2 bg-[#1a1f2e] text-white border border-[#2a3142] rounded text-sm"
           />
         </div>
 
         <div>
-          <Label className="text-white">Method *</Label>
-          <Input
-            value={config.grpc_request.method}
-            onChange={(e) =>
-              setConfig({
-                ...config,
-                grpc_request: { ...config.grpc_request, method: e.target.value },
-              })
-            }
-            placeholder="package.ServiceName/MethodName"
-            className="mt-1 bg-[#1a1f2e] text-white border-[#2a3142]"
+          <Label className="text-white">Task Reference Name *</Label>
+          <input
+            type="text"
+            value={config.taskReferenceName || ''}
+            onChange={(e) => setConfig({ ...config, taskReferenceName: e.target.value })}
+            placeholder="human_ref"
+            className="w-full mt-1 px-3 py-2 bg-[#1a1f2e] text-white border border-[#2a3142] rounded text-sm"
           />
         </div>
 
         <div>
-          <Label className="text-white">Body (JSON)</Label>
-          <JsonTextarea
-            value={bodyText}
-            onChange={(value) => {
-              setBodyText(value);
-              // Sync to config
-              let body: any = undefined;
-              if (value.trim()) {
-                try {
-                  body = JSON.parse(value);
-                } catch {
-                  body = value;
-                }
-              }
-              setConfig({
-                ...config,
-                grpc_request: { ...config.grpc_request, body },
-              });
-            }}
-            placeholder='{"field": "value"}'
-            className="mt-1 bg-[#1a1f2e] text-white font-mono text-sm min-h-[100px]"
+          <Label className="text-white">Description</Label>
+          <Textarea
+            value={config.description || ''}
+            onChange={(e) => setConfig({ ...config, description: e.target.value })}
+            placeholder="Describe what this human task does..."
+            className="mt-1 bg-[#1a1f2e] text-white border-[#2a3142] min-h-[80px]"
           />
-        </div>
-
-        <div>
-          <div className="flex justify-between items-center mb-2">
-            <Label className="text-white">Headers</Label>
-            <Button
-              size="sm"
-              onClick={handleAddHeader}
-              className="bg-cyan-500 text-white hover:bg-cyan-600 text-xs"
-            >
-              <Plus className="w-3 h-3 mr-1" />
-              Add Header
-            </Button>
-          </div>
-          <div className="space-y-2">
-            {headers.map((header) => (
-              <div key={header.id} className="flex gap-2">
-                <Input
-                  value={header.key}
-                  onChange={(e) => handleHeaderChange(header.id, 'key', e.target.value)}
-                  placeholder="Header name"
-                  className="flex-1 bg-[#1a1f2e] text-white border-[#2a3142]"
-                />
-                <Input
-                  value={header.value}
-                  onChange={(e) => handleHeaderChange(header.id, 'value', e.target.value)}
-                  placeholder="Header value"
-                  className="flex-1 bg-[#1a1f2e] text-white border-[#2a3142]"
-                />
-                <Button
-                  size="sm"
-                  variant="destructive"
-                  onClick={() => handleRemoveHeader(header.id)}
-                  className="bg-red-500/20 text-red-400 hover:bg-red-500/30"
-                >
-                  <Trash2 className="w-3 h-3" />
-                </Button>
-              </div>
-            ))}
-          </div>
         </div>
       </div>
     ),
@@ -265,11 +113,11 @@ export function GrpcTaskModal({ open, onOpenChange, onSave, initialConfig }: Grp
     <BaseTaskModal
       open={open}
       onOpenChange={onOpenChange}
-      onSave={handleSaveWithMerge}
+      onSave={onSave}
       initialConfig={config}
-      title="Create GRPC System Task"
+      title="Create Human Task"
       buttonLabel="Save Configuration"
-      customTabs={[grpcTab]}
+      customTabs={[humanTab]}
       validateConfig={validateConfig}
     />
   );

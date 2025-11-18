@@ -27,14 +27,14 @@ import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { ExecuteWorkflowModal } from '@/components/modals/ExecuteWorkflowModal';
 import { HttpTaskModal } from '@/components/modals/system-tasks/HttpSystemTaskModal';
-import { KafkaPublishTaskModal, KafkaPublishTaskConfig } from '@/components/modals/system-tasks/KafkaPublishTaskModal';
-import { JsonJqTransformTaskModal, JsonJqTransformTaskConfig } from '@/components/modals/system-tasks/JsonJqTransformTaskModal';
+import { KafkaPublishTaskModal, KafkaPublishTaskConfig } from '@/components/modals/system-tasks/KafkaPublishSystemTaskModal';
+import { JsonJqTransformTaskModal, JsonJqTransformTaskConfig } from '@/components/modals/system-tasks/JsonJqTransformSystemTaskModal';
 import { NoopSystemTaskModal, NoopSystemTaskConfig } from '@/components/modals/system-tasks/NoopSystemTaskModal';
 import { EventSystemTaskModal, EventSystemTaskConfig } from '@/components/modals/system-tasks/EventSystemTaskModal';
 import { WaitSystemTaskModal, WaitSystemTaskConfig } from '@/components/modals/system-tasks/WaitSystemTaskModal';
 import { TerminateSystemTaskModal, TerminateSystemTaskConfig } from '@/components/modals/system-tasks/TerminateSystemTaskModal';
 import { InlineSystemTaskModal, InlineSystemTaskConfig } from '@/components/modals/system-tasks/InlineSystemTaskModal';
-import { HumanTaskModal, HumanTaskConfig } from '@/components/modals/system-tasks/HumanTaskModal';
+import { HumanSystemTaskModal, HumanTaskConfig } from '@/components/modals/system-tasks/HumanSystemTaskModal';
 import { SimpleTaskModal, WorkflowTaskConfig } from '@/components/modals/SimpleTaskModal';
 
 // Operator Modals
@@ -1515,7 +1515,7 @@ export function WorkflowDesigner() {
         onSave={handleSaveInlineConfig}
       />
 
-      <HumanTaskModal
+      <HumanSystemTaskModal
         open={modalStates.isHumanTaskModalOpen}
         onOpenChange={(open) => {
           modalActions.setIsHumanTaskModalOpen(open);
