@@ -186,6 +186,39 @@ const resolvers = {
       const response = await client.post('/', { query: mutation, variables: { workflow } });
       return response.data?.data?.updateWorkflow || null;
     },
+    async saveWorkflow(_, { workflow }) {
+      // Use REST PUT endpoint for workflow save (create or update)
+      // The Conductor API expects workflows in an array format
+      // This maps to: PUT /api/metadata/workflow
+      const client = axios.create({
+        baseURL: conductorConfig.serverUrl,
+        headers: {
+          'Content-Type': 'application/json',
+          ...(conductorConfig.apiKey && { 'X-API-Key': conductorConfig.apiKey }),
+        },
+        validateStatus: () => true, // Don't throw on any status code
+      });
+      
+      try {
+        // Wrap workflow in array as expected by Conductor backend
+        const workflowArray = Array.isArray(workflow) ? workflow : [workflow];
+        const response = await client.put('/api/metadata/workflow', workflowArray);
+        
+        if (response.status >= 200 && response.status < 300) {
+          // Success - return name and version (or try to extract from response)
+          return {
+            name: workflow.name || (Array.isArray(workflow) ? workflow[0]?.name : 'unknown'),
+            version: workflow.version || (Array.isArray(workflow) ? workflow[0]?.version : 1) || 1,
+          };
+        } else {
+          // Error response
+          throw new Error(`Failed to save workflow: ${response.status} ${response.statusText}`);
+        }
+      } catch (error) {
+        console.error('Error saving workflow:', error);
+        throw error;
+      }
+    },
     async startWorkflow(_, { name, version, input }) {
       const client = createConductorClient();
       const mutation = `

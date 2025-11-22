@@ -1,4 +1,4 @@
-import { useCallback, useState, useEffect } from 'react';
+import { useCallback, useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import ReactFlow, {
   Background,
@@ -15,8 +15,9 @@ import 'reactflow/dist/style.css';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
-import { useWorkflowStore, WorkflowSettings } from '@/stores/workflowStore';
-import { SaveIcon, PlayIcon, EyeIcon, LayoutGridIcon } from 'lucide-react';
+import { useWorkflowStore, WorkflowSettings, WorkflowEdge, WorkflowNode, Workflow } from '@/stores/workflowStore';
+import { useWorkflowCacheStore } from '@/stores/workflowCacheStore';
+import { SaveIcon, PlayIcon, EyeIcon, LayoutGridIcon, ArrowLeftIcon } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
@@ -25,6 +26,7 @@ import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
+import { useConductorApi } from '@/hooks/useConductorApi';
 import { ExecuteWorkflowModal } from '@/components/modals/ExecuteWorkflowModal';
 import { HttpTaskModal } from '@/components/modals/system-tasks/HttpSystemTaskModal';
 import { KafkaPublishTaskModal, KafkaPublishTaskConfig } from '@/components/modals/system-tasks/KafkaPublishSystemTaskModal';
@@ -36,6 +38,7 @@ import { TerminateSystemTaskModal, TerminateSystemTaskConfig } from '@/component
 import { InlineSystemTaskModal, InlineSystemTaskConfig } from '@/components/modals/system-tasks/InlineSystemTaskModal';
 import { HumanSystemTaskModal, HumanTaskConfig } from '@/components/modals/system-tasks/HumanSystemTaskModal';
 import { SimpleTaskModal, WorkflowTaskConfig } from '@/components/modals/SimpleTaskModal';
+import { generateUniqueWorkflowName } from '@/utils/nameGenerator';
 
 // Operator Modals
 import { ForkJoinModal, ForkJoinConfig } from '@/components/modals/operators/ForkJoinModal';
@@ -64,8 +67,10 @@ const nodeTypes = {
 export function WorkflowDesigner() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { workflows, updateWorkflow, executeWorkflow } = useWorkflowStore();
+  const { workflows, updateWorkflow, executeWorkflow, persistWorkflows } = useWorkflowStore();
+  const { saveWorkflowToCache, markAsDraft, markAsSyncing, markAsPublished, syncToFileStore } = useWorkflowCacheStore();
   const { toast } = useToast();
+  const { saveWorkflow } = useConductorApi({ enableFallback: false });
 
   const workflow = id ? workflows.find((w) => w.id === id) : null;
   const [workflowName, setWorkflowName] = useState('New Workflow');
@@ -73,6 +78,7 @@ export function WorkflowDesigner() {
     description: 'A new workflow definition',
     version: 1,
     timeoutSeconds: 3600,
+    timeoutPolicy: 'TIME_OUT_WF',
     restartable: true,
     schemaVersion: 2,
     effectiveDate: formatDate(new Date()),
@@ -80,15 +86,41 @@ export function WorkflowDesigner() {
     status: 'DRAFT',
     inputParameters: [],
     outputParameters: {},
+    inputTemplate: {},
+    createdBy: 'ConductorHub',
+    updatedBy: 'ConductorHub',
+    ownerEmail: '',
+    ownerApp: '',
+    accessPolicy: {},
+    variables: {},
+    failureWorkflow: '',
+    workflowStatusListenerEnabled: false,
   });
   const [activeTab, setActiveTab] = useState('design');
   const [searchQuery, setSearchQuery] = useState('');
   const [jsonText, setJsonText] = useState('');
   const [jsonError, setJsonError] = useState('');
+  const [hasLoadedInitialData, setHasLoadedInitialData] = useState(false);
 
   // Declare nodes and edges state before useEffect hooks that depend on them
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
+
+  // Refs to track latest state for cleanup on unmount
+  const workflowRef = useRef(workflow);
+  const workflowNameRef = useRef(workflowName);
+  const workflowSettingsRef = useRef(workflowSettings);
+  const nodesRef = useRef(nodes);
+  const edgesRef = useRef(edges);
+
+  // Update refs when state changes
+  useEffect(() => {
+    workflowRef.current = workflow;
+    workflowNameRef.current = workflowName;
+    workflowSettingsRef.current = workflowSettings;
+    nodesRef.current = nodes;
+    edgesRef.current = edges;
+  }, [workflow, workflowName, workflowSettings, nodes, edges]);
 
   // Use the task modals hook
   const {
@@ -104,14 +136,9 @@ export function WorkflowDesigner() {
 
   // Define edit and delete handlers BEFORE useEffects that use them
   const handleEditNode = useCallback((nodeId: string) => {
-    console.log('handleEditNode called with nodeId:', nodeId);
     const node = nodes.find(n => n.id === nodeId);
-    console.log('Found node:', node);
     if (node) {
-      console.log('Setting selectedNodeForConfig to:', node);
       setSelectedNodeForConfig(node);
-      // Open the correct modal based on task type
-      console.log('Opening modal for task type:', node.data.taskType);
       modalActions.openModalForTaskType(node.data.taskType);
       
       // Check if no modal was opened (unknown task type)
@@ -155,35 +182,169 @@ export function WorkflowDesigner() {
     setEdges((eds) => eds.filter((e) => e.source !== nodeId && e.target !== nodeId));
   }, [setNodes, setEdges, workflow, updateWorkflow]);
 
-  // Load workflow data on mount or when workflow changes
+  // Initialize/Load workflow on component mount or when ID changes
   useEffect(() => {
-    if (workflow) {
-      setWorkflowName(workflow.name);
-      if (workflow.settings) {
-        setWorkflowSettings(workflow.settings);
+    const loadWorkflow = async () => {
+      if (!id) {
+        // No workflow ID - check if there's a last active workflow in session
+        const lastActiveWorkflowId = sessionStorage.getItem('lastActiveWorkflow');
+        
+        if (lastActiveWorkflowId) {
+          navigate(`/workflows/${lastActiveWorkflowId}`, { replace: true });
+          return;
+        }
+        
+        // No last active workflow - create a new workflow and redirect to it
+        const uniqueName = generateUniqueWorkflowName();
+        
+        const newWorkflow: Workflow = {
+          id: `workflow-${Date.now()}`,
+          name: uniqueName,
+          description: 'A new workflow definition',
+          nodes: [],
+          edges: [],
+          createdAt: new Date().toISOString(),
+          status: 'draft',
+          syncStatus: 'local-only',
+        };
+        
+        // Add to store
+        useWorkflowStore.getState().addWorkflow(newWorkflow);
+        
+        // Persist immediately
+        await persistWorkflows().catch(err => {
+          console.warn('Failed to persist new workflow:', err);
+        });
+        
+        // Save as last active workflow
+        sessionStorage.setItem('lastActiveWorkflow', newWorkflow.id);
+        
+        // Navigate to the new workflow
+        navigate(`/workflows/${newWorkflow.id}`, { replace: true });
+        return;
       }
-      // Load nodes and edges from the workflow
-      if (workflow.nodes && workflow.nodes.length > 0) {
-        setNodes(workflow.nodes.map(node => ({ 
-          ...node, 
-          draggable: false,
-          data: {
-            ...node.data,
-            onEdit: handleEditNode,
-            onDelete: handleDeleteNode,
-          }
-        })));
+
+      // Save this workflow as the last active one
+      sessionStorage.setItem('lastActiveWorkflow', id);
+      
+      // ALWAYS sync from fileStore first to ensure we have the latest data
+      // This is critical for recovering workflows after navigation
+      try {
+        const { fileStoreClient } = await import('@/utils/fileStore');
+        const storedWorkflows = await fileStoreClient.loadWorkflows();
+        
+        if (storedWorkflows && storedWorkflows.length > 0) {
+          const workflowsToLoad: Workflow[] = storedWorkflows.map((w) => ({
+            id: w.id,
+            name: w.name || 'Unnamed',
+            description: w.description,
+            nodes: (w.nodes as WorkflowNode[]) || [],
+            edges: (w.edges as WorkflowEdge[]) || [],
+            createdAt: w.createdAt || new Date().toISOString(),
+            status: (w.status as 'draft' | 'active' | 'paused') || 'draft',
+          }));
+          useWorkflowStore.getState().loadWorkflows(workflowsToLoad);
+        }
+      } catch (err) {
+        console.warn('Error syncing workflows from fileStore:', err);
+      }
+      
+      // Now find the workflow (either from store or from the sync we just did)
+      const foundWorkflow = useWorkflowStore.getState().workflows.find((w) => w.id === id);
+      
+      if (foundWorkflow) {
+        setWorkflowName(foundWorkflow.name);
+        if (foundWorkflow.settings) {
+          setWorkflowSettings(foundWorkflow.settings);
+        }
+        // Load nodes and edges from the workflow
+        if (foundWorkflow.nodes && foundWorkflow.nodes.length > 0) {
+          setNodes(foundWorkflow.nodes.map(node => ({ 
+            ...node, 
+            draggable: false,
+            data: {
+              ...node.data,
+              onEdit: handleEditNode,
+              onDelete: handleDeleteNode,
+            }
+          })));
+        } else {
+          setNodes([]);
+        }
+        if (foundWorkflow.edges && foundWorkflow.edges.length > 0) {
+          setEdges(foundWorkflow.edges as Edge[]);
+        } else {
+          setEdges([]);
+        }
+        setHasLoadedInitialData(true);
       } else {
-        setNodes([]); // Clear nodes if workflow has none
+        console.warn('Workflow not found after fileStore sync:', id);
+        setNodes([]);
+        setEdges([]);
+        setHasLoadedInitialData(true); // Mark as loaded even if not found
       }
-      if (workflow.edges && workflow.edges.length > 0) {
-        setEdges(workflow.edges);
-      } else {
-        setEdges([]); // Clear edges if workflow has none
-      }
-    }
+    };
+
+    loadWorkflow();
+
+    // Cleanup: Reset when component unmounts
+    return () => {
+      setHasLoadedInitialData(false);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id]); // Only run when the workflow ID changes
+  }, [id]); // Only depend on id
+
+  // Persist workflow state when component unmounts (user navigates away)
+  useEffect(() => {
+    return () => {
+      // Save current workflow state before unmounting using refs to get latest values
+      // Use the ID from URL params, not the workflow ref which might be null
+      if (id && nodesRef.current.length > 0) {
+        // Check if workflow exists in store
+        const existingWorkflow = useWorkflowStore.getState().workflows.find((w) => w.id === id);
+        
+        if (existingWorkflow) {
+          // Update the workflow in store
+          updateWorkflow(id, {
+            name: workflowNameRef.current,
+            settings: workflowSettingsRef.current,
+            nodes: nodesRef.current,
+            edges: edgesRef.current as WorkflowEdge[],
+          });
+        } else {
+          // Workflow doesn't exist in store, add it
+          const newWorkflow: Workflow = {
+            id: id,
+            name: workflowNameRef.current,
+            description: workflowSettingsRef.current.description,
+            nodes: nodesRef.current,
+            edges: edgesRef.current as WorkflowEdge[],
+            createdAt: new Date().toISOString(),
+            status: 'draft',
+            syncStatus: 'local-only',
+            settings: workflowSettingsRef.current,
+          };
+          useWorkflowStore.getState().addWorkflow(newWorkflow);
+        }
+        
+        // Get all workflows from store and persist IMMEDIATELY
+        const workflows = useWorkflowStore.getState().workflows;
+        
+        // Save directly to localStorage for immediate persistence (fileStore may take longer)
+        try {
+          localStorage.setItem('workflows', JSON.stringify(workflows));
+        } catch (err) {
+          console.warn('Failed to save to localStorage on unmount:', err);
+        }
+        
+        // Also start an async persist to fileStore (fire and forget, since unmount can't wait)
+        persistWorkflows().catch(err => {
+          console.warn('Failed to persist workflows to fileStore on unmount:', err);
+        });
+      }
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Empty deps - only run on unmount, uses refs for latest values
 
   // Update node handlers after they're loaded or when nodes change
   useEffect(() => {
@@ -291,7 +452,11 @@ export function WorkflowDesigner() {
       const timeoutId = setTimeout(() => {
         updateWorkflow(workflow.id, {
           nodes: nodes,
-          edges: edges,
+          edges: edges as WorkflowEdge[],
+        });
+        // Also persist to storage so changes aren't lost on navigation
+        persistWorkflows().catch(err => {
+          console.warn('Failed to persist workflows during auto-save:', err);
         });
       }, 500);
 
@@ -306,12 +471,16 @@ export function WorkflowDesigner() {
       name: workflowName,
       description: workflowSettings.description,
       version: workflowSettings.version,
+      createdBy: workflowSettings.createdBy,
+      updatedBy: workflowSettings.updatedBy,
+      ownerEmail: workflowSettings.ownerEmail,
+      ownerApp: workflowSettings.ownerApp,
       tasks: [...nodes]
         .sort((a, b) => (a.data.sequenceNo || 0) - (b.data.sequenceNo || 0))
         .map(node => {
           if (node.data.config) {
             // Remove sequenceNo from config as it's UI-only, not a Conductor field
-            const { sequenceNo, ...cleanConfig } = node.data.config;
+            const { sequenceNo: _sequenceNo, ...cleanConfig } = node.data.config;
             return cleanConfig;
           }
           return {
@@ -323,10 +492,16 @@ export function WorkflowDesigner() {
           };
         }),
       inputParameters: workflowSettings.inputParameters,
+      inputTemplate: workflowSettings.inputTemplate,
       outputParameters: workflowSettings.outputParameters,
       timeoutSeconds: workflowSettings.timeoutSeconds,
+      timeoutPolicy: workflowSettings.timeoutPolicy || 'TIME_OUT_WF',
       restartable: workflowSettings.restartable,
       schemaVersion: workflowSettings.schemaVersion,
+      accessPolicy: workflowSettings.accessPolicy,
+      failureWorkflow: workflowSettings.failureWorkflow,
+      variables: workflowSettings.variables,
+      workflowStatusListenerEnabled: workflowSettings.workflowStatusListenerEnabled || false,
     };
     setJsonText(JSON.stringify(workflowJson, null, 2));
   }, [nodes, workflowSettings, workflowName]);
@@ -345,26 +520,102 @@ export function WorkflowDesigner() {
     try {
       const parsedJson = JSON.parse(jsonText);
       
-      // Update workflow name and settings
+      // Update workflow name and settings from JSON
       setWorkflowName(parsedJson.name || workflowName);
-      setWorkflowSettings({
-        description: parsedJson.description || '',
-        version: parsedJson.version || 1,
-        timeoutSeconds: parsedJson.timeoutSeconds || 3600,
-        restartable: parsedJson.restartable ?? true,
-        schemaVersion: parsedJson.schemaVersion || 2,
+      
+      // Parse and update all workflow settings fields
+      const updatedSettings: WorkflowSettings = {
+        description: parsedJson.description || workflowSettings.description,
+        version: parsedJson.version || workflowSettings.version,
+        timeoutSeconds: parsedJson.timeoutSeconds || workflowSettings.timeoutSeconds,
+        timeoutPolicy: parsedJson.timeoutPolicy || workflowSettings.timeoutPolicy,
+        restartable: parsedJson.restartable === undefined ? workflowSettings.restartable : parsedJson.restartable,
+        schemaVersion: parsedJson.schemaVersion || workflowSettings.schemaVersion,
         effectiveDate: workflowSettings.effectiveDate,
         endDate: workflowSettings.endDate,
         status: workflowSettings.status,
-        inputParameters: parsedJson.inputParameters || [],
-        outputParameters: parsedJson.outputParameters || {},
-      });
+        inputParameters: parsedJson.inputParameters || workflowSettings.inputParameters,
+        outputParameters: parsedJson.outputParameters || workflowSettings.outputParameters,
+        inputTemplate: parsedJson.inputTemplate || workflowSettings.inputTemplate,
+        createdBy: parsedJson.createdBy || workflowSettings.createdBy,
+        updatedBy: parsedJson.updatedBy || workflowSettings.updatedBy,
+        ownerEmail: parsedJson.ownerEmail || workflowSettings.ownerEmail,
+        ownerApp: parsedJson.ownerApp || workflowSettings.ownerApp,
+        accessPolicy: parsedJson.accessPolicy || workflowSettings.accessPolicy,
+        variables: parsedJson.variables || workflowSettings.variables,
+        failureWorkflow: parsedJson.failureWorkflow || workflowSettings.failureWorkflow,
+        workflowStatusListenerEnabled: parsedJson.workflowStatusListenerEnabled || workflowSettings.workflowStatusListenerEnabled,
+      };
+      
+      setWorkflowSettings(updatedSettings);
 
-      toast({
-        title: 'JSON Saved',
-        description: 'Workflow definition has been updated from JSON.',
-      });
-      setJsonError('');
+      // If the JSON contains tasks, create visual nodes from them
+      if (parsedJson.tasks && Array.isArray(parsedJson.tasks) && parsedJson.tasks.length > 0) {
+        // Helper function to get task color based on type
+        const getTaskColor = (taskType: string): string => {
+          // System tasks
+          const systemTask = systemTasks.find(t => t.type === taskType);
+          if (systemTask) return systemTask.color;
+          
+          // Operators
+          const operator = operators.find(t => t.type === taskType);
+          if (operator) return operator.color;
+          
+          // Worker tasks or default
+          return '#10b981'; // Default green for worker tasks
+        };
+
+        // Convert tasks from JSON to visual nodes
+        const newNodes: Node[] = parsedJson.tasks.map((task: unknown, index: number) => {
+          const taskConfig = task as Record<string, unknown>;
+          const taskType = (taskConfig.type as string) || 'SIMPLE';
+          const taskRefName = (taskConfig.taskReferenceName as string) || `task_${index + 1}`;
+          const taskName = (taskConfig.name as string) || taskRefName;
+
+          return {
+            id: taskRefName,
+            type: 'custom',
+            position: { x: 0, y: 0 }, // Will be auto-arranged
+            draggable: false,
+            data: {
+              label: taskRefName,
+              taskType: taskType,
+              taskName: taskName,
+              color: getTaskColor(taskType),
+              sequenceNo: index + 1,
+              config: taskConfig, // Store the full task config
+              onEdit: handleEditNode,
+              onDelete: handleDeleteNode,
+            },
+          };
+        });
+
+        setNodes(newNodes);
+        
+        // Update workflow with tasks if we have an active workflow
+        if (workflow) {
+          updateWorkflow(workflow.id, {
+            name: parsedJson.name || workflowName,
+            settings: updatedSettings,
+            tasks: parsedJson.tasks,
+          });
+        }
+
+        toast({
+          title: 'JSON Saved & Imported',
+          description: `Workflow updated with ${newNodes.length} tasks. Click "Auto Arrange" to organize them on the canvas.`,
+        });
+        setJsonError('');
+        setActiveTab('design');
+      } else {
+        // No tasks in JSON, just update settings
+        toast({
+          title: 'JSON Saved',
+          description: 'Workflow settings updated from JSON.',
+        });
+        setJsonError('');
+        setActiveTab('settings');
+      }
     } catch (error) {
       toast({
         title: 'Invalid JSON',
@@ -412,45 +663,47 @@ export function WorkflowDesigner() {
   // Modal state declarations moved to top before handleEditNode
 
   // Helper to update a single node with new config
-  const updateNodeWithConfig = (node: any, targetNodeId: string, config: any) => {
+  const updateNodeWithConfig = useCallback((node: Node, targetNodeId: string, config: unknown) => {
     if (node.id === targetNodeId) {
+      const cfg = config as Record<string, unknown>;
       return {
         ...node,
         data: {
           ...node.data,
           config: config,
-          label: config.taskReferenceName || config.name,
+          label: (cfg.taskReferenceName as string) || (cfg.name as string),
           onEdit: handleEditNode,
           onDelete: handleDeleteNode,
         },
       };
     }
     return node;
-  };
+  }, [handleEditNode, handleDeleteNode]);
 
   // Helper to extract workflow tasks from nodes
-  const extractWorkflowTasks = (nodes: any[]) => {
+  const extractWorkflowTasks = (nodes: Node[]) => {
     const sortedNodes = [...nodes];
     sortedNodes.sort((a, b) => (a.data.sequenceNo || 0) - (b.data.sequenceNo || 0));
     return sortedNodes
       .map(node => {
         if (!node.data.config) return null;
         // Remove sequenceNo from config as it's UI-only, not a Conductor field
-        const { sequenceNo, ...cleanConfig } = node.data.config;
+        const { sequenceNo: _sequenceNo, ...cleanConfig } = node.data.config;
         return cleanConfig;
       })
       .filter(Boolean); // Remove nodes without config
   };
 
-  // Helper to handle the config save logic
-  const saveTaskConfigLogic = (
-    config: any,
+  // Helper to handle the config save logic - wrapped in useCallback to fix hook dependencies
+  const saveTaskConfigLogic = useCallback((
+    config: unknown,
     setModalOpen: (open: boolean) => void
   ) => {
+    const cfg = config as Record<string, unknown>;
     // Check if this is a new drop (pendingTaskDrop exists) or editing existing node
     if (pendingTaskDrop) {
       // Creating a new node from drag & drop
-      const taskRefId = config.taskReferenceName || `${pendingTaskDrop.taskType.toLowerCase()}_${Date.now()}`;
+      const taskRefId = (cfg.taskReferenceName as string) || `${pendingTaskDrop.taskType.toLowerCase()}_${Date.now()}`;
       
       setNodes((nds) => {
         const sequenceNo = nds.length + 1;
@@ -464,7 +717,7 @@ export function WorkflowDesigner() {
           position: { x: 0, y: 0 }, // Temporary position - will be arranged automatically
           draggable: false,
           data: {
-            label: config.taskReferenceName || config.name,
+            label: (cfg.taskReferenceName as string) || (cfg.name as string),
             taskType: pendingTaskDrop.taskType,
             taskName: pendingTaskDrop.taskName,
             color: pendingTaskDrop.color,
@@ -517,18 +770,18 @@ export function WorkflowDesigner() {
     }
 
     setModalOpen(false);
-  };
+  }, [selectedNodeForConfig, pendingNodeForAutoConfig, pendingTaskDrop, setNodes, workflow, updateWorkflow, handleEditNode, handleDeleteNode, setPendingNodeForAutoConfig, setPendingTaskDrop, setSelectedNodeForConfig, updateNodeWithConfig]);
 
   // Generic save handler for task configs
   const createTaskConfigHandler = useCallback((
     setModalOpen: (open: boolean) => void
   ) => {
-    return (config: any) => {
+    return (config: unknown) => {
       saveTaskConfigLogic(config, setModalOpen);
     };
-  }, [selectedNodeForConfig, pendingNodeForAutoConfig, pendingTaskDrop, setNodes, setEdges, workflow, updateWorkflow, handleEditNode, handleDeleteNode]);
+  }, [saveTaskConfigLogic]);
 
-  const handleSaveHttpTaskConfig = useCallback((config: any) =>
+  const handleSaveHttpTaskConfig = useCallback((config: unknown) =>
     createTaskConfigHandler(modalActions.setIsHttpConfigModalOpen)(config),
     [createTaskConfigHandler, modalActions]
   );
@@ -740,14 +993,14 @@ export function WorkflowDesigner() {
       });
     }
     setEdges(newEdges);
-  }, [nodes, setNodes, setEdges]);
+  }, [nodes, setNodes, setEdges, toast]);
 
   const handlePreview = () => {
     // Save current state temporarily
     if (workflow) {
       useWorkflowStore.getState().updateWorkflow(workflow.id, {
         nodes: nodes,
-        edges: edges,
+        edges: edges as WorkflowEdge[],
       });
       // Navigate to unified diagram page in preview mode
       navigate(`/diagram/${workflow.id}?mode=preview`);
@@ -758,7 +1011,7 @@ export function WorkflowDesigner() {
         name: workflowName,
         description: 'Preview workflow',
         nodes: nodes,
-        edges: edges,
+        edges: edges as WorkflowEdge[],
         createdAt: new Date().toISOString(),
         status: 'draft' as const,
       };
@@ -767,33 +1020,184 @@ export function WorkflowDesigner() {
     }
   };
 
-  const handleSave = (): boolean => {
-    if (!workflow) {
-      // Create new workflow if accessed from standalone designer
-      const newWorkflow = {
-        id: `workflow-${Date.now()}`,
+  // Improved save logic with offline caching support
+  // Always returns true because changes are cached even if Conductor publish fails
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const handleSave = async (): Promise<boolean> => {
+    try {
+      // First save to local store and cache
+      if (!workflow) {
+        // Create new workflow if accessed from standalone designer
+        const newWorkflow = {
+          id: `workflow-${Date.now()}`,
+          name: workflowName,
+          description: workflowSettings.description,
+          nodes: nodes,
+          edges: edges as WorkflowEdge[],
+          createdAt: new Date().toISOString(),
+          status: workflowSettings.status.toLowerCase() as 'draft' | 'active' | 'paused',
+          settings: workflowSettings,
+        };
+        useWorkflowStore.getState().addWorkflow(newWorkflow);
+        
+        // Save to Zustand cache (for offline support)
+        saveWorkflowToCache({
+          id: newWorkflow.id,
+          name: newWorkflow.name,
+          description: newWorkflow.description,
+          syncStatus: 'local-only',
+          isLocalOnly: true,
+          definition: {
+            name: newWorkflow.name,
+            description: newWorkflow.description,
+            version: newWorkflow.settings.version,
+            settings: newWorkflow.settings,
+            nodes: newWorkflow.nodes,
+            edges: newWorkflow.edges,
+          },
+        });
+        
+        // Persist to local storage
+        await persistWorkflows();
+        
+        // Sync cache to filestore
+        await syncToFileStore().catch(err => {
+          console.warn('Failed to sync to filestore:', err);
+        });
+        
+        // Mark as syncing while attempting to save to Conductor
+        markAsSyncing(newWorkflow.id);
+        
+        // Now save to Conductor via proxy
+        const { localWorkflowToConductor } = await import('@/utils/workflowToMermaid');
+        const conductorWorkflow = localWorkflowToConductor(newWorkflow);
+        
+        // Save via GraphQL proxy
+        const success = await saveWorkflow(conductorWorkflow);
+        if (!success) {
+          // Conductor save failed, but workflow is cached
+          markAsDraft(newWorkflow.id);
+          toast({
+            title: 'Saved to cache',
+            description: `Workflow "${workflowName}" saved locally. Connection to Conductor server failed. You can publish it later.`,
+            variant: 'default',
+          });
+          navigate(`/workflows/${newWorkflow.id}`);
+          return true; // Consider it a successful save since it's cached
+        }
+        
+        // Successfully saved to Conductor
+        markAsPublished(newWorkflow.id);
+        toast({
+          title: 'Workflow saved',
+          description: `Workflow "${workflowName}" has been created and published to Conductor`,
+        });
+        
+        navigate(`/workflows/${newWorkflow.id}`);
+        return true;
+      }
+
+      // Update existing workflow
+      const updatedWorkflow = {
+        ...workflow,
         name: workflowName,
         description: workflowSettings.description,
+        settings: workflowSettings,
         nodes: nodes,
         edges: edges,
-        createdAt: new Date().toISOString(),
-        status: workflowSettings.status.toLowerCase() as 'draft' | 'active' | 'paused',
-        settings: workflowSettings,
       };
-      useWorkflowStore.getState().addWorkflow(newWorkflow);
-      navigate(`/workflows/${newWorkflow.id}`);
-      return false;
+      
+      updateWorkflow(workflow.id, {
+        name: workflowName,
+        description: workflowSettings.description,
+        settings: workflowSettings,
+        nodes: nodes,
+        edges: edges as WorkflowEdge[],
+      });
+      
+      // Save to Zustand cache
+      saveWorkflowToCache({
+        id: workflow.id,
+        name: workflowName,
+        description: workflowSettings.description,
+        syncStatus: 'local-only',
+        isLocalOnly: false,
+        definition: {
+          name: workflowName,
+          description: workflowSettings.description,
+          version: workflowSettings.version,
+          settings: workflowSettings,
+          nodes: nodes,
+          edges: edges,
+        },
+      });
+      
+      // Persist to local storage
+      await persistWorkflows();
+      
+      // Sync cache to filestore
+      await syncToFileStore().catch(err => {
+        console.warn('Failed to sync to filestore:', err);
+      });
+      
+      // Mark as syncing while attempting to save to Conductor
+      markAsSyncing(workflow.id);
+      
+      // Now save to Conductor via proxy
+      const { localWorkflowToConductor } = await import('@/utils/workflowToMermaid');
+      const conductorWorkflow = localWorkflowToConductor(updatedWorkflow);
+      
+      // Save via GraphQL proxy
+      const success = await saveWorkflow(conductorWorkflow);
+      if (!success) {
+        // Conductor save failed, but workflow is cached
+        markAsDraft(workflow.id);
+        toast({
+          title: 'Saved to cache',
+          description: `Workflow "${workflowName}" updated locally. Connection to Conductor server failed. You can publish it later.`,
+          variant: 'default',
+        });
+        return true; // Consider it a successful save since it's cached
+      }
+      
+      // Successfully saved to Conductor
+      markAsPublished(workflow.id);
+      toast({
+        title: 'Workflow saved',
+        description: `Workflow "${workflowName}" has been updated and published to Conductor successfully`,
+      });
+      
+      return true;
+    } catch (error) {
+      console.error('Error saving workflow:', error);
+      
+      // Ensure workflow is cached even on error
+      if (workflow) {
+        saveWorkflowToCache({
+          id: workflow.id,
+          name: workflowName,
+          description: workflowSettings.description,
+          syncStatus: 'local-only',
+          isLocalOnly: true,
+          definition: {
+            name: workflowName,
+            description: workflowSettings.description,
+            version: workflowSettings.version,
+            settings: workflowSettings,
+            nodes: nodes,
+            edges: edges,
+          },
+        });
+        markAsDraft(workflow.id);
+      }
+      
+      toast({
+        title: 'Saved to cache',
+        description: 'Workflow saved locally due to an error. You can try publishing later.',
+        variant: 'default',
+      });
+      return true;
     }
-
-    // Update existing workflow
-    updateWorkflow(workflow.id, {
-      name: workflowName,
-      description: workflowSettings.description,
-      settings: workflowSettings,
-      nodes: nodes,
-      edges: edges,
-    });
-    return true;
   };
 
   const handleExecute = () => {
@@ -815,7 +1219,7 @@ export function WorkflowDesigner() {
     }
   };
 
-  const handleExecuteWorkflow = (workflowId: string, input: any) => {
+  const handleExecuteWorkflow = (workflowId: string, input: unknown) => {
     try {
       executeWorkflow(workflowId, input);
 
@@ -851,30 +1255,43 @@ export function WorkflowDesigner() {
   );
 
   const getInitialConfig = (taskType: string) => {
-    // For editing existing node - read latest config from workflow definition
+    // For editing existing node - retrieve the complete config including all child tasks and references
     if (selectedNodeForConfig?.data?.taskType === taskType) {
-      // Find the task in workflow definition by taskReferenceName
       const nodeConfig = selectedNodeForConfig.data.config;
-      if (workflow?.tasks && nodeConfig) {
-        // Try to find the latest config in workflow.tasks array by taskReferenceName
-        const latestTask = workflow.tasks.find(
-          (task: any) => task.taskReferenceName === nodeConfig.taskReferenceName
-        );
-        if (latestTask) {
-          // Add back the sequenceNo from node data for UI consistency
-          return {
-            ...latestTask,
-            sequenceNo: selectedNodeForConfig.data.sequenceNo
-          };
-        }
+      
+      if (nodeConfig) {
+        // Return the full node config which contains all task details including:
+        // - taskReferenceName
+        // - type (task type)
+        // - All input/output parameter mappings
+        // - For complex operators (Switch, Fork-Join, Do-While, etc.): child tasks and branches
+        // - All other Conductor-supported configuration fields
+        const config = nodeConfig as Record<string, unknown>;
+        
+        // Add sequenceNo from node data for UI ordering (not stored in config itself)
+        return {
+          ...config,
+          sequenceNo: selectedNodeForConfig.data.sequenceNo,
+        };
       }
-      // Fallback to node data if not found in workflow definition
+      
       return nodeConfig;
     }
-    // For auto-config during creation
+    
+    // For auto-config during creation - return the pending node's config
     if (pendingNodeForAutoConfig?.data?.taskType === taskType) {
-      return pendingNodeForAutoConfig.data.config;
+      const config = pendingNodeForAutoConfig.data.config;
+      
+      if (config) {
+        return {
+          ...(config as Record<string, unknown>),
+          sequenceNo: pendingNodeForAutoConfig.data.sequenceNo,
+        };
+      }
+      
+      return config;
     }
+    
     return undefined;
   };
 
@@ -884,6 +1301,17 @@ export function WorkflowDesigner() {
         {/* Top Bar */}
         <div className="h-16 bg-[#1a1f2e] border-b border-[#2a3142] px-6 flex items-center justify-between">
           <div className="flex items-center gap-4">
+            {/* Back Button */}
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => navigate('/workflows')}
+              className="text-gray-400 hover:text-white hover:bg-[#2a3142]"
+              title="Go back to workflows"
+            >
+              <ArrowLeftIcon className="w-5 h-5" />
+            </Button>
+            
             {/* Logo and App Name */}
             <img
               src={logo}
@@ -922,7 +1350,7 @@ export function WorkflowDesigner() {
             <Button
               variant="outline"
               size="sm"
-              onClick={handleSave}
+              onClick={() => handleSave()}
               className="text-gray-400 border-[#2a3142] hover:bg-[#2a3142] hover:text-white"
             >
               <SaveIcon className="w-4 h-4 mr-2" />
@@ -1155,6 +1583,50 @@ export function WorkflowDesigner() {
 
                     <Separator className="bg-[#2a3142]" />
 
+                    {/* Ownership & Authorship */}
+                    <div className="space-y-4">
+                      <h4 className="text-lg font-medium text-white">Ownership & Authorship</h4>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <Label className="text-white">Created By (Default: ConductorHub)</Label>
+                          <Input
+                            value={workflowSettings.createdBy || 'ConductorHub'}
+                            onChange={(e) => setWorkflowSettings({ ...workflowSettings, createdBy: e.target.value })}
+                            className="mt-2 bg-[#0f1419] text-white border-[#2a3142]"
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-white">Updated By (Default: ConductorHub)</Label>
+                          <Input
+                            value={workflowSettings.updatedBy || 'ConductorHub'}
+                            onChange={(e) => setWorkflowSettings({ ...workflowSettings, updatedBy: e.target.value })}
+                            className="mt-2 bg-[#0f1419] text-white border-[#2a3142]"
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-white">Owner Email</Label>
+                          <Input
+                            type="email"
+                            value={workflowSettings.ownerEmail || ''}
+                            onChange={(e) => setWorkflowSettings({ ...workflowSettings, ownerEmail: e.target.value })}
+                            placeholder="dev-team@example.com"
+                            className="mt-2 bg-[#0f1419] text-white border-[#2a3142]"
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-white">Owner Application</Label>
+                          <Input
+                            value={workflowSettings.ownerApp || ''}
+                            onChange={(e) => setWorkflowSettings({ ...workflowSettings, ownerApp: e.target.value })}
+                            placeholder="data_service_api"
+                            className="mt-2 bg-[#0f1419] text-white border-[#2a3142]"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    <Separator className="bg-[#2a3142]" />
+
                     {/* Version & Organization */}
                     <div className="space-y-4">
                       <h4 className="text-lg font-medium text-white">Version & Organization</h4>
@@ -1246,13 +1718,54 @@ export function WorkflowDesigner() {
                             className="mt-2 bg-[#0f1419] text-white border-[#2a3142]"
                           />
                         </div>
-                        <div className="flex items-center justify-between pt-8">
+                        <div>
+                          <Label className="text-white">Timeout Policy</Label>
+                          <Select
+                            value={workflowSettings.timeoutPolicy || 'TIME_OUT_WF'}
+                            onValueChange={(value: 'TIME_OUT_WF' | 'ALERT_ONLY') => 
+                              setWorkflowSettings({ ...workflowSettings, timeoutPolicy: value })
+                            }
+                          >
+                            <SelectTrigger className="mt-2 bg-[#0f1419] text-white border-[#2a3142]">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent className="bg-[#1a1f2e] text-white border-[#2a3142]">
+                              <SelectItem value="TIME_OUT_WF">TIME_OUT_WF</SelectItem>
+                              <SelectItem value="ALERT_ONLY">ALERT_ONLY</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="flex items-center justify-between pt-4">
                           <Label className="text-white">Restartable</Label>
                           <Switch
                             checked={workflowSettings.restartable}
                             onCheckedChange={(checked) => setWorkflowSettings({ ...workflowSettings, restartable: checked })}
                           />
                         </div>
+                        <div className="flex items-center justify-between pt-4">
+                          <Label className="text-white">Workflow Status Listener Enabled</Label>
+                          <Switch
+                            checked={workflowSettings.workflowStatusListenerEnabled || false}
+                            onCheckedChange={(checked) => setWorkflowSettings({ ...workflowSettings, workflowStatusListenerEnabled: checked })}
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    <Separator className="bg-[#2a3142]" />
+
+                    {/* Failure Workflow */}
+                    <div className="space-y-4">
+                      <h4 className="text-lg font-medium text-white">Failure Handling</h4>
+                      <div>
+                        <Label className="text-white">Failure/Compensation Workflow</Label>
+                        <Input
+                          value={workflowSettings.failureWorkflow || ''}
+                          onChange={(e) => setWorkflowSettings({ ...workflowSettings, failureWorkflow: e.target.value })}
+                          placeholder="compensation_workflow_v1"
+                          className="mt-2 bg-[#0f1419] text-white border-[#2a3142]"
+                        />
+                        <p className="text-xs text-gray-400 mt-1">Optional workflow to execute on failure</p>
                       </div>
                     </div>
 
@@ -1274,6 +1787,23 @@ export function WorkflowDesigner() {
                         />
                       </div>
                       <div>
+                        <Label className="text-white">Input Template (JSON)</Label>
+                        <Textarea
+                          value={JSON.stringify(workflowSettings.inputTemplate, null, 2)}
+                          onChange={(e) => {
+                            try {
+                              const parsed = JSON.parse(e.target.value);
+                              setWorkflowSettings({ ...workflowSettings, inputTemplate: parsed });
+                            } catch {
+                              // Invalid JSON - silently ignore to allow editing
+                            }
+                          }}
+                          placeholder="{}"
+                          className="mt-2 bg-[#0f1419] text-white border-[#2a3142] font-mono text-sm"
+                          rows={3}
+                        />
+                      </div>
+                      <div>
                         <Label className="text-white">Output Parameters (JSON)</Label>
                         <Textarea
                           value={JSON.stringify(workflowSettings.outputParameters, null, 2)}
@@ -1285,8 +1815,50 @@ export function WorkflowDesigner() {
                               // Invalid JSON - silently ignore to allow editing
                             }
                           }}
+                          placeholder="{}"
                           className="mt-2 bg-[#0f1419] text-white border-[#2a3142] font-mono text-sm"
-                          rows={4}
+                          rows={3}
+                        />
+                      </div>
+                    </div>
+
+                    <Separator className="bg-[#2a3142]" />
+
+                    {/* Access Control & Variables */}
+                    <div className="space-y-4">
+                      <h4 className="text-lg font-medium text-white">Access Control & Variables</h4>
+                      <div>
+                        <Label className="text-white">Access Policy (JSON)</Label>
+                        <Textarea
+                          value={JSON.stringify(workflowSettings.accessPolicy, null, 2)}
+                          onChange={(e) => {
+                            try {
+                              const parsed = JSON.parse(e.target.value);
+                              setWorkflowSettings({ ...workflowSettings, accessPolicy: parsed });
+                            } catch {
+                              // Invalid JSON - silently ignore to allow editing
+                            }
+                          }}
+                          placeholder='{"read_group": "readers", "write_group": "writers"}'
+                          className="mt-2 bg-[#0f1419] text-white border-[#2a3142] font-mono text-sm"
+                          rows={3}
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-white">Workflow Variables (JSON)</Label>
+                        <Textarea
+                          value={JSON.stringify(workflowSettings.variables, null, 2)}
+                          onChange={(e) => {
+                            try {
+                              const parsed = JSON.parse(e.target.value);
+                              setWorkflowSettings({ ...workflowSettings, variables: parsed });
+                            } catch {
+                              // Invalid JSON - silently ignore to allow editing
+                            }
+                          }}
+                          placeholder='{"run_count": 1, "status": "active"}'
+                          className="mt-2 bg-[#0f1419] text-white border-[#2a3142] font-mono text-sm"
+                          rows={3}
                         />
                       </div>
                     </div>
@@ -1550,7 +2122,7 @@ export function WorkflowDesigner() {
             setSelectedNodeForConfig(null);
           }
         }}
-        initialConfig={selectedNodeForConfig?.data?.config}
+        initialConfig={getInitialConfig('SIMPLE') as WorkflowTaskConfig | undefined}
         onSave={async (config) => {
           handleSaveSimpleTaskConfig(config);
         }}

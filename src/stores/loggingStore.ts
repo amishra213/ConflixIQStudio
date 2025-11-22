@@ -131,7 +131,7 @@ export const useLoggingStore = create<LoggingState>()(
       name: 'conductor-logging',
       partialize: (state) => ({
         loggingSettings: state.loggingSettings,
-        logs: state.logs,
+        // Don't persist logs - they are runtime data only
       }),
     }
   )

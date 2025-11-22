@@ -27,7 +27,12 @@ import { format } from 'date-fns';
 export default function LogsViewer() {
   const { toast } = useToast();
   const navigate = useNavigate();
-  const { logs, clearLogs, exportLogs, getFilteredLogs } = useLoggingStore();
+  // Subscribe to the store with proper selector to ensure re-renders
+  const logs = useLoggingStore((state) => state.logs);
+  const clearLogs = useLoggingStore((state) => state.clearLogs);
+  const exportLogs = useLoggingStore((state) => state.exportLogs);
+  const getFilteredLogs = useLoggingStore((state) => state.getFilteredLogs);
+  
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedType, setSelectedType] = useState<string>('all');
   const [expandedLog, setExpandedLog] = useState<string | null>(null);
@@ -84,6 +89,9 @@ export default function LogsViewer() {
 
   const handleClear = () => {
     clearLogs();
+    setExpandedLog(null);
+    setSearchQuery('');
+    setSelectedType('all');
     toast({
       title: 'Logs Cleared',
       description: 'All log entries have been deleted.',
@@ -105,9 +113,9 @@ export default function LogsViewer() {
           <Button
             variant="ghost"
             size="icon"
-            onClick={() => navigate(-1)}
+            onClick={() => navigate('/')}
             className="text-foreground hover:bg-accent"
-            title="Go back to previous page"
+            title="Back to dashboard"
           >
             <ChevronLeftIcon className="h-5 w-5" strokeWidth={1.5} />
           </Button>

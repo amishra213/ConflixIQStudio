@@ -14,6 +14,8 @@ import { ExecutionDetails } from './pages/ExecutionDetails';
 import { Settings } from './pages/Settings';
 import LogsViewer from './pages/LogsViewer';
 import { APILogger } from './utils/apiLogger';
+import { useWorkflowStore, type Workflow } from './stores/workflowStore';
+import { fileStoreClient } from './utils/fileStore';
 
 const queryClient = new QueryClient();
 
@@ -21,6 +23,38 @@ function App() {
   useEffect(() => {
     // Initialize API logging interceptor
     APILogger.createFetchInterceptor();
+
+    // Load workflows from storage on app startup
+    const loadWorkflows = async () => {
+      try {
+        // Try to load from localStorage first (fastest, most recent)
+        const localStorageWorkflows = localStorage.getItem('workflows');
+        if (localStorageWorkflows) {
+          try {
+            const parsed = JSON.parse(localStorageWorkflows);
+            if (Array.isArray(parsed) && parsed.length > 0) {
+              console.log('Loaded workflows from localStorage:', parsed.length);
+              useWorkflowStore.getState().loadWorkflows(parsed);
+              return;
+            }
+          } catch (err) {
+            console.warn('Failed to parse workflows from localStorage:', err);
+          }
+        }
+
+        // Fallback to fileStore (persistent across app restarts if localStorage cleared)
+        const storedWorkflows = await fileStoreClient.loadWorkflows();
+        if (storedWorkflows && storedWorkflows.length > 0) {
+          console.log('Loaded workflows from filestore:', storedWorkflows.length);
+          useWorkflowStore.getState().loadWorkflows(storedWorkflows as Workflow[]);
+          return;
+        }
+      } catch (err) {
+        console.warn('Error loading workflows on startup:', err);
+      }
+    };
+
+    loadWorkflows();
   }, []);
 
   return (

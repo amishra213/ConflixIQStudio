@@ -44,7 +44,7 @@ export class APILogger {
       method: 'POST',
       url: url || '/api/graphql',
       requestBody: {
-        query: query.substring(0, 500), // Truncate for display
+        query: query, // Log full query without truncation
         variables,
       },
       requestHeaders: {

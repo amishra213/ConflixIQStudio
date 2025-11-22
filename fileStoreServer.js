@@ -128,6 +128,28 @@ const fileStoreRoutes = (app) => {
   });
 
   /**
+   * GET /api/filestore/load-workflows - Load workflows from filestore
+   */
+  app.get('/api/filestore/load-workflows', async (req, res) => {
+    try {
+      const data = await loadCacheFromFile('workflows-cache.json');
+      if (data && data.workflows && Array.isArray(data.workflows)) {
+        res.json({ success: true, data: data.workflows });
+      } else if (data && Array.isArray(data)) {
+        // Handle legacy format
+        res.json({ success: true, data });
+      } else {
+        res.json({ success: true, data: [] });
+      }
+    } catch (error) {
+      res.status(500).json({ 
+        success: false, 
+        error: error instanceof Error ? error.message : 'Unknown error loading workflows' 
+      });
+    }
+  });
+
+  /**
    * POST /api/filestore/save - Save cache to filestore
    */
   app.post('/api/filestore/save', async (req, res) => {
@@ -153,6 +175,36 @@ const fileStoreRoutes = (app) => {
       res.status(500).json({ 
         success: false, 
         error: error instanceof Error ? error.message : 'Unknown error saving cache' 
+      });
+    }
+  });
+
+  /**
+   * POST /api/filestore/save-workflows - Save workflows to filestore
+   */
+  app.post('/api/filestore/save-workflows', async (req, res) => {
+    try {
+      const { workflows, timestamp } = req.body;
+
+      if (!Array.isArray(workflows)) {
+        res.status(400).json({ 
+          success: false, 
+          error: 'Missing required field: workflows (array)' 
+        });
+        return;
+      }
+
+      const workflowData = {
+        timestamp: timestamp || Date.now(),
+        workflows,
+      };
+
+      await saveCacheToFile('workflows-cache.json', workflowData);
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ 
+        success: false, 
+        error: error instanceof Error ? error.message : 'Unknown error saving workflows' 
       });
     }
   });

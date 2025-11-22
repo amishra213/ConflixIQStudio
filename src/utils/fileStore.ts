@@ -1,6 +1,6 @@
 /**
  * FileStore Client - Handles communication with backend filestore service
- * Provides persistent server-side caching for task sync status
+ * Provides persistent server-side caching for task sync status and workflows
  */
 
 export interface FileStoreTaskCache {
@@ -11,6 +11,17 @@ export interface FileStoreTaskCache {
   cachedAt: number;
 }
 
+export interface FileStoreWorkflow {
+  id: string;
+  name: string;
+  description?: string;
+  nodes?: unknown[];
+  edges?: unknown[];
+  createdAt?: string;
+  status?: 'draft' | 'active' | 'paused';
+  [key: string]: unknown;
+}
+
 interface FileStoreResponse<T> {
   success: boolean;
   data?: T;
@@ -19,7 +30,7 @@ interface FileStoreResponse<T> {
 
 class FileStoreClient {
   private readonly baseUrl: string;
-  private readonly cacheFile: string = 'task-cache.json';
+  private readonly taskCacheFile: string = 'task-cache.json';
 
   constructor(baseUrl: string = '/api') {
     this.baseUrl = baseUrl;
@@ -60,6 +71,37 @@ class FileStoreClient {
   }
 
   /**
+   * Load workflows from filestore
+   */
+  async loadWorkflows(): Promise<FileStoreWorkflow[]> {
+    try {
+      const response = await fetch(`${this.baseUrl}/filestore/load-workflows`, {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' },
+      });
+
+      if (!response.ok) {
+        return [];
+      }
+
+      const contentType = response.headers.get('content-type');
+      if (!contentType?.includes('application/json')) {
+        return [];
+      }
+
+      const result: FileStoreResponse<FileStoreWorkflow[]> = await response.json();
+      if (result.success && Array.isArray(result.data)) {
+        console.log('Loaded workflows from filestore:', result.data);
+        return result.data;
+      }
+      return [];
+    } catch (err) {
+      console.warn('Error loading workflows from filestore:', err);
+      return [];
+    }
+  }
+
+  /**
    * Save task cache to filestore
    */
   async saveCache(tasks: FileStoreTaskCache[]): Promise<boolean> {
@@ -68,7 +110,7 @@ class FileStoreClient {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          key: this.cacheFile,
+          key: this.taskCacheFile,
           data: tasks,
           timestamp: Date.now(),
         }),
@@ -99,6 +141,44 @@ class FileStoreClient {
   }
 
   /**
+   * Save workflows to filestore
+   */
+  async saveWorkflows(workflows: FileStoreWorkflow[]): Promise<boolean> {
+    try {
+      const response = await fetch(`${this.baseUrl}/filestore/save-workflows`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          workflows,
+          timestamp: Date.now(),
+        }),
+      });
+
+      if (!response.ok) {
+        console.warn('Failed to save workflows to filestore:', response.statusText);
+        return false;
+      }
+
+      const contentType = response.headers.get('content-type');
+      if (!contentType?.includes('application/json')) {
+        console.warn('Invalid response format from filestore');
+        return false;
+      }
+
+      const result: FileStoreResponse<void> = await response.json();
+      if (result.success) {
+        console.log('Successfully saved workflows to filestore');
+        return true;
+      }
+      console.warn('Filestore returned success: false');
+      return false;
+    } catch (err) {
+      console.warn('Error saving workflows to filestore:', err);
+      return false;
+    }
+  }
+
+  /**
    * Clear filestore cache
    */
   async clearCache(): Promise<boolean> {
@@ -106,7 +186,7 @@ class FileStoreClient {
       const response = await fetch(`${this.baseUrl}/filestore/clear`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ key: this.cacheFile }),
+        body: JSON.stringify({ key: this.taskCacheFile }),
       });
 
       if (!response.ok) {

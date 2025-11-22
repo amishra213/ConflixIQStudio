@@ -4,29 +4,59 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useWorkflowStore, Workflow } from '@/stores/workflowStore';
-import { PlusIcon, PlayIcon, Trash2Icon, EditIcon, NetworkIcon, CheckCircleIcon, DownloadIcon, ListIcon, XIcon, SearchIcon } from 'lucide-react';
+import { useWorkflowCacheStore } from '@/stores/workflowCacheStore';
+import { PlusIcon, PlayIcon, Trash2Icon, EditIcon, NetworkIcon, CheckCircleIcon, DownloadIcon, ListIcon, XIcon, SearchIcon, CloudUploadIcon, ArrowLeftIcon } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { ExecuteWorkflowModal } from '@/components/modals/ExecuteWorkflowModal';
 import { useConductorApi } from '@/hooks/useConductorApi';
 import { conductorWorkflowToLocal } from '@/lib/utils';
+import { generateUniqueWorkflowName } from '@/utils/nameGenerator';
 
 export function Workflows() {
   const navigate = useNavigate();
-  const { workflows, deleteWorkflow, executeWorkflow, addWorkflow } = useWorkflowStore();
+  const { workflows, deleteWorkflow, executeWorkflow, addWorkflow, persistWorkflows } = useWorkflowStore();
+  const { getAllWorkflows, markAsPublished, markAsSyncing, syncToFileStore } = useWorkflowCacheStore();
   const { toast } = useToast();
-  const { syncWorkflows, loading: syncLoading, fetchWorkflowByVersion } = useConductorApi();
+  const { syncWorkflows, loading: syncLoading, fetchWorkflowByVersion, saveWorkflow } = useConductorApi();
   const [executeModalOpen, setExecuteModalOpen] = useState(false);
   const [selectedWorkflow, setSelectedWorkflow] = useState<Workflow | null>(null);
   const [workflowListOpen, setWorkflowListOpen] = useState(false);
-  const [serverWorkflows, setServerWorkflows] = useState<any[]>([]);
+  const [serverWorkflows, setServerWorkflows] = useState<unknown[]>([]);
   const [listLoading, setListLoading] = useState(false);
   const [workflowIdModalOpen, setWorkflowIdModalOpen] = useState(false);
   const [workflowNameInput, setWorkflowNameInput] = useState('');
   const [workflowVersionInput, setWorkflowVersionInput] = useState('1');
   const [isLoadingExecution, setIsLoadingExecution] = useState(false);
+  const [publishingWorkflowId, setPublishingWorkflowId] = useState<string | null>(null);
 
   const handleCreateWorkflow = () => {
-    navigate('/workflow-designer');
+    // Create a new workflow immediately with an ID and unique name
+    const uniqueName = generateUniqueWorkflowName();
+    
+    const newWorkflow: Workflow = {
+      id: `workflow-${Date.now()}`,
+      name: uniqueName,
+      description: 'A new workflow definition',
+      nodes: [],
+      edges: [],
+      createdAt: new Date().toISOString(),
+      status: 'draft', // Business status
+      syncStatus: 'local-only', // Conductor sync status
+    };
+    
+    // Add to store
+    addWorkflow(newWorkflow);
+    
+    // Persist immediately
+    persistWorkflows().catch(err => {
+      console.warn('Failed to persist new workflow:', err);
+    });
+    
+    // Save as last active workflow
+    sessionStorage.setItem('lastActiveWorkflow', newWorkflow.id);
+    
+    // Navigate to the designer with the ID
+    navigate(`/workflows/${newWorkflow.id}`);
   };
 
   const handleSyncFromFileStore = async () => {
@@ -48,6 +78,9 @@ export function Workflows() {
         addWorkflow(localWorkflow);
         addedCount += 1;
       }
+
+      // Persist after syncing workflows
+      await persistWorkflows();
 
       toast({
         title: 'Workflows synced successfully',
@@ -147,6 +180,9 @@ export function Workflows() {
       // Add to store
       addWorkflow(localWorkflow);
       
+      // Persist to storage
+      await persistWorkflows();
+      
       toast({
         title: 'Workflow loaded',
         description: `Workflow "${workflowDef.name}" (v${workflowDef.version}) has been loaded successfully.`,
@@ -173,8 +209,10 @@ export function Workflows() {
     }
   };
 
-  const handleDelete = (id: string, name: string) => {
+  const handleDelete = async (id: string, name: string) => {
     deleteWorkflow(id);
+    // Persist changes to storage
+    await persistWorkflows();
     toast({
       title: 'Workflow deleted',
       description: `${name} has been deleted successfully.`,
@@ -202,7 +240,7 @@ export function Workflows() {
     return 'bg-gray-500/20 text-gray-400 border border-gray-500/50 font-medium';
   };
 
-  const handleExecuteWorkflow = (workflowId: string, input: any) => {
+  const handleExecuteWorkflow = (workflowId: string, input: unknown) => {
     try {
       const execution = executeWorkflow(workflowId, input);
       
@@ -224,12 +262,74 @@ export function Workflows() {
     }
   };
 
+  const handlePublishWorkflow = async (workflowId: string) => {
+    try {
+      const workflow = workflows.find(w => w.id === workflowId);
+      if (!workflow) {
+        toast({
+          title: 'Workflow not found',
+          description: 'The workflow could not be found in local cache',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      setPublishingWorkflowId(workflowId);
+      markAsSyncing(workflowId);
+
+      // Convert to Conductor format and publish
+      const { localWorkflowToConductor } = await import('@/utils/workflowToMermaid');
+      const conductorWorkflow = localWorkflowToConductor(workflow);
+
+      // Attempt to publish to Conductor
+      const success = await saveWorkflow(conductorWorkflow);
+
+      if (success) {
+        markAsPublished(workflowId);
+        await syncToFileStore();
+        toast({
+          title: 'Workflow published',
+          description: `Workflow "${workflow.name}" has been successfully published to Conductor`,
+        });
+      } else {
+        // Revert to draft if publish fails
+        const cacheStatus = getAllWorkflows().find(w => w.id === workflowId);
+        if (cacheStatus?.isLocalOnly) {
+          toast({
+            title: 'Publish failed',
+            description: 'Failed to publish workflow to Conductor. It remains cached locally.',
+            variant: 'destructive',
+          });
+        }
+      }
+    } catch (error) {
+      toast({
+        title: 'Publish error',
+        description: error instanceof Error ? error.message : 'Failed to publish workflow',
+        variant: 'destructive',
+      });
+    } finally {
+      setPublishingWorkflowId(null);
+    }
+  };
+
   return (
     <div className="p-8 space-y-8 bg-[#0f1419]">
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-4xl font-bold text-white mb-2">Workflows</h1>
-          <p className="text-base text-gray-400">Manage and orchestrate your workflows</p>
+        <div className="flex items-center gap-4">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => navigate('/')}
+            className="text-gray-400 hover:text-white hover:bg-[#2a3142]"
+            title="Back to dashboard"
+          >
+            <ArrowLeftIcon className="w-5 h-5" />
+          </Button>
+          <div>
+            <h1 className="text-4xl font-bold text-white mb-2">Workflows</h1>
+            <p className="text-base text-gray-400">Manage and orchestrate your workflows</p>
+          </div>
         </div>
         <div className="flex gap-3">
           <Button
@@ -293,7 +393,6 @@ export function Workflows() {
                   <th className="px-6 py-4 text-left text-sm font-semibold text-white">Name</th>
                   <th className="px-6 py-4 text-left text-sm font-semibold text-white">Description</th>
                   <th className="px-6 py-4 text-left text-sm font-semibold text-white">Status</th>
-                  <th className="px-6 py-4 text-left text-sm font-semibold text-white">Created</th>
                   <th className="px-6 py-4 text-left text-sm font-semibold text-white">Version</th>
                   <th className="px-6 py-4 text-left text-sm font-semibold text-white">Actions</th>
                 </tr>
@@ -324,11 +423,6 @@ export function Workflows() {
                       >
                         {workflow.status.toUpperCase()}
                       </Badge>
-                    </td>
-                    <td className="px-6 py-4">
-                      <span className="text-sm text-gray-400">
-                        {new Date(workflow.createdAt).toLocaleDateString()}
-                      </span>
                     </td>
                     <td className="px-6 py-4">
                       <span className="text-sm text-gray-400">v1</span>
@@ -365,12 +459,30 @@ export function Workflows() {
                         <Button
                           size="sm"
                           variant="ghost"
-                          onClick={(e) => handleExecuteClick(workflow, e)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleExecuteClick(workflow, e);
+                          }}
                           className="text-green-500 hover:bg-green-500/10 hover:text-green-400"
                           title="Execute Workflow"
                         >
                           <PlayIcon className="w-4 h-4" />
                         </Button>
+                        {workflow.status === 'draft' && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handlePublishWorkflow(workflow.id);
+                            }}
+                            disabled={publishingWorkflowId === workflow.id}
+                            className="text-orange-500 hover:bg-orange-500/10 hover:text-orange-400 disabled:opacity-50"
+                            title="Publish Draft Workflow to Conductor"
+                          >
+                            <CloudUploadIcon className="w-4 h-4" />
+                          </Button>
+                        )}
                         <Button
                           size="sm"
                           variant="ghost"
@@ -422,33 +534,32 @@ export function Workflows() {
                 </div>
               ) : (
                 <div className="space-y-3">
-                  {serverWorkflows.map((workflow: any) => (
-                    <Card key={`${workflow.name}-${workflow.version}`} className="p-4 bg-[#0f1419] border-[#2a3142] hover:border-[#3a4152] transition-colors">
+                  {serverWorkflows.map((workflow: unknown) => {
+                    const wf = workflow as Record<string, unknown>;
+                    const name = (wf.name as string) || '';
+                    const description = (wf.description as string) || 'No description';
+                    const version = (wf.version as string) || '';
+                    return (
+                    <Card key={`${name}-${version}`} className="p-4 bg-[#0f1419] border-[#2a3142] hover:border-[#3a4152] transition-colors">
                       <div className="space-y-2">
                         <div className="flex items-start justify-between">
                           <div className="flex-1">
-                            <h3 className="text-lg font-semibold text-white">{workflow.name}</h3>
-                            <p className="text-sm text-gray-400 line-clamp-2">{workflow.description || 'No description'}</p>
+                            <h3 className="text-lg font-semibold text-white">{name}</h3>
+                            <p className="text-sm text-gray-400 line-clamp-2">{description}</p>
                           </div>
                           <Badge className="bg-blue-500/20 text-blue-400 border border-blue-500/50 font-medium ml-4">
-                            v{workflow.version}
+                            v{version}
                           </Badge>
                         </div>
 
-                        <div className="grid grid-cols-3 gap-4 text-sm mt-3 pt-3 border-t border-[#2a3142]">
+                        <div className="grid grid-cols-2 gap-4 text-sm mt-3 pt-3 border-t border-[#2a3142]">
                           <div>
                             <span className="text-gray-500">Owner App:</span>
-                            <p className="text-gray-400">{workflow.ownerApp || 'N/A'}</p>
-                          </div>
-                          <div>
-                            <span className="text-gray-500">Created:</span>
-                            <p className="text-gray-400">
-                              {workflow.createTime ? new Date(workflow.createTime).toLocaleDateString() : 'N/A'}
-                            </p>
+                            <p className="text-gray-400">{(wf.ownerApp as string) || 'N/A'}</p>
                           </div>
                           <div>
                             <span className="text-gray-500">Tasks Count:</span>
-                            <p className="text-gray-400">{workflow.tasks?.length || 0}</p>
+                            <p className="text-gray-400">{(wf.tasks as unknown[])?.length || 0}</p>
                           </div>
                         </div>
 
@@ -456,12 +567,14 @@ export function Workflows() {
                           <Button
                             size="sm"
                             className="bg-cyan-500 text-white hover:bg-cyan-600 flex-1"
-                            onClick={() => {
-                              const localWorkflow = conductorWorkflowToLocal(workflow);
+                            onClick={async () => {
+                              const localWorkflow = conductorWorkflowToLocal(wf as unknown as Workflow);
                               addWorkflow(localWorkflow);
+                              // Persist to storage
+                              await persistWorkflows();
                               toast({
                                 title: 'Workflow imported',
-                                description: `${workflow.name} has been imported successfully.`,
+                                description: `${name} has been imported successfully.`,
                               });
                             }}
                           >
@@ -473,12 +586,12 @@ export function Workflows() {
                             variant="outline"
                             className="border-gray-600 text-gray-400 hover:bg-[#2a3142] flex-1"
                             onClick={() => {
-                              const jsonStr = JSON.stringify(workflow, null, 2);
+                              const jsonStr = JSON.stringify(wf, null, 2);
                               const blob = new Blob([jsonStr], { type: 'application/json' });
                               const url = URL.createObjectURL(blob);
                               const a = document.createElement('a');
                               a.href = url;
-                              a.download = `${workflow.name}-v${workflow.version}.json`;
+                              a.download = `${name}-v${version}.json`;
                               a.click();
                               URL.revokeObjectURL(url);
                             }}
@@ -489,7 +602,8 @@ export function Workflows() {
                         </div>
                       </div>
                     </Card>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>
