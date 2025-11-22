@@ -16,10 +16,6 @@ type SimpleTaskDefinition = {
   // Add other fields as required by your application
 };
 
-const workerTaskTypes = [
-  { id: 'SIMPLE', name: 'Simple Task', description: 'Simple task definition', color: '#00bcd4' },
-];
-
 export function Tasks() {
   const navigate = useNavigate();
   const { tasks, addTask, deleteTask } = useWorkflowStore();

@@ -100,7 +100,6 @@ export function WorkflowDesigner() {
   const [searchQuery, setSearchQuery] = useState('');
   const [jsonText, setJsonText] = useState('');
   const [jsonError, setJsonError] = useState('');
-  const [hasLoadedInitialData, setHasLoadedInitialData] = useState(false);
 
   // Declare nodes and edges state before useEffect hooks that depend on them
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
@@ -182,106 +181,110 @@ export function WorkflowDesigner() {
     setEdges((eds) => eds.filter((e) => e.source !== nodeId && e.target !== nodeId));
   }, [setNodes, setEdges, workflow, updateWorkflow]);
 
+  // Helper function to handle loading workflow without an ID
+  const handleNoWorkflowId = useCallback(async () => {
+    const lastActiveWorkflowId = sessionStorage.getItem('lastActiveWorkflow');
+    
+    if (lastActiveWorkflowId) {
+      navigate(`/workflows/${lastActiveWorkflowId}`, { replace: true });
+      return;
+    }
+    
+    // No last active workflow - create a new workflow and redirect to it
+    const uniqueName = generateUniqueWorkflowName();
+    
+    const newWorkflow: Workflow = {
+      id: `workflow-${Date.now()}`,
+      name: uniqueName,
+      description: 'A new workflow definition',
+      nodes: [],
+      edges: [],
+      createdAt: new Date().toISOString(),
+      status: 'draft',
+      syncStatus: 'local-only',
+    };
+    
+    useWorkflowStore.getState().addWorkflow(newWorkflow);
+    
+    await persistWorkflows().catch(err => {
+      console.warn('Failed to persist new workflow:', err);
+    });
+    
+    sessionStorage.setItem('lastActiveWorkflow', newWorkflow.id);
+    navigate(`/workflows/${newWorkflow.id}`, { replace: true });
+  }, [navigate, persistWorkflows]);
+
+  // Helper function to sync workflows from fileStore
+  const syncWorkflowsFromFileStore = useCallback(async () => {
+    try {
+      const { fileStoreClient } = await import('@/utils/fileStore');
+      const storedWorkflows = await fileStoreClient.loadWorkflows();
+      
+      if (storedWorkflows && storedWorkflows.length > 0) {
+        const workflowsToLoad: Workflow[] = storedWorkflows.map((w) => ({
+          id: w.id,
+          name: w.name || 'Unnamed',
+          description: w.description,
+          nodes: (w.nodes as WorkflowNode[]) || [],
+          edges: (w.edges as WorkflowEdge[]) || [],
+          createdAt: w.createdAt || new Date().toISOString(),
+          status: (w.status as 'draft' | 'active' | 'paused') || 'draft',
+        }));
+        useWorkflowStore.getState().loadWorkflows(workflowsToLoad);
+      }
+    } catch (err) {
+      console.warn('Error syncing workflows from fileStore:', err);
+    }
+  }, []);
+
+  // Helper function to load nodes and edges from workflow
+  const loadNodesAndEdgesFromWorkflow = useCallback((foundWorkflow: Workflow) => {
+    setWorkflowName(foundWorkflow.name);
+    if (foundWorkflow.settings) {
+      setWorkflowSettings(foundWorkflow.settings);
+    }
+    
+    if (foundWorkflow.nodes && foundWorkflow.nodes.length > 0) {
+      setNodes(foundWorkflow.nodes.map(node => ({ 
+        ...node, 
+        draggable: false,
+        data: {
+          ...node.data,
+          onEdit: handleEditNode,
+          onDelete: handleDeleteNode,
+        }
+      })));
+    } else {
+      setNodes([]);
+    }
+    
+    if (foundWorkflow.edges && foundWorkflow.edges.length > 0) {
+      setEdges(foundWorkflow.edges as Edge[]);
+    } else {
+      setEdges([]);
+    }
+  }, [handleEditNode, handleDeleteNode, setNodes, setEdges]);
+
   // Initialize/Load workflow on component mount or when ID changes
   useEffect(() => {
     const loadWorkflow = async () => {
       if (!id) {
-        // No workflow ID - check if there's a last active workflow in session
-        const lastActiveWorkflowId = sessionStorage.getItem('lastActiveWorkflow');
-        
-        if (lastActiveWorkflowId) {
-          navigate(`/workflows/${lastActiveWorkflowId}`, { replace: true });
-          return;
-        }
-        
-        // No last active workflow - create a new workflow and redirect to it
-        const uniqueName = generateUniqueWorkflowName();
-        
-        const newWorkflow: Workflow = {
-          id: `workflow-${Date.now()}`,
-          name: uniqueName,
-          description: 'A new workflow definition',
-          nodes: [],
-          edges: [],
-          createdAt: new Date().toISOString(),
-          status: 'draft',
-          syncStatus: 'local-only',
-        };
-        
-        // Add to store
-        useWorkflowStore.getState().addWorkflow(newWorkflow);
-        
-        // Persist immediately
-        await persistWorkflows().catch(err => {
-          console.warn('Failed to persist new workflow:', err);
-        });
-        
-        // Save as last active workflow
-        sessionStorage.setItem('lastActiveWorkflow', newWorkflow.id);
-        
-        // Navigate to the new workflow
-        navigate(`/workflows/${newWorkflow.id}`, { replace: true });
+        await handleNoWorkflowId();
         return;
       }
 
-      // Save this workflow as the last active one
       sessionStorage.setItem('lastActiveWorkflow', id);
       
-      // ALWAYS sync from fileStore first to ensure we have the latest data
-      // This is critical for recovering workflows after navigation
-      try {
-        const { fileStoreClient } = await import('@/utils/fileStore');
-        const storedWorkflows = await fileStoreClient.loadWorkflows();
-        
-        if (storedWorkflows && storedWorkflows.length > 0) {
-          const workflowsToLoad: Workflow[] = storedWorkflows.map((w) => ({
-            id: w.id,
-            name: w.name || 'Unnamed',
-            description: w.description,
-            nodes: (w.nodes as WorkflowNode[]) || [],
-            edges: (w.edges as WorkflowEdge[]) || [],
-            createdAt: w.createdAt || new Date().toISOString(),
-            status: (w.status as 'draft' | 'active' | 'paused') || 'draft',
-          }));
-          useWorkflowStore.getState().loadWorkflows(workflowsToLoad);
-        }
-      } catch (err) {
-        console.warn('Error syncing workflows from fileStore:', err);
-      }
+      await syncWorkflowsFromFileStore();
       
-      // Now find the workflow (either from store or from the sync we just did)
       const foundWorkflow = useWorkflowStore.getState().workflows.find((w) => w.id === id);
       
       if (foundWorkflow) {
-        setWorkflowName(foundWorkflow.name);
-        if (foundWorkflow.settings) {
-          setWorkflowSettings(foundWorkflow.settings);
-        }
-        // Load nodes and edges from the workflow
-        if (foundWorkflow.nodes && foundWorkflow.nodes.length > 0) {
-          setNodes(foundWorkflow.nodes.map(node => ({ 
-            ...node, 
-            draggable: false,
-            data: {
-              ...node.data,
-              onEdit: handleEditNode,
-              onDelete: handleDeleteNode,
-            }
-          })));
-        } else {
-          setNodes([]);
-        }
-        if (foundWorkflow.edges && foundWorkflow.edges.length > 0) {
-          setEdges(foundWorkflow.edges as Edge[]);
-        } else {
-          setEdges([]);
-        }
-        setHasLoadedInitialData(true);
+        loadNodesAndEdgesFromWorkflow(foundWorkflow);
       } else {
         console.warn('Workflow not found after fileStore sync:', id);
         setNodes([]);
         setEdges([]);
-        setHasLoadedInitialData(true); // Mark as loaded even if not found
       }
     };
 
@@ -289,7 +292,7 @@ export function WorkflowDesigner() {
 
     // Cleanup: Reset when component unmounts
     return () => {
-      setHasLoadedInitialData(false);
+      // Cleanup logic
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]); // Only depend on id
@@ -1021,9 +1024,8 @@ export function WorkflowDesigner() {
   };
 
   // Improved save logic with offline caching support
-  // Always returns true because changes are cached even if Conductor publish fails
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const handleSave = async (): Promise<boolean> => {
+  // Workflow changes are cached even if Conductor publish fails
+  const handleSave = async (): Promise<void> => {
     try {
       // First save to local store and cache
       if (!workflow) {
@@ -1083,7 +1085,7 @@ export function WorkflowDesigner() {
             variant: 'default',
           });
           navigate(`/workflows/${newWorkflow.id}`);
-          return true; // Consider it a successful save since it's cached
+          return;
         }
         
         // Successfully saved to Conductor
@@ -1094,7 +1096,7 @@ export function WorkflowDesigner() {
         });
         
         navigate(`/workflows/${newWorkflow.id}`);
-        return true;
+        return;
       }
 
       // Update existing workflow
@@ -1157,7 +1159,7 @@ export function WorkflowDesigner() {
           description: `Workflow "${workflowName}" updated locally. Connection to Conductor server failed. You can publish it later.`,
           variant: 'default',
         });
-        return true; // Consider it a successful save since it's cached
+        return;
       }
       
       // Successfully saved to Conductor
@@ -1166,8 +1168,6 @@ export function WorkflowDesigner() {
         title: 'Workflow saved',
         description: `Workflow "${workflowName}" has been updated and published to Conductor successfully`,
       });
-      
-      return true;
     } catch (error) {
       console.error('Error saving workflow:', error);
       
@@ -1196,7 +1196,6 @@ export function WorkflowDesigner() {
         description: 'Workflow saved locally due to an error. You can try publishing later.',
         variant: 'default',
       });
-      return true;
     }
   };
 

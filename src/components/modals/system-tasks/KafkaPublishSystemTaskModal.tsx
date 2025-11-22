@@ -9,7 +9,7 @@ import { Plus, Trash2 } from 'lucide-react';
 export interface KafkaRequest {
   topic: string;
   key?: string;
-  value: any;
+  value: string | Record<string, unknown>;
   headers?: Record<string, string>;
   bootStrapServers?: string;
   keySerializer?: string;
@@ -19,7 +19,7 @@ export interface KafkaPublishTaskConfig extends BaseTaskConfig {
   type: 'KAFKA_PUBLISH';
   inputParameters?: {
     kafka_request: KafkaRequest;
-    [key: string]: any;
+    [key: string]: unknown;
   };
   kafka_request?: KafkaRequest; // Legacy support during transition
 }
@@ -82,20 +82,20 @@ export function KafkaPublishTaskModal({ open, onOpenChange, onSave, initialConfi
     }
   }, [open, initialConfig]);
 
-  const handleAddHeader = () => {
+  const handleAddHeader = useCallback(() => {
     const newId = `header-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
-    setHeaders([...headers, { id: newId, key: '', value: '' }]);
-  };
+    setHeaders(prev => [...prev, { id: newId, key: '', value: '' }]);
+  }, []);
 
-  const handleRemoveHeader = (id: string) => {
-    setHeaders(headers.filter((h) => h.id !== id));
-  };
+  const handleRemoveHeader = useCallback((id: string) => {
+    setHeaders(prev => prev.filter((h) => h.id !== id));
+  }, []);
 
-  const handleHeaderChange = (id: string, field: 'key' | 'value', val: string) => {
-    setHeaders(headers.map((h) =>
+  const handleHeaderChange = useCallback((id: string, field: 'key' | 'value', val: string) => {
+    setHeaders(prev => prev.map((h) =>
       h.id === id ? { ...h, [field]: val } : h
     ));
-  };
+  }, []);
 
   const validateConfig = (): string | null => {
     // Validate using the state values
@@ -114,7 +114,7 @@ export function KafkaPublishTaskModal({ open, onOpenChange, onSave, initialConfi
       }
     }
 
-    let value: unknown = {};
+    let value: string | Record<string, unknown> = {};
     if (valueText.trim()) {
       try {
         value = JSON.parse(valueText);
@@ -149,6 +149,7 @@ export function KafkaPublishTaskModal({ open, onOpenChange, onSave, initialConfi
 
   // Build current config with current kafka fields for JSON preview
   // This will update when kafka fields change, showing them in JSON tab
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   const currentConfig = useMemo<KafkaPublishTaskConfig>(() => {
     const headersObj: Record<string, string> = {};
     for (const h of headers) {
@@ -168,7 +169,7 @@ export function KafkaPublishTaskModal({ open, onOpenChange, onSave, initialConfi
 
     const kafkaRequest: KafkaRequest = {
       topic: topic,
-      value: value,
+      value: value as string | Record<string, unknown>,
     };
     
     // Add optional fields if they have values
@@ -289,7 +290,7 @@ export function KafkaPublishTaskModal({ open, onOpenChange, onSave, initialConfi
         </div>
       </div>
     ),
-  }), [topic, key, bootStrapServers, keySerializer, valueText, headers]);
+  }), [topic, key, bootStrapServers, keySerializer, valueText, headers, handleAddHeader, handleHeaderChange, handleRemoveHeader]);
 
   return (
     <BaseTaskModal

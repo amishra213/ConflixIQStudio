@@ -1,5 +1,5 @@
 {
-  "timestamp": 1763824677491,
+  "timestamp": 1763827793298,
   "workflows": [
     {
       "id": "workflow-1763486827372",
@@ -192,6 +192,37 @@
           },
           "width": 140,
           "height": 80
+        },
+        {
+          "id": "fork_join_1763825329829",
+          "type": "custom",
+          "position": {
+            "x": 850,
+            "y": 50
+          },
+          "draggable": false,
+          "data": {
+            "label": "Fork Join",
+            "taskType": "FORK_JOIN",
+            "taskName": "Fork/Join",
+            "color": "#9c27b0",
+            "sequenceNo": 5,
+            "config": {
+              "taskRefId": "fork-join-1",
+              "name": "Fork Join",
+              "taskType": "FORK_JOIN",
+              "numWorkers": 0,
+              "forkTasks": [
+                {
+                  "taskRefId": "342332",
+                  "taskId": "2343243",
+                  "taskType": "SIMPLE"
+                }
+              ]
+            }
+          },
+          "width": 140,
+          "height": 80
         }
       ],
       "edges": [
@@ -226,6 +257,19 @@
           "source": "http_task_ref_008",
           "sourceHandle": "right",
           "target": "kafka_task_ref_001",
+          "targetHandle": "left",
+          "type": "straight",
+          "animated": true,
+          "style": {
+            "stroke": "#00bcd4",
+            "strokeWidth": 2
+          }
+        },
+        {
+          "id": "kafka_task_ref_001-fork_join_1763825329829",
+          "source": "kafka_task_ref_001",
+          "sourceHandle": "right",
+          "target": "fork_join_1763825329829",
           "targetHandle": "left",
           "type": "straight",
           "animated": true,

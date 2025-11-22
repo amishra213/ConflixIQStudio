@@ -1,21 +1,39 @@
-import { useState, useEffect } from 'react';
+﻿import { useState, useEffect } from 'react';
 import { BaseTaskModal, BaseTaskConfig } from '../BaseTaskModal';
 import { Label } from '@/components/ui/label';
-import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { PlusIcon, Trash2Icon } from 'lucide-react';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Plus, Trash2, Edit2, ChevronDown, ChevronRight } from 'lucide-react';
+
+// Import all task modals
+import {
+  HttpTaskModal,
+  KafkaPublishTaskModal,
+  JsonJqTransformTaskModal,
+  InlineSystemTaskModal,
+  EventSystemTaskModal,
+  WaitSystemTaskModal,
+  NoopSystemTaskModal,
+  TerminateSystemTaskModal,
+} from '../system-tasks';
+import { SimpleTaskModal } from '../SimpleTaskModal';
+import { SwitchModal } from './SwitchModal';
+import { DynamicForkModal } from './DynamicForkModal';
+import { DoWhileModal } from './DoWhileModal';
+import { JoinModal } from './JoinModal';
+import { DynamicModal } from './DynamicModal';
 
 export interface ForkJoinConfig extends BaseTaskConfig {
-  taskRefId: string;
-  taskType: 'FORK_JOIN';
-  numWorkers?: number;
-  forkTasks: Array<{
-    taskRefId: string;
-    taskId: string;
-    taskType: string;
-  }>;
-  joinOn?: string[];
+  type: 'FORK_JOIN';
+  inputParameters?: Record<string, unknown>;
+  forkTasks: Array<Array<Record<string, unknown>>>;
 }
 
 interface ForkJoinModalProps {
@@ -25,173 +43,391 @@ interface ForkJoinModalProps {
   readonly initialConfig?: ForkJoinConfig;
 }
 
-interface ForkTask {
-  id: string;
-  taskRefId: string;
-  taskId: string;
-  taskType: string;
+const AVAILABLE_TASK_TYPES = [
+  'SIMPLE',
+  'HTTP',
+  'KAFKA_PUBLISH',
+  'JSON_JQ_TRANSFORM',
+  'NOOP',
+  'EVENT',
+  'WAIT',
+  'INLINE',
+  'HUMAN',
+  'SET_VARIABLE',
+  'SUB_WORKFLOW',
+  'START_WORKFLOW',
+  'TERMINATE',
+  'FORK_JOIN',
+  'FORK_JOIN_DYNAMIC',
+  'SWITCH',
+  'DO_WHILE',
+  'DYNAMIC',
+  'JOIN',
+];
+
+interface TaskModalState {
+  isOpen: boolean;
+  taskType: string | null;
+  branchIndex: number;
+  taskIndex: number;
+  initialConfig: unknown;
 }
 
 export function ForkJoinModal({ open, onOpenChange, onSave, initialConfig }: ForkJoinModalProps) {
   const [config, setConfig] = useState<ForkJoinConfig>({
-    taskRefId: 'fork-join-1',
     name: 'Fork Join',
-    taskType: 'FORK_JOIN',
-    numWorkers: 0,
+    taskReferenceName: 'fork_join_ref',
+    type: 'FORK_JOIN',
+    inputParameters: {},
     forkTasks: [],
   });
 
-  const [forkTasks, setForkTasks] = useState<ForkTask[]>([]);
+  const [expandedBranches, setExpandedBranches] = useState<Set<number>>(new Set());
+  const [taskModalState, setTaskModalState] = useState<TaskModalState>({
+    isOpen: false,
+    taskType: null,
+    branchIndex: -1,
+    taskIndex: -1,
+    initialConfig: null,
+  });
+  const [branchTaskSelectValue, setBranchTaskSelectValue] = useState<Record<number, string>>({});
 
   useEffect(() => {
     if (open) {
       if (initialConfig) {
-        // Load existing configuration including ALL properties and forkTasks
         setConfig({ ...initialConfig });
-        // Convert existing forkTasks to the format with IDs for editing
-        const loadedTasks = (initialConfig.forkTasks || []).map((task, index) => ({
-          id: `existing-${index}-${Date.now()}`,
-          taskRefId: task.taskRefId || '',
-          taskId: task.taskId || '',
-          taskType: task.taskType || 'SIMPLE',
-        }));
-        setForkTasks(loadedTasks);
+        const branchIndices = new Set<number>();
+        for (let i = 0; i < (initialConfig.forkTasks || []).length; i++) {
+          branchIndices.add(i);
+        }
+        setExpandedBranches(branchIndices);
+        console.log('ForkJoinModal loaded with config:', initialConfig);
       } else {
         const timestamp = Date.now();
         setConfig({
-          taskRefId: `fork-join-${timestamp}`,
           name: 'Fork Join',
-          taskType: 'FORK_JOIN',
-          numWorkers: 0,
+          taskReferenceName: `fork_join_${timestamp}`,
+          type: 'FORK_JOIN',
+          inputParameters: {},
           forkTasks: [],
         });
-        setForkTasks([]);
+        setExpandedBranches(new Set());
+        console.log('ForkJoinModal created with new config');
       }
+      setTaskModalState({
+        isOpen: false,
+        taskType: null,
+        branchIndex: -1,
+        taskIndex: -1,
+        initialConfig: null,
+      });
+      setBranchTaskSelectValue({});
     }
   }, [open, initialConfig]);
 
-  const handleAddTask = () => {
-    setForkTasks([
-      ...forkTasks,
-      { id: `${Date.now()}`, taskRefId: '', taskId: '', taskType: 'SIMPLE' }
-    ]);
+  const handleAddBranch = () => {
+    setConfig({
+      ...config,
+      forkTasks: [...config.forkTasks, []],
+    });
   };
 
-  const handleRemoveTask = (id: string) => {
-    setForkTasks(forkTasks.filter(t => t.id !== id));
+  const handleRemoveBranch = (branchIndex: number) => {
+    const newBranches = config.forkTasks.filter((_, idx) => idx !== branchIndex);
+    setConfig({
+      ...config,
+      forkTasks: newBranches,
+    });
+    const newExpanded = new Set(expandedBranches);
+    newExpanded.delete(branchIndex);
+    setExpandedBranches(newExpanded);
   };
 
-  const handleTaskChange = (id: string, field: string, value: string) => {
-    setForkTasks(forkTasks.map(t =>
-      t.id === id ? { ...t, [field]: value } : t
-    ));
-    // Update config with the new forkTasks
-    const validTasks = forkTasks.filter(t => t.taskRefId && t.taskId && t.taskType);
-    if (validTasks.length > 0) {
-      setConfig(prev => ({
-        ...prev,
-        forkTasks: validTasks.map(({ id: _, ...rest }) => ({ ...rest }))
-      }));
+  const handleAddTaskToBranch = (branchIndex: number, taskType: string) => {
+    if (!taskType) return;
+
+    const newBranches = [...config.forkTasks];
+    const newTask: Record<string, unknown> = {
+      type: taskType,
+      name: taskType.toLowerCase(),
+      taskReferenceName: `${taskType.toLowerCase()}_${Date.now()}`,
+    };
+    newBranches[branchIndex] = [...(newBranches[branchIndex] || []), newTask];
+
+    setConfig({
+      ...config,
+      forkTasks: newBranches,
+    });
+
+    const newSelectValues = { ...branchTaskSelectValue };
+    delete newSelectValues[branchIndex];
+    setBranchTaskSelectValue(newSelectValues);
+  };
+
+  const handleRemoveTaskFromBranch = (branchIndex: number, taskIndex: number) => {
+    const newBranches = [...config.forkTasks];
+    newBranches[branchIndex] = newBranches[branchIndex].filter((_, idx) => idx !== taskIndex);
+    setConfig({
+      ...config,
+      forkTasks: newBranches,
+    });
+  };
+
+  const handleOpenTaskModal = (
+    taskType: string,
+    branchIndex: number,
+    taskIndex: number = -1,
+    initialTaskConfig: unknown = null
+  ) => {
+    setTaskModalState({
+      isOpen: true,
+      taskType,
+      branchIndex,
+      taskIndex,
+      initialConfig: initialTaskConfig,
+    });
+  };
+
+  const handleCloseTaskModal = () => {
+    setTaskModalState({
+      isOpen: false,
+      taskType: null,
+      branchIndex: -1,
+      taskIndex: -1,
+      initialConfig: null,
+    });
+  };
+
+  const handleSaveTaskConfig = (taskConfig: unknown) => {
+    const { taskType, branchIndex, taskIndex } = taskModalState;
+    if (taskType === null || branchIndex === -1) return;
+
+    const newBranches = [...config.forkTasks];
+
+    if (taskIndex === -1) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      newBranches[branchIndex] = [...newBranches[branchIndex], taskConfig as any];
+    } else {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      newBranches[branchIndex][taskIndex] = taskConfig as any;
     }
+
+    setConfig({
+      ...config,
+      forkTasks: newBranches,
+    });
+
+    handleCloseTaskModal();
   };
 
   const handleSaveModal = (finalConfig: ForkJoinConfig) => {
-    const validTasks = forkTasks.filter(t => t.taskRefId && t.taskId && t.taskType);
-    onSave({
-      ...finalConfig,
-      forkTasks: validTasks.map(({ id, ...rest }) => ({ ...rest })),
-    });
+    const cleanConfig: ForkJoinConfig = {
+      name: finalConfig.name || 'Fork Join',
+      taskReferenceName: finalConfig.taskReferenceName || 'fork_join_ref',
+      type: 'FORK_JOIN',
+      description: finalConfig.description,
+      inputParameters: finalConfig.inputParameters || {},
+      forkTasks: config.forkTasks,
+    };
+
+    onSave(cleanConfig);
     onOpenChange(false);
+  };
+
+  const renderTaskCard = (task: Record<string, unknown>, branchIndex: number, taskIndex: number) => {
+    return (
+      <Card key={taskIndex} className="p-3 bg-[#1a1f2e] border-[#2a3142]">
+        <div className="flex justify-between items-start gap-2">
+          <div className="flex-1">
+            <p className="text-xs text-cyan-400 font-semibold">{String(task.type) || 'Unknown'}</p>
+            <p className="text-sm text-white">
+              {(task.name as string) || (task.taskReferenceName as string) || 'Unnamed'}
+            </p>
+          </div>
+          <div className="flex gap-1">
+            <Button
+              onClick={() =>
+                handleOpenTaskModal((task.type as string) || 'SIMPLE', branchIndex, taskIndex, task)
+              }
+              size="sm"
+              variant="outline"
+              className="text-cyan-400 border-cyan-400 hover:bg-cyan-400/10 h-7 w-7 p-0"
+            >
+              <Edit2 className="w-3 h-3" />
+            </Button>
+            <Button
+              onClick={() => handleRemoveTaskFromBranch(branchIndex, taskIndex)}
+              size="sm"
+              variant="destructive"
+              className="bg-red-500/20 text-red-400 hover:bg-red-500/30 h-7 w-7 p-0"
+            >
+              <Trash2 className="w-3 h-3" />
+            </Button>
+          </div>
+        </div>
+      </Card>
+    );
+  };
+
+  const renderTaskModal = () => {
+    if (!taskModalState.isOpen || !taskModalState.taskType) return null;
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const commonProps: any = {
+      open: taskModalState.isOpen,
+      onOpenChange: (isOpen: boolean) => {
+        if (!isOpen) handleCloseTaskModal();
+      },
+      onSave: handleSaveTaskConfig,
+      initialConfig: taskModalState.initialConfig,
+    };
+
+    switch (taskModalState.taskType) {
+      case 'SIMPLE':
+        return <SimpleTaskModal {...commonProps} />;
+      case 'HTTP':
+        return <HttpTaskModal {...commonProps} />;
+      case 'KAFKA_PUBLISH':
+        return <KafkaPublishTaskModal {...commonProps} />;
+      case 'JSON_JQ_TRANSFORM':
+        return <JsonJqTransformTaskModal {...commonProps} />;
+      case 'NOOP':
+        return <NoopSystemTaskModal {...commonProps} />;
+      case 'EVENT':
+        return <EventSystemTaskModal {...commonProps} />;
+      case 'WAIT':
+        return <WaitSystemTaskModal {...commonProps} />;
+      case 'TERMINATE':
+        return <TerminateSystemTaskModal {...commonProps} />;
+      case 'INLINE':
+        return <InlineSystemTaskModal {...commonProps} />;
+      case 'FORK_JOIN':
+        return <ForkJoinModal {...commonProps} />;
+      case 'FORK_JOIN_DYNAMIC':
+        return <DynamicForkModal {...commonProps} />;
+      case 'SWITCH':
+        return <SwitchModal {...commonProps} />;
+      case 'DO_WHILE':
+        return <DoWhileModal {...commonProps} />;
+      case 'DYNAMIC':
+        return <DynamicModal {...commonProps} />;
+      case 'JOIN':
+        return <JoinModal {...commonProps} />;
+      default:
+        return null;
+    }
   };
 
   const customBasicFields = (
     <div className="space-y-3">
-      <div>
-        <Label className="text-white">Number of Workers</Label>
-        <Input
-          type="number"
-          value={config.numWorkers || 0}
-          onChange={(e) => setConfig({ ...config, numWorkers: Number.parseInt(e.target.value) || 0 })}
-          placeholder="0"
-          className="mt-1 bg-[#1a1f2e] text-white border-[#2a3142]"
-          min="0"
-        />
-        <p className="text-xs text-gray-400 mt-1">Number of workers for parallel execution</p>
-      </div>
-      
       <div className="border-t border-[#2a3142] pt-3">
         <div className="flex justify-between items-center mb-3">
-          <Label className="text-white font-semibold">Fork Tasks</Label>
+          <Label className="text-white font-semibold">Fork Branches</Label>
           <Button
-            onClick={handleAddTask}
+            onClick={handleAddBranch}
             size="sm"
             className="bg-cyan-500 text-white hover:bg-cyan-600 text-xs"
           >
-            <PlusIcon className="w-3 h-3 mr-2" />
-            Add Task
+            <Plus className="w-3 h-3 mr-1" />
+            Add Branch
           </Button>
         </div>
 
-        <div className="space-y-2 max-h-[300px] overflow-y-auto">
-          {forkTasks.map((task) => (
-            <Card key={task.id} className="p-3 bg-[#0f1419] border-[#2a3142]">
-              <div className="space-y-2">
-                <div className="grid grid-cols-3 gap-2">
-                  <div>
-                    <Label className="text-xs text-gray-400">Task Ref ID</Label>
-                    <Input
-                      value={task.taskRefId}
-                      onChange={(e) => handleTaskChange(task.id, 'taskRefId', e.target.value)}
-                      placeholder="e.g., task-ref-1"
-                      className="mt-1 bg-[#1a1f2e] text-white border-[#2a3142] text-sm"
-                    />
-                  </div>
-                  <div>
-                    <Label className="text-xs text-gray-400">Task ID</Label>
-                    <Input
-                      value={task.taskId}
-                      onChange={(e) => handleTaskChange(task.id, 'taskId', e.target.value)}
-                      placeholder="e.g., task-1"
-                      className="mt-1 bg-[#1a1f2e] text-white border-[#2a3142] text-sm"
-                    />
-                  </div>
-                  <div>
-                    <Label className="text-xs text-gray-400">Task Type</Label>
-                    <Input
-                      value={task.taskType}
-                      onChange={(e) => handleTaskChange(task.id, 'taskType', e.target.value)}
-                      placeholder="e.g., SIMPLE"
-                      className="mt-1 bg-[#1a1f2e] text-white border-[#2a3142] text-sm"
-                    />
-                  </div>
-                </div>
-                <Button
-                  onClick={() => handleRemoveTask(task.id)}
-                  variant="ghost"
-                  size="sm"
-                  className="text-red-500 hover:bg-red-500/10 w-full"
+        <div className="space-y-2 max-h-[500px] overflow-y-auto">
+          {config.forkTasks.map((branch, branchIndex) => {
+            // Use timestamp + index as unique identifier for branch
+            const branchKey = `branch-${config.forkTasks.length}-${branchIndex}`;
+            return (
+              <Card key={branchKey} className="bg-[#0f1419] border-[#2a3142]">
+                <button
+                  type="button"
+                  className="w-full text-left p-3 cursor-pointer hover:bg-[#1a1f2e] flex justify-between items-center"
+                  onClick={() => {
+                    const newExpanded = new Set(expandedBranches);
+                    if (newExpanded.has(branchIndex)) {
+                      newExpanded.delete(branchIndex);
+                    } else {
+                      newExpanded.add(branchIndex);
+                    }
+                    setExpandedBranches(newExpanded);
+                  }}
                 >
-                  <Trash2Icon className="w-4 h-4 mr-2" />
-                  Remove
-                </Button>
-              </div>
-            </Card>
-          ))}
+                  <div className="flex items-center gap-2">
+                    {expandedBranches.has(branchIndex) ? (
+                      <ChevronDown className="w-4 h-4 text-gray-400" />
+                    ) : (
+                      <ChevronRight className="w-4 h-4 text-gray-400" />
+                    )}
+                    <Label className="text-white font-semibold cursor-pointer">
+                      Branch {branchIndex + 1} ({branch.length} tasks)
+                    </Label>
+                  </div>
+                  <Button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleRemoveBranch(branchIndex);
+                    }}
+                    size="sm"
+                    variant="destructive"
+                    className="bg-red-500/20 text-red-400 hover:bg-red-500/30 h-8"
+                  >
+                    <Trash2 className="w-3 h-3" />
+                  </Button>
+                </button>
+
+                {expandedBranches.has(branchIndex) && (
+                  <div className="border-t border-[#2a3142] p-3 space-y-2">
+                    {branch.map((task, taskIndex) =>
+                      renderTaskCard(task, branchIndex, taskIndex)
+                    )}
+
+                    <div className="pt-2">
+                      <Select
+                        value={branchTaskSelectValue[branchIndex] || ''}
+                        onValueChange={(taskType) => {
+                          handleAddTaskToBranch(branchIndex, taskType);
+                          setBranchTaskSelectValue({
+                            ...branchTaskSelectValue,
+                            [branchIndex]: '',
+                          });
+                        }}
+                      >
+                        <SelectTrigger className="bg-[#0f1419] border-[#2a3142] text-gray-400">
+                          <SelectValue placeholder="Add task to this branch" />
+                        </SelectTrigger>
+                        <SelectContent className="bg-[#1a1f2e] border-[#2a3142]">
+                          {AVAILABLE_TASK_TYPES.map((taskType) => (
+                            <SelectItem key={taskType} value={taskType} className="text-white">
+                              {taskType}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                )}
+              </Card>
+            );
+          })}
         </div>
       </div>
     </div>
   );
 
   return (
-    <BaseTaskModal
-      open={open}
-      onOpenChange={onOpenChange}
-      onSave={handleSaveModal}
-      initialConfig={config}
-      title="Fork Join Operator"
-      description="Execute multiple tasks in parallel and wait for all to complete"
-      buttonLabel="Save Operator"
-      customBasicFields={customBasicFields}
-    />
+    <>
+      <BaseTaskModal
+        open={open}
+        onOpenChange={onOpenChange}
+        onSave={handleSaveModal}
+        initialConfig={config}
+        title="Fork Join Operator"
+        description="Execute multiple task branches in parallel and wait for all to complete"
+        buttonLabel="Save Operator"
+        customBasicFields={customBasicFields}
+      />
+
+      {renderTaskModal()}
+    </>
   );
 }
