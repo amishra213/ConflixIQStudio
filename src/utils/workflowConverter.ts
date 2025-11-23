@@ -152,6 +152,7 @@ function buildCleanConfig(
   excludedFields: Set<string>
 ): Record<string, unknown> {
   const cleanConfig: Record<string, unknown> = {};
+  const inputParams: Record<string, unknown> = {};
 
   for (const [key, value] of Object.entries(taskConfig)) {
     // Skip excluded fields
@@ -163,18 +164,55 @@ function buildCleanConfig(
     if (validTaskFields.has(key)) {
       cleanConfig[key] = value;
     } else if (key === 'kafka_request' || key === 'http_request') {
-      // Move task-specific configs into inputParameters
-      const inputParams = typeof cleanConfig.inputParameters === 'object' && cleanConfig.inputParameters !== null
-        ? cleanConfig.inputParameters as Record<string, unknown>
-        : {};
-      cleanConfig.inputParameters = {
-        ...inputParams,
-        [key]: value
-      };
+      // Merge task-specific request config properties into inputParameters
+      if (typeof value === 'object' && value !== null) {
+        Object.assign(inputParams, value as Record<string, unknown>);
+      }
     }
   }
 
+  // Set inputParameters if we have accumulated any
+  if (Object.keys(inputParams).length > 0) {
+    cleanConfig.inputParameters = {
+      ...(typeof cleanConfig.inputParameters === 'object' && cleanConfig.inputParameters !== null
+        ? cleanConfig.inputParameters as Record<string, unknown>
+        : {}),
+      ...inputParams
+    };
+  }
+
   return cleanConfig;
+}
+
+/**
+ * Clean and prepare defaultCase tasks
+ */
+function cleanDefaultCase(defaultCase: unknown, excludedFields: Set<string>): unknown {
+  if (!defaultCase) return undefined;
+  if (Array.isArray(defaultCase)) {
+    return defaultCase.map(task => cleanTaskObject(task, excludedFields));
+  }
+  if (typeof defaultCase === 'object') {
+    return [cleanTaskObject(defaultCase, excludedFields)];
+  }
+  return undefined;
+}
+
+/**
+ * Clean and prepare decisionCases tasks
+ */
+function cleanDecisionCases(decisionCases: unknown, excludedFields: Set<string>): Record<string, unknown> | undefined {
+  if (!decisionCases || typeof decisionCases !== 'object') return undefined;
+  
+  const cleanedCases: Record<string, unknown> = {};
+  for (const [caseKey, caseTasks] of Object.entries(decisionCases as Record<string, unknown>)) {
+    if (Array.isArray(caseTasks)) {
+      cleanedCases[caseKey] = caseTasks.map(task => cleanTaskObject(task, excludedFields));
+    } else {
+      cleanedCases[caseKey] = cleanTaskObject(caseTasks, excludedFields);
+    }
+  }
+  return cleanedCases;
 }
 
 /**
@@ -193,22 +231,14 @@ function processOperatorFields(cleanConfig: Record<string, unknown>, excludedFie
     });
   }
 
-  // defaultCase should contain full task objects, not strings
-  if (cleanConfig.defaultCase && !Array.isArray(cleanConfig.defaultCase)) {
-    cleanConfig.defaultCase = [];
+  // Clean defaultCase - recursively clean nested tasks
+  if (cleanConfig.defaultCase) {
+    cleanConfig.defaultCase = cleanDefaultCase(cleanConfig.defaultCase, excludedFields);
   }
 
   // Clean decisionCases - recursively clean nested tasks in each case
-  if (cleanConfig.decisionCases && typeof cleanConfig.decisionCases === 'object') {
-    const cleanedCases: Record<string, unknown> = {};
-    for (const [caseKey, caseTasks] of Object.entries(cleanConfig.decisionCases)) {
-      if (Array.isArray(caseTasks)) {
-        cleanedCases[caseKey] = caseTasks.map(task => cleanTaskObject(task, excludedFields));
-      } else {
-        cleanedCases[caseKey] = cleanTaskObject(caseTasks, excludedFields);
-      }
-    }
-    cleanConfig.decisionCases = cleanedCases;
+  if (cleanConfig.decisionCases) {
+    cleanConfig.decisionCases = cleanDecisionCases(cleanConfig.decisionCases, excludedFields);
   }
 
   return cleanConfig;

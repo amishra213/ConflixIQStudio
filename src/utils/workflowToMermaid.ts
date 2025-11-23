@@ -66,6 +66,8 @@ function getNodeShape(taskType: string, label: string): string {
   switch (taskType.toUpperCase()) {
     case 'DECISION':
       return `{${label}}`;
+    case 'SWITCH':
+      return `{${label}}`;
     case 'FORK_JOIN':
     case 'FORK':
       return `[/${label}/]`;
@@ -161,9 +163,6 @@ function processDecisionTask(
   return nextNodes;
 }
 
-/**
- * Process FORK_JOIN task
- */
 function processForkJoinTask(
   task: WorkflowTask,
   nodeId: string,
@@ -243,7 +242,7 @@ function processTaskList(
     const task = tasks[index];
     const currentNodeId = previousNodeId || generateNodeId(task.taskReferenceName, nodeIndex.value++);
     const label = task.name || task.taskReferenceName;
-    const nodeShape = getNodeShape(task.type, label);
+    const nodeShape = getNodeShape(task.type || 'GENERIC', label);
     const taskLines: string[] = [];
     
     if (!previousNodeId) {
@@ -265,10 +264,16 @@ function processTaskList(
     
     const activeNodeId = previousNodeId || currentNodeId;
     
-    switch (task.type.toUpperCase()) {
+    switch ((task.type || 'GENERIC').toUpperCase()) {
       case 'DECISION':
         { const decisionNextNodes = processDecisionTask(task, activeNodeId, mermaidLines, nodeIndex, config);
         endNodes.push(...decisionNextNodes);
+        previousNodeId = undefined;
+        break; }
+        
+      case 'SWITCH':
+        { const switchNextNodes = processDecisionTask(task, activeNodeId, mermaidLines, nodeIndex, config);
+        endNodes.push(...switchNextNodes);
         previousNodeId = undefined;
         break; }
         
