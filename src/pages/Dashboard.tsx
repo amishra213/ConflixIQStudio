@@ -1,16 +1,25 @@
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { useWorkflowStore } from '@/stores/workflowStore';
+import { useWorkflowCacheStore } from '@/stores/workflowCacheStore';
 import { ActivityIcon, CheckCircle2Icon, XCircleIcon, ClockIcon, TrendingUpIcon } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
 export function Dashboard() {
   const { workflows, executions } = useWorkflowStore();
+  const { clearCache } = useWorkflowCacheStore();
+
+  // Handler to clear workflow cache
+  const handleClearCache = () => {
+    clearCache();
+    localStorage.removeItem('workflow-cache-store');
+    // Optionally, show a notification or alert
+    alert('Workflow cache cleared!');
+  };
 
   const activeWorkflows = workflows.filter((w) => w.status === 'active').length;
   const completedExecutions = executions.filter((e) => e.status === 'completed').length;
   const failedExecutions = executions.filter((e) => e.status === 'failed').length;
-  const runningExecutions = executions.filter((e) => e.status === 'running').length;
 
   const avgDuration = executions
     .filter((e) => e.duration)
@@ -28,6 +37,14 @@ export function Dashboard() {
 
   return (
     <div className="p-8 space-y-8 bg-[#0f1419]">
+      <div className="mb-4">
+        <button
+          className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 transition-colors"
+          onClick={handleClearCache}
+        >
+          Clear Workflow Cache
+        </button>
+      </div>
       <div>
         <h1 className="text-4xl font-bold text-foreground mb-2">Dashboard</h1>
         <p className="text-base text-muted-foreground">Overview of your workflow orchestration</p>

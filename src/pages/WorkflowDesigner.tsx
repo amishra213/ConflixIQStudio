@@ -91,9 +91,22 @@ export function WorkflowDesigner() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { workflows, updateWorkflow, executeWorkflow } = useWorkflowStore();
-  const { saveWorkflowToCache, markAsDraft, markAsSyncing, markAsPublished, syncToFileStore } = useWorkflowCacheStore();
+  const { saveWorkflowToCache, markAsDraft, markAsSyncing, markAsPublished, syncToFileStore, clearCache } = useWorkflowCacheStore();
   const { toast } = useToast();
   const { saveWorkflow, fetchWorkflowByVersion } = useConductorApi({ enableFallback: false });
+
+  // Clear workflow cache for Internet Explorer users
+  useEffect(() => {
+    const isIE = /MSIE|Trident/.exec(globalThis.navigator?.userAgent || '');
+    if (isIE) {
+      // Clear Zustand workflow cache
+      clearCache();
+      // Remove persisted cache from localStorage
+      localStorage.removeItem('workflow-cache-store');
+      // Optionally, show a toast or log
+      if (toast) toast({ title: 'Workflow cache cleared for IE', description: 'IE detected, cache cleared.' });
+    }
+  }, [clearCache, toast]);
 
   const workflow = id ? workflows.find((w) => w.id === id) : null;
   const [workflowName, setWorkflowName] = useState('New Workflow');
