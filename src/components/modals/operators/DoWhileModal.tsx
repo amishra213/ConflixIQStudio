@@ -23,8 +23,12 @@ import {
   WaitSystemTaskModal,
   NoopSystemTaskModal,
   TerminateSystemTaskModal,
+  HumanSystemTaskModal,
 } from '../system-tasks';
 import { SimpleTaskModal } from '../SimpleTaskModal';
+import { StartWorkflowModal } from './StartWorkflowModal';
+import { SubWorkflowModal } from './SubWorkflowModal';
+import { SetVariableModal } from './SetVariableModal';
 import { ForkJoinModal } from './ForkJoinModal';
 import { DynamicForkModal } from './DynamicForkModal';
 import { SwitchModal } from './SwitchModal';
@@ -36,7 +40,7 @@ export interface DoWhileConfig extends BaseTaskConfig {
   name?: string;
   taskType: 'DO_WHILE';
   loopCondition?: string;
-  loopOver?: any[];
+  loopOver?: BaseTaskConfig[];
   description?: string;
 }
 
@@ -73,7 +77,7 @@ interface TaskModalState {
   isOpen: boolean;
   taskType: string | null;
   taskIndex: number;
-  initialConfig: any;
+  initialConfig: BaseTaskConfig | null | undefined;
 }
 
 export function DoWhileModal({ open, onOpenChange, onSave, initialConfig }: DoWhileModalProps) {
@@ -120,13 +124,13 @@ export function DoWhileModal({ open, onOpenChange, onSave, initialConfig }: DoWh
   const handleOpenTaskModal = (
     taskType: string,
     taskIndex: number = -1,
-    initialTaskConfig: any = null
+    initialTaskConfig: BaseTaskConfig | null | undefined = undefined
   ) => {
     setTaskModalState({
       isOpen: true,
       taskType,
       taskIndex,
-      initialConfig: initialTaskConfig,
+      initialConfig: initialTaskConfig || undefined,
     });
   };
 
@@ -139,7 +143,7 @@ export function DoWhileModal({ open, onOpenChange, onSave, initialConfig }: DoWh
     });
   };
 
-  const handleSaveTaskConfig = async (taskConfig: any) => {
+  const handleSaveTaskConfig = async (taskConfig: BaseTaskConfig) => {
     const { taskIndex } = taskModalState;
 
     if (taskIndex === -1) {
@@ -169,7 +173,7 @@ export function DoWhileModal({ open, onOpenChange, onSave, initialConfig }: DoWh
     });
   };
 
-  const renderTaskCard = (task: any, index: number) => {
+  const renderTaskCard = (task: BaseTaskConfig, index: number) => {
     return (
       <Card key={index} className="p-4 bg-[#0f1419] border-[#2a3142] mb-2">
         <div className="flex justify-between items-start">
@@ -180,7 +184,7 @@ export function DoWhileModal({ open, onOpenChange, onSave, initialConfig }: DoWh
               <span className="text-sm text-white">{task.name || task.taskReferenceName}</span>
             </div>
             <p className="text-xs text-gray-400">
-              Ref: {task.taskReferenceName || task.taskRefId || 'N/A'}
+              Ref: {(task.taskReferenceName ?? (task as Record<string, unknown>).taskRefId ?? 'N/A') as string}
             </p>
           </div>
           <div className="flex gap-2">
@@ -189,7 +193,7 @@ export function DoWhileModal({ open, onOpenChange, onSave, initialConfig }: DoWh
               size="sm"
               onClick={() =>
                 handleOpenTaskModal(
-                  task.type || task.taskType,
+                  task.type || task.taskType || 'SIMPLE',
                   index,
                   task
                 )
@@ -226,35 +230,43 @@ export function DoWhileModal({ open, onOpenChange, onSave, initialConfig }: DoWh
 
     switch (taskModalState.taskType) {
       case 'SIMPLE':
-        return <SimpleTaskModal {...commonProps} />;
+        return <SimpleTaskModal {...(commonProps as unknown as React.ComponentProps<typeof SimpleTaskModal>)} />;
       case 'HTTP':
-        return <HttpTaskModal {...commonProps} />;
+        return <HttpTaskModal {...(commonProps as unknown as React.ComponentProps<typeof HttpTaskModal>)} />;
       case 'KAFKA_PUBLISH':
-        return <KafkaPublishTaskModal {...commonProps} />;
+        return <KafkaPublishTaskModal {...(commonProps as unknown as React.ComponentProps<typeof KafkaPublishTaskModal>)} />;
       case 'JSON_JQ_TRANSFORM':
-        return <JsonJqTransformTaskModal {...commonProps} />;
+        return <JsonJqTransformTaskModal {...(commonProps as unknown as React.ComponentProps<typeof JsonJqTransformTaskModal>)} />;
       case 'NOOP':
-        return <NoopSystemTaskModal {...commonProps} />;
+        return <NoopSystemTaskModal {...(commonProps as unknown as React.ComponentProps<typeof NoopSystemTaskModal>)} />;
       case 'EVENT':
-        return <EventSystemTaskModal {...commonProps} />;
+        return <EventSystemTaskModal {...(commonProps as unknown as React.ComponentProps<typeof EventSystemTaskModal>)} />;
       case 'WAIT':
-        return <WaitSystemTaskModal {...commonProps} />;
+        return <WaitSystemTaskModal {...(commonProps as unknown as React.ComponentProps<typeof WaitSystemTaskModal>)} />;
       case 'TERMINATE':
-        return <TerminateSystemTaskModal {...commonProps} />;
+        return <TerminateSystemTaskModal {...(commonProps as unknown as React.ComponentProps<typeof TerminateSystemTaskModal>)} />;
       case 'INLINE':
-        return <InlineSystemTaskModal {...commonProps} />;
+        return <InlineSystemTaskModal {...(commonProps as unknown as React.ComponentProps<typeof InlineSystemTaskModal>)} />;
+      case 'HUMAN':
+        return <HumanSystemTaskModal {...(commonProps as unknown as React.ComponentProps<typeof HumanSystemTaskModal>)} />;
+      case 'SET_VARIABLE':
+        return <SetVariableModal {...(commonProps as unknown as React.ComponentProps<typeof SetVariableModal>)} />;
+      case 'SUB_WORKFLOW':
+        return <SubWorkflowModal {...(commonProps as unknown as React.ComponentProps<typeof SubWorkflowModal>)} />;
+      case 'START_WORKFLOW':
+        return <StartWorkflowModal {...(commonProps as unknown as React.ComponentProps<typeof StartWorkflowModal>)} />;
       case 'FORK_JOIN':
-        return <ForkJoinModal {...commonProps} />;
+        return <ForkJoinModal {...(commonProps as unknown as React.ComponentProps<typeof ForkJoinModal>)} />;
       case 'FORK_JOIN_DYNAMIC':
-        return <DynamicForkModal {...commonProps} />;
+        return <DynamicForkModal {...(commonProps as unknown as React.ComponentProps<typeof DynamicForkModal>)} />;
       case 'SWITCH':
-        return <SwitchModal {...commonProps} />;
+        return <SwitchModal {...(commonProps as unknown as React.ComponentProps<typeof SwitchModal>)} />;
       case 'DO_WHILE':
-        return <DoWhileModal {...commonProps} />;
+        return <DoWhileModal {...(commonProps as unknown as React.ComponentProps<typeof DoWhileModal>)} />;
       case 'DYNAMIC':
-        return <DynamicModal {...commonProps} />;
+        return <DynamicModal {...(commonProps as unknown as React.ComponentProps<typeof DynamicModal>)} />;
       case 'JOIN':
-        return <JoinModal {...commonProps} />;
+        return <JoinModal {...(commonProps as unknown as React.ComponentProps<typeof JoinModal>)} />;
       default:
         return null;
     }

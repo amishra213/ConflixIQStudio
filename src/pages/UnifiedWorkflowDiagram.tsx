@@ -106,6 +106,7 @@ export function UnifiedWorkflowDiagram() {
   const [diagramData, setDiagramData] = useState<DiagramDataType | null>(null);
   const [dataSource, setDataSource] = useState<'api' | 'local' | 'execution'>('local');
   const [mode, setMode] = useState<DiagramMode>('workflow');
+  const [error, setError] = useState<string | null>(null);
   
   const { fetchWorkflowByName, fetchExecution, loading } = useConductorApi({
     enableFallback: true,
@@ -146,6 +147,8 @@ export function UnifiedWorkflowDiagram() {
     const workflow = workflows.find((w) => w.id === id);
     if (!workflow) return;
 
+    setError(null);
+
     try {
       const apiWorkflow = await fetchWorkflowByName(workflow.name);
       
@@ -153,15 +156,14 @@ export function UnifiedWorkflowDiagram() {
         setDiagramData(apiWorkflow as DiagramDataType);
         setDataSource('api');
       } else {
-        const converted = localWorkflowToConductor(workflow);
-        setDiagramData(converted as DiagramDataType);
-        setDataSource('local');
+        // Workflow not found on API - throw error instead of falling back
+        throw new Error(`Workflow "${workflow.name}" not found on Conductor server. Please publish the workflow first.`);
       }
     } catch (err) {
       console.error('Error loading workflow:', err);
-      // Fallback: use local workflow if API fails
-      const converted = localWorkflowToConductor(workflow);
-      setDiagramData(converted as DiagramDataType);
+      const errorMsg = err instanceof Error ? err.message : 'Unknown error';
+      setError(errorMsg);
+      setDiagramData(null);
       setDataSource('local');
     }
   }, [id, workflows, fetchWorkflowByName]);
@@ -500,6 +502,26 @@ export function UnifiedWorkflowDiagram() {
         </div>
       </div>
 
+      {error && (
+        <Card className="bg-red-500/10 border border-red-500/50">
+          <div className="p-4 flex items-start gap-3">
+            <AlertCircleIcon className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <h3 className="text-sm font-semibold text-red-400 mb-1">Warning</h3>
+              <p className="text-sm text-red-300/80">{error}</p>
+            </div>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => loadDiagram()}
+              className="text-red-400 hover:bg-red-500/10 hover:text-red-300 flex-shrink-0"
+            >
+              Retry
+            </Button>
+          </div>
+        </Card>
+      )}
+
       <Card className="bg-card border-border">
         <div className="p-4 border-b border-border flex items-center justify-between">
           <div className="space-y-3 flex-1">
@@ -587,15 +609,34 @@ export function UnifiedWorkflowDiagram() {
         </div>
         
         <div className="p-8 overflow-auto" style={{ minHeight: isFullscreen ? 'calc(100vh - 200px)' : '600px' }}>
-          <div
-            ref={mermaidRef}
-            className="flex items-center justify-center"
-            style={{
-              transform: `scale(${zoom / 100})`,
-              transformOrigin: 'top center',
-              transition: 'transform 0.2s ease',
-            }}
-          />
+          {diagramData === null ? (
+            <div className="flex items-center justify-center h-full">
+              <div className="text-center space-y-4">
+                <AlertCircleIcon className="w-12 h-12 text-red-400 mx-auto" />
+                <div>
+                  <h3 className="text-lg font-semibold text-foreground">Unable to Load Workflow</h3>
+                  <p className="text-sm text-muted-foreground mt-2 max-w-md">{error || 'No workflow data available'}</p>
+                </div>
+                <Button
+                  onClick={() => loadDiagram()}
+                  className="bg-primary text-primary-foreground hover:bg-primary/90 mt-4"
+                >
+                  <RefreshCwIcon className="w-4 h-4 mr-2" />
+                  Try Again
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <div
+              ref={mermaidRef}
+              className="flex items-center justify-center"
+              style={{
+                transform: `scale(${zoom / 100})`,
+                transformOrigin: 'top center',
+                transition: 'transform 0.2s ease',
+              }}
+            />
+          )}
         </div>
       </Card>
 

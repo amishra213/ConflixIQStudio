@@ -252,6 +252,114 @@ const fileStoreRoutes = (app) => {
       });
     }
   });
+
+  /**
+   * POST /api/filestore/save-workflow - Save individual workflow file
+   * Creates file in workflows/ subdirectory if it doesn't exist
+   */
+  app.post('/api/filestore/save-workflow', async (req, res) => {
+    try {
+      const { filename, data, timestamp } = req.body;
+
+      if (!filename || !data) {
+        res.status(400).json({ 
+          success: false, 
+          error: 'Missing required fields: filename (string), data (object)' 
+        });
+        return;
+      }
+
+      // Ensure workflows directory exists
+      const workflowsDir = path.join(CACHE_DIR, 'workflows');
+      await fs.mkdir(workflowsDir, { recursive: true });
+
+      // Save workflow file
+      const filePath = path.join(CACHE_DIR, filename);
+      const cacheData = {
+        timestamp: timestamp || Date.now(),
+        ...data,
+      };
+      await fs.writeFile(filePath, JSON.stringify(cacheData, null, 2), 'utf8');
+      console.log(`Workflow saved to: ${filePath}`);
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ 
+        success: false, 
+        error: error instanceof Error ? error.message : 'Unknown error saving workflow' 
+      });
+    }
+  });
+
+  /**
+   * GET /api/filestore/load-workflows-batch - Load all workflows from workflows/ directory
+   */
+  app.get('/api/filestore/load-workflows-batch', async (req, res) => {
+    try {
+      const workflowsDir = path.join(CACHE_DIR, 'workflows');
+      const workflows = [];
+
+      try {
+        // Read all files in workflows directory
+        const files = await fs.readdir(workflowsDir);
+        
+        for (const file of files) {
+          if (file.endsWith('.json')) {
+            const filePath = path.join(workflowsDir, file);
+            const data = await fs.readFile(filePath, 'utf8');
+            const workflow = JSON.parse(data);
+            workflows.push(workflow);
+          }
+        }
+      } catch (err) {
+        // Directory doesn't exist yet - return empty array
+        if (err.code !== 'ENOENT') {
+          throw err;
+        }
+      }
+
+      res.json({ success: true, data: workflows });
+    } catch (error) {
+      res.status(500).json({ 
+        success: false, 
+        error: error instanceof Error ? error.message : 'Unknown error loading workflows' 
+      });
+    }
+  });
+
+  /**
+   * POST /api/filestore/delete-workflow - Delete individual workflow file
+   */
+  app.post('/api/filestore/delete-workflow', async (req, res) => {
+    try {
+      const { filename } = req.body;
+
+      if (!filename) {
+        res.status(400).json({ 
+          success: false, 
+          error: 'Missing required field: filename' 
+        });
+        return;
+      }
+
+      const filePath = path.join(CACHE_DIR, filename);
+      try {
+        await fs.unlink(filePath);
+        console.log(`Workflow deleted: ${filePath}`);
+      } catch (err) {
+        // File doesn't exist - treat as success
+        if (err.code !== 'ENOENT') {
+          throw err;
+        }
+      }
+
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ 
+        success: false, 
+        error: error instanceof Error ? error.message : 'Unknown error deleting workflow' 
+      });
+    }
+  });
 };
 
 export { fileStoreRoutes, ensureCacheDir };
