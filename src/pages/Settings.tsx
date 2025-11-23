@@ -51,8 +51,8 @@ export function Settings() {
   // Initialize workflow settings from selected workflow
   const initialSettings = useMemo(
     () => ({
-      createdBy: selectedWorkflow?.createdBy || 'ConductorHub',
-      updatedBy: selectedWorkflow?.updatedBy || 'ConductorHub',
+      createdBy: selectedWorkflow?.createdBy || 'Netflix Conductor Hub',
+      updatedBy: selectedWorkflow?.updatedBy || 'Netflix Conductor Hub',
       ownerEmail: selectedWorkflow?.ownerEmail || '',
       ownerApp: selectedWorkflow?.ownerApp || '',
       timeoutSeconds: selectedWorkflow?.timeoutSeconds || 3600,
@@ -132,7 +132,7 @@ export function Settings() {
     updateWorkflow(selectedWorkflow.id, {
       ...workflowSettings,
       updateTime: now,
-      updatedBy: 'ConductorHub',
+      updatedBy: 'Netflix Conductor Hub',
     });
 
     toast({
@@ -227,23 +227,23 @@ export function Settings() {
                 <h3 className="text-lg font-semibold text-foreground mb-4">Basic Information</h3>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <Label htmlFor="created-by" className="text-foreground">Created By (Default: ConductorHub)</Label>
+                    <Label htmlFor="created-by" className="text-foreground">Created By (Default: Netflix Conductor Hub)</Label>
                     <Input
                       id="created-by"
                       value={workflowSettings.createdBy}
                       onChange={(e) => setWorkflowSettings({ ...workflowSettings, createdBy: e.target.value })}
                       className="mt-2 bg-background text-foreground border-border"
-                      placeholder="ConductorHub"
+                      placeholder="Netflix Conductor Hub"
                     />
                   </div>
                   <div>
-                    <Label htmlFor="updated-by" className="text-foreground">Updated By (Default: ConductorHub)</Label>
+                    <Label htmlFor="updated-by" className="text-foreground">Updated By (Default: Netflix Conductor Hub)</Label>
                     <Input
                       id="updated-by"
                       value={workflowSettings.updatedBy}
                       onChange={(e) => setWorkflowSettings({ ...workflowSettings, updatedBy: e.target.value })}
                       className="mt-2 bg-background text-foreground border-border"
-                      placeholder="ConductorHub"
+                      placeholder="Netflix Conductor Hub"
                     />
                   </div>
                   <div>

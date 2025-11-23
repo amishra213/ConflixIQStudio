@@ -123,8 +123,8 @@ export function WorkflowDesigner() {
     inputParameters: [],
     outputParameters: {},
     inputTemplate: {},
-    createdBy: 'ConductorHub',
-    updatedBy: 'ConductorHub',
+    createdBy: 'Netflix Conductor Hub',
+    updatedBy: 'Netflix Conductor Hub',
     ownerEmail: '',
     ownerApp: '',
     accessPolicy: {},
@@ -1493,14 +1493,14 @@ export function WorkflowDesigner() {
             {/* Logo and App Name */}
             <img
               src={logo}
-              alt="Netflix Conductor Designer Logo"
+              alt="Netflix Conductor Hub Logo"
               className="h-8 w-8 mr-3 select-none"
               draggable={false}
               style={{ minWidth: 32 }}
             />
             <div className="flex flex-col">
               <div className="flex items-center gap-3">
-                <span className="text-base font-semibold text-white">Netflix Conductor Designer</span>
+                <span className="text-base font-semibold text-white">Netflix Conductor Hub</span>
                 <span className="text-base font-semibold text-white">/</span>
                 <span className="text-base font-semibold text-white">{workflowName}</span>
                 <span className="px-2 py-0.5 bg-cyan-500/20 text-cyan-400 text-xs font-medium rounded">
@@ -1772,17 +1772,17 @@ export function WorkflowDesigner() {
                       <h4 className="text-lg font-medium text-white">Ownership & Authorship</h4>
                       <div className="grid grid-cols-2 gap-4">
                         <div>
-                          <Label className="text-white">Created By (Default: ConductorHub)</Label>
+                          <Label className="text-white">Created By (Default: Netflix Conductor Hub)</Label>
                           <Input
-                            value={workflowSettings.createdBy || 'ConductorHub'}
+                            value={workflowSettings.createdBy || 'Netflix Conductor Hub'}
                             onChange={(e) => setWorkflowSettings({ ...workflowSettings, createdBy: e.target.value })}
                             className="mt-2 bg-[#0f1419] text-white border-[#2a3142]"
                           />
                         </div>
                         <div>
-                          <Label className="text-white">Updated By (Default: ConductorHub)</Label>
+                          <Label className="text-white">Updated By (Default: Netflix Conductor Hub)</Label>
                           <Input
-                            value={workflowSettings.updatedBy || 'ConductorHub'}
+                            value={workflowSettings.updatedBy || 'Netflix Conductor Hub'}
                             onChange={(e) => setWorkflowSettings({ ...workflowSettings, updatedBy: e.target.value })}
                             className="mt-2 bg-[#0f1419] text-white border-[#2a3142]"
                           />

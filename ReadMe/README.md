@@ -1,4 +1,4 @@
-# Netflix Conductor Designer Project
+# Netflix Conductor Hub Project
 
 Welcome!
 
