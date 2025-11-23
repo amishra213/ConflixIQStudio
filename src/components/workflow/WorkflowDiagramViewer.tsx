@@ -112,9 +112,12 @@ export function WorkflowDiagramViewer({
       theme: 'dark',
       securityLevel: 'loose',
       flowchart: {
-        useMaxWidth: true,
+        useMaxWidth: false,
         htmlLabels: true,
         curve: 'basis',
+        nodeSpacing: 80,
+        rankSpacing: 120,
+        padding: 20,
       },
     });
   }, []);

@@ -150,20 +150,33 @@ export function UnifiedWorkflowDiagram() {
     setError(null);
 
     try {
+      // Check if workflow is published/on server, otherwise use local version
+      if (workflow.publicationStatus === 'LOCAL' || workflow.syncStatus === 'local-only') {
+        // Local draft workflow - use local version, don't fetch from API
+        const converted = localWorkflowToConductor(workflow);
+        setDiagramData(converted as DiagramDataType);
+        setDataSource('local');
+        return;
+      }
+
+      // Published workflow - try to fetch from API
       const apiWorkflow = await fetchWorkflowByName(workflow.name);
       
       if (apiWorkflow) {
         setDiagramData(apiWorkflow as DiagramDataType);
         setDataSource('api');
       } else {
-        // Workflow not found on API - throw error instead of falling back
-        throw new Error(`Workflow "${workflow.name}" not found on Conductor server. Please publish the workflow first.`);
+        // Workflow not found on API - fallback to local version
+        console.warn(`Workflow "${workflow.name}" not found on Conductor server, using local version`);
+        const converted = localWorkflowToConductor(workflow);
+        setDiagramData(converted as DiagramDataType);
+        setDataSource('local');
       }
     } catch (err) {
-      console.error('Error loading workflow:', err);
-      const errorMsg = err instanceof Error ? err.message : 'Unknown error';
-      setError(errorMsg);
-      setDiagramData(null);
+      console.warn('Error loading workflow from API, falling back to local:', err);
+      // Fallback: use local workflow version if API fails
+      const converted = localWorkflowToConductor(workflow);
+      setDiagramData(converted as DiagramDataType);
       setDataSource('local');
     }
   }, [id, workflows, fetchWorkflowByName]);

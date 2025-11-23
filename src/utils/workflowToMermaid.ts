@@ -129,7 +129,7 @@ function generateNodeId(taskRef: string, index: number): string {
 }
 
 /**
- * Process DECISION task
+ * Process DECISION task with proper branch convergence
  */
 function processDecisionTask(
   task: WorkflowTask,
@@ -138,7 +138,7 @@ function processDecisionTask(
   nodeIndex: { value: number },
   config: MermaidConfig
 ): string[] {
-  const nextNodes: string[] = [];
+  const allBranchEndNodes: string[] = [];
   
   if (task.decisionCases) {
     for (const [caseValue, caseTasks] of Object.entries(task.decisionCases)) {
@@ -147,7 +147,7 @@ function processDecisionTask(
         const caseNodeId = generateNodeId(firstCaseTask.taskReferenceName, nodeIndex.value++);
         const caseNodes = processTaskList(caseTasks, mermaidLines, nodeIndex, config, caseNodeId);
         mermaidLines.push(`    ${nodeId} -->|${caseValue}| ${caseNodeId}`);
-        nextNodes.push(...caseNodes);
+        allBranchEndNodes.push(...caseNodes);
       }
     }
   }
@@ -157,10 +157,23 @@ function processDecisionTask(
     const defaultNodeId = generateNodeId(firstDefaultTask.taskReferenceName, nodeIndex.value++);
     const defaultNodes = processTaskList(task.defaultCase, mermaidLines, nodeIndex, config, defaultNodeId);
     mermaidLines.push(`    ${nodeId} -->|default| ${defaultNodeId}`);
-    nextNodes.push(...defaultNodes);
+    allBranchEndNodes.push(...defaultNodes);
   }
   
-  return nextNodes;
+  // If we have multiple branch end nodes, create a join point to converge them
+  if (allBranchEndNodes.length > 1) {
+    const convergeNodeId = `${nodeId}_converge`;
+    const convergeLabel = 'Join';
+    mermaidLines.push(`    ${convergeNodeId}${getNodeShape('JOIN', convergeLabel)}`);
+    
+    for (const endNode of allBranchEndNodes) {
+      mermaidLines.push(`    ${endNode} --> ${convergeNodeId}`);
+    }
+    
+    return [convergeNodeId];
+  }
+  
+  return allBranchEndNodes;
 }
 
 function processForkJoinTask(
@@ -226,7 +239,57 @@ function processDoWhileTask(
 }
 
 /**
- * Process a list of tasks
+ * Process a task and return its end nodes
+ */
+function processTaskNode(
+  task: WorkflowTask,
+  activeNodeId: string,
+  mermaidLines: string[],
+  nodeIndex: { value: number },
+  config: MermaidConfig,
+  isLastTask: boolean
+): { endNodes: string[]; nextPreviousId: string | undefined } {
+  const endNodes: string[] = [];
+  let nextPreviousId: string | undefined;
+  
+  switch ((task.type || 'GENERIC').toUpperCase()) {
+    case 'DECISION':
+    case 'SWITCH': {
+      const branchEndNodes = processDecisionTask(task, activeNodeId, mermaidLines, nodeIndex, config);
+      if (isLastTask) {
+        endNodes.push(...branchEndNodes);
+      } else {
+        nextPreviousId = branchEndNodes.length > 0 ? branchEndNodes[0] : undefined;
+      }
+      break;
+    }
+    case 'FORK_JOIN': {
+      const joinNodeId = processForkJoinTask(task, activeNodeId, mermaidLines, nodeIndex, config);
+      nextPreviousId = joinNodeId;
+      break;
+    }
+    case 'DO_WHILE': {
+      const exitNodeId = processDoWhileTask(task, activeNodeId, mermaidLines, nodeIndex, config);
+      nextPreviousId = exitNodeId;
+      break;
+    }
+    case 'TERMINATE':
+      endNodes.push(activeNodeId);
+      break;
+    default:
+      if (isLastTask) {
+        endNodes.push(activeNodeId);
+      } else {
+        nextPreviousId = activeNodeId;
+      }
+      break;
+  }
+  
+  return { endNodes, nextPreviousId };
+}
+
+/**
+ * Process a list of tasks with proper branching and convergence
  */
 function processTaskList(
   tasks: WorkflowTask[],
@@ -263,41 +326,19 @@ function processTaskList(
     mermaidLines.push(...taskLines);
     
     const activeNodeId = previousNodeId || currentNodeId;
+    const isLastTask = index === tasks.length - 1;
     
-    switch ((task.type || 'GENERIC').toUpperCase()) {
-      case 'DECISION':
-        { const decisionNextNodes = processDecisionTask(task, activeNodeId, mermaidLines, nodeIndex, config);
-        endNodes.push(...decisionNextNodes);
-        previousNodeId = undefined;
-        break; }
-        
-      case 'SWITCH':
-        { const switchNextNodes = processDecisionTask(task, activeNodeId, mermaidLines, nodeIndex, config);
-        endNodes.push(...switchNextNodes);
-        previousNodeId = undefined;
-        break; }
-        
-      case 'FORK_JOIN':
-        { const joinNodeId = processForkJoinTask(task, activeNodeId, mermaidLines, nodeIndex, config);
-        previousNodeId = joinNodeId;
-        break; }
-        
-      case 'DO_WHILE':
-        { const exitNodeId = processDoWhileTask(task, activeNodeId, mermaidLines, nodeIndex, config);
-        previousNodeId = exitNodeId;
-        break; }
-        
-      case 'TERMINATE':
-        endNodes.push(activeNodeId);
-        previousNodeId = undefined;
-        break;
-        
-      default:
-        if (index === tasks.length - 1) {
-          endNodes.push(activeNodeId);
-        }
-        break;
-    }
+    const { endNodes: taskEndNodes, nextPreviousId } = processTaskNode(
+      task,
+      activeNodeId,
+      mermaidLines,
+      nodeIndex,
+      config,
+      isLastTask
+    );
+    
+    endNodes.push(...taskEndNodes);
+    previousNodeId = nextPreviousId;
   }
   
   if (previousNodeId && endNodes.length === 0) {
@@ -339,7 +380,7 @@ export function workflowToMermaid(workflow: WorkflowDefinition, config?: Mermaid
     mermaidLines.push(`    ${nodeId} --> ${endNodeId}`);
   }
   
-  // Add CSS classes
+  // Add CSS classes with fixed node dimensions
   const cssClasses = [
     '',
     '    classDef default fill:#e1f5ff,stroke:#01579b,stroke-width:2px,color:#000',

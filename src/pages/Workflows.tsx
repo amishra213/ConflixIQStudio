@@ -1,11 +1,11 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useWorkflowStore, Workflow } from '@/stores/workflowStore';
 import { useWorkflowCacheStore } from '@/stores/workflowCacheStore';
-import { PlusIcon, PlayIcon, Trash2Icon, EditIcon, NetworkIcon, CheckCircleIcon, DownloadIcon, ListIcon, XIcon, SearchIcon, CloudUploadIcon, ArrowLeftIcon } from 'lucide-react';
+import { PlusIcon, PlayIcon, Trash2Icon, EditIcon, NetworkIcon, CheckCircleIcon, DownloadIcon, ListIcon, XIcon, SearchIcon, CloudUploadIcon, ArrowLeftIcon, ChevronLeftIcon, ChevronRightIcon } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { ExecuteWorkflowModal } from '@/components/modals/ExecuteWorkflowModal';
 import { useConductorApi } from '@/hooks/useConductorApi';
@@ -48,6 +48,34 @@ function filterAndDeduplicate(workflows: Workflow[]): Workflow[] {
   return filtered;
 }
 
+// Pagination settings interface
+interface PaginationSettings {
+  currentPage: number;
+  itemsPerPage: number;
+}
+
+// Load pagination settings from localStorage
+function loadPaginationSettings(): PaginationSettings {
+  try {
+    const saved = localStorage.getItem('workflowPaginationSettings');
+    if (saved) {
+      return JSON.parse(saved);
+    }
+  } catch (err) {
+    console.warn('Failed to load pagination settings:', err);
+  }
+  return { currentPage: 1, itemsPerPage: 10 };
+}
+
+// Save pagination settings to localStorage
+function savePaginationSettings(settings: PaginationSettings) {
+  try {
+    localStorage.setItem('workflowPaginationSettings', JSON.stringify(settings));
+  } catch (err) {
+    console.warn('Failed to save pagination settings:', err);
+  }
+}
+
 export function Workflows() {
   const navigate = useNavigate();
   const { workflows: allWorkflows, deleteWorkflow, executeWorkflow, addWorkflow, persistWorkflows } = useWorkflowStore();
@@ -65,8 +93,59 @@ export function Workflows() {
   const [isLoadingExecution, setIsLoadingExecution] = useState(false);
   const [publishingWorkflowId, setPublishingWorkflowId] = useState<string | null>(null);
 
+  // Filter and pagination state
+  const [nameFilter, setNameFilter] = useState('');
+  const [descriptionFilter, setDescriptionFilter] = useState('');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'UNPUBLISHED' | 'PUBLISHED'>('all');
+  const [paginationSettings, setPaginationSettings] = useState<PaginationSettings>(loadPaginationSettings());
+
   // Filter and deduplicate workflows for display
-  const workflows = filterAndDeduplicate(allWorkflows);
+  const allDeduplicatedWorkflows = filterAndDeduplicate(allWorkflows);
+
+  // Apply filters
+  const filteredWorkflows = allDeduplicatedWorkflows.filter((workflow) => {
+    // Name filter
+    if (nameFilter && !workflow.name.toLowerCase().includes(nameFilter.toLowerCase())) {
+      return false;
+    }
+
+    // Description filter
+    if (descriptionFilter && !(workflow.description || '').toLowerCase().includes(descriptionFilter.toLowerCase())) {
+      return false;
+    }
+
+    // Status filter - map workflow publicationStatus to display status
+    if (statusFilter !== 'all') {
+      const workflowStatus = workflow.publicationStatus === 'PUBLISHED' ? 'PUBLISHED' : 'UNPUBLISHED';
+      if (workflowStatus !== statusFilter) {
+        return false;
+      }
+    }
+
+    return true;
+  });
+
+  // Pagination
+  const itemsPerPage = paginationSettings.itemsPerPage;
+  const totalPages = Math.ceil(filteredWorkflows.length / itemsPerPage);
+  const currentPage = Math.min(paginationSettings.currentPage, totalPages || 1);
+
+  const paginatedWorkflows = filteredWorkflows.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
+
+  // Update pagination state and save to localStorage
+  const updatePagination = (page: number, items: number) => {
+    const newSettings = { currentPage: page, itemsPerPage: items };
+    setPaginationSettings(newSettings);
+    savePaginationSettings(newSettings);
+  };
+
+  // Reset pagination when filters change
+  useEffect(() => {
+    updatePagination(1, paginationSettings.itemsPerPage);
+  }, [nameFilter, descriptionFilter, statusFilter]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleCreateWorkflow = () => {
     // Create a new workflow immediately with an ID and unique name
@@ -285,14 +364,15 @@ export function Workflows() {
     navigate('/validation');
   };
 
-  const getStatusBadgeClass = (status: string): string => {
-    if (status === 'active') {
+  const getStatusBadgeClass = (publicationStatus?: string): string => {
+    if (publicationStatus === 'PUBLISHED') {
       return 'bg-green-500/20 text-green-400 border border-green-500/50 font-medium';
     }
-    if (status === 'paused') {
-      return 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/50 font-medium';
-    }
     return 'bg-gray-500/20 text-gray-400 border border-gray-500/50 font-medium';
+  };
+
+  const getDisplayStatus = (publicationStatus?: string): string => {
+    return publicationStatus === 'PUBLISHED' ? 'PUBLISHED' : 'UNPUBLISHED';
   };
 
   const handleExecuteWorkflow = (workflowId: string, input: unknown) => {
@@ -319,7 +399,7 @@ export function Workflows() {
 
   const handlePublishWorkflow = async (workflowId: string) => {
     try {
-      const workflow = workflows.find(w => w.id === workflowId);
+      const workflow = allDeduplicatedWorkflows.find(w => w.id === workflowId);
       if (!workflow) {
         toast({
           title: 'Workflow not found',
@@ -420,7 +500,7 @@ export function Workflows() {
         </div>
       </div>
 
-      {workflows.length === 0 ? (
+      {allDeduplicatedWorkflows.length === 0 ? (
         <Card className="p-16 bg-[#1a1f2e] border-[#2a3142] text-center shadow-sm">
           <div className="max-w-md mx-auto space-y-6">
             <div className="w-20 h-20 bg-cyan-500 rounded-2xl mx-auto flex items-center justify-center">
@@ -440,130 +520,279 @@ export function Workflows() {
           </div>
         </Card>
       ) : (
-        <Card className="bg-[#1a1f2e] border-[#2a3142] overflow-hidden shadow-sm">
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-[#0f1419]">
-                <tr>
-                  <th className="px-6 py-4 text-left text-sm font-semibold text-white">Name</th>
-                  <th className="px-6 py-4 text-left text-sm font-semibold text-white">Description</th>
-                  <th className="px-6 py-4 text-left text-sm font-semibold text-white">Status</th>
-                  <th className="px-6 py-4 text-left text-sm font-semibold text-white">Version</th>
-                  <th className="px-6 py-4 text-left text-sm font-semibold text-white">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[#2a3142]">
-                {workflows.map((workflow) => (
-                  <tr 
-                    key={workflow.id} 
-                    className="hover:bg-[#2a3142]/30 transition-colors duration-150 cursor-pointer"
-                    onClick={() => navigate(`/workflows/${workflow.id}`)}
+        <>
+          {/* Filter Section */}
+          <Card className="bg-[#1a1f2e] border-[#2a3142] shadow-sm">
+            <div className="p-6 space-y-4">
+              <h3 className="text-sm font-semibold text-white">Filters</h3>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {/* Name Filter */}
+                <div>
+                  <label htmlFor="nameFilterInput" className="block text-xs font-medium text-gray-400 mb-2">Workflow Name</label>
+                  <input
+                    id="nameFilterInput"
+                    type="text"
+                    placeholder="Search by name..."
+                    value={nameFilter}
+                    onChange={(e) => setNameFilter(e.target.value)}
+                    className="w-full px-3 py-2 bg-[#0f1419] border border-[#2a3142] rounded text-white placeholder-gray-500 text-sm focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500"
+                  />
+                </div>
+
+                {/* Description Filter */}
+                <div>
+                  <label htmlFor="descriptionFilterInput" className="block text-xs font-medium text-gray-400 mb-2">Description</label>
+                  <input
+                    id="descriptionFilterInput"
+                    type="text"
+                    placeholder="Search by description..."
+                    value={descriptionFilter}
+                    onChange={(e) => setDescriptionFilter(e.target.value)}
+                    className="w-full px-3 py-2 bg-[#0f1419] border border-[#2a3142] rounded text-white placeholder-gray-500 text-sm focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500"
+                  />
+                </div>
+
+                {/* Status Filter */}
+                <div>
+                  <label htmlFor="statusFilterSelect" className="block text-xs font-medium text-gray-400 mb-2">Publication Status</label>
+                  <select
+                    id="statusFilterSelect"
+                    value={statusFilter}
+                    onChange={(e) => setStatusFilter(e.target.value as 'all' | 'UNPUBLISHED' | 'PUBLISHED')}
+                    className="w-full px-3 py-2 bg-[#0f1419] border border-[#2a3142] rounded text-white text-sm focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500"
                   >
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 bg-cyan-500/10 rounded flex items-center justify-center flex-shrink-0">
-                          <svg className="w-4 h-4 text-cyan-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                          </svg>
-                        </div>
-                        <span className="text-sm font-medium text-white">{workflow.name}</span>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <span className="text-sm text-gray-400 line-clamp-1">{workflow.description}</span>
-                    </td>
-                    <td className="px-6 py-4">
-                      <Badge
-                        className={getStatusBadgeClass(workflow.status)}
-                      >
-                        {workflow.status.toUpperCase()}
-                      </Badge>
-                    </td>
-                    <td className="px-6 py-4">
-                      <span className="text-sm text-gray-400">v1</span>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-2" role="toolbar" aria-label="Workflow actions">
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            navigate(`/workflows/${workflow.id}`);
-                          }}
-                          className="text-cyan-500 hover:bg-cyan-500/10 hover:text-cyan-400"
-                          title="Edit Workflow"
-                        >
-                          <EditIcon className="w-4 h-4" />
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            navigate(`/workflows/${workflow.id}/diagram?mode=preview`);
-                          }}
-                          className="text-purple-500 hover:bg-purple-500/10 hover:text-purple-400"
-                          title="View Diagram"
-                        >
-                          <NetworkIcon className="w-4 h-4" />
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={handleValidateClick}
-                          className="text-blue-500 hover:bg-blue-500/10 hover:text-blue-400"
-                          title="Validate Workflow"
-                        >
-                          <CheckCircleIcon className="w-4 h-4" />
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleExecuteClick(workflow, e);
-                          }}
-                          className="text-green-500 hover:bg-green-500/10 hover:text-green-400"
-                          title="Execute Workflow"
-                        >
-                          <PlayIcon className="w-4 h-4" />
-                        </Button>
-                        {workflow.status === 'draft' && (
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handlePublishWorkflow(workflow.id);
-                            }}
-                            disabled={publishingWorkflowId === workflow.id}
-                            className="text-orange-500 hover:bg-orange-500/10 hover:text-orange-400 disabled:opacity-50"
-                            title="Publish Draft Workflow to Conductor"
-                          >
-                            <CloudUploadIcon className="w-4 h-4" />
-                          </Button>
-                        )}
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleDelete(workflow.id, workflow.name);
-                          }}
-                          className="text-red-500 hover:bg-red-500/10 hover:text-red-400"
-                          title="Delete Workflow"
-                        >
-                          <Trash2Icon className="w-4 h-4" />
-                        </Button>
-                      </div>
-                    </td>
+                    <option value="all">All Statuses</option>
+                    <option value="UNPUBLISHED">Unpublished</option>
+                    <option value="PUBLISHED">Published</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Filter Summary */}
+              <div className="flex items-center justify-between pt-2 border-t border-[#2a3142]">
+                <p className="text-xs text-gray-400">
+                  Showing {paginatedWorkflows.length} of {filteredWorkflows.length} workflows
+                </p>
+                {(nameFilter || descriptionFilter || statusFilter !== 'all') && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="border-gray-600 text-gray-400 hover:bg-[#2a3142] text-xs"
+                    onClick={() => {
+                      setNameFilter('');
+                      setDescriptionFilter('');
+                      setStatusFilter('all');
+                    }}
+                  >
+                    Clear Filters
+                  </Button>
+                )}
+              </div>
+            </div>
+          </Card>
+
+          {/* Workflows Table */}
+          <Card className="bg-[#1a1f2e] border-[#2a3142] overflow-hidden shadow-sm">
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-[#0f1419]">
+                  <tr>
+                    <th className="px-6 py-4 text-left text-sm font-semibold text-white">Name</th>
+                    <th className="px-6 py-4 text-left text-sm font-semibold text-white">Description</th>
+                    <th className="px-6 py-4 text-left text-sm font-semibold text-white">Status</th>
+                    <th className="px-6 py-4 text-left text-sm font-semibold text-white">Version</th>
+                    <th className="px-6 py-4 text-left text-sm font-semibold text-white">Actions</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </Card>
+                </thead>
+                <tbody className="divide-y divide-[#2a3142]">
+                  {paginatedWorkflows.length > 0 ? (
+                    paginatedWorkflows.map((workflow) => (
+                      <tr 
+                        key={workflow.id} 
+                        className="hover:bg-[#2a3142]/30 transition-colors duration-150 cursor-pointer"
+                        onClick={() => navigate(`/workflows/${workflow.id}`)}
+                      >
+                        <td className="px-6 py-4">
+                          <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 bg-cyan-500/10 rounded flex items-center justify-center flex-shrink-0">
+                              <svg className="w-4 h-4 text-cyan-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                              </svg>
+                            </div>
+                            <span className="text-sm font-medium text-white">{workflow.name}</span>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4">
+                          <span className="text-sm text-gray-400 line-clamp-1">{workflow.description}</span>
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="flex items-center gap-2">
+                            <Badge
+                              className={getStatusBadgeClass(workflow.publicationStatus)}
+                            >
+                              {getDisplayStatus(workflow.publicationStatus)}
+                            </Badge>
+                            {workflow.publicationStatus !== 'PUBLISHED' && (
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handlePublishWorkflow(workflow.id);
+                                }}
+                                disabled={publishingWorkflowId === workflow.id}
+                                className="text-orange-500 hover:bg-orange-500/10 hover:text-orange-400 disabled:opacity-50 px-2 py-1 h-auto"
+                                title="Publish Workflow to Conductor"
+                              >
+                                <CloudUploadIcon className="w-3 h-3 mr-1" />
+                                <span className="text-xs">Publish</span>
+                              </Button>
+                            )}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4">
+                          <span className="text-sm text-gray-400">v{workflow.version || 1}</span>
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="flex items-center gap-2" role="toolbar" aria-label="Workflow actions">
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                navigate(`/workflows/${workflow.id}`);
+                              }}
+                              className="text-cyan-500 hover:bg-cyan-500/10 hover:text-cyan-400"
+                              title="Edit Workflow"
+                            >
+                              <EditIcon className="w-4 h-4" />
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                navigate(`/workflows/${workflow.id}/diagram?mode=preview`);
+                              }}
+                              className="text-purple-500 hover:bg-purple-500/10 hover:text-purple-400"
+                              title="View Diagram"
+                            >
+                              <NetworkIcon className="w-4 h-4" />
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={handleValidateClick}
+                              className="text-blue-500 hover:bg-blue-500/10 hover:text-blue-400"
+                              title="Validate Workflow"
+                            >
+                              <CheckCircleIcon className="w-4 h-4" />
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleExecuteClick(workflow, e);
+                              }}
+                              className="text-green-500 hover:bg-green-500/10 hover:text-green-400"
+                              title="Execute Workflow"
+                            >
+                              <PlayIcon className="w-4 h-4" />
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDelete(workflow.id, workflow.name);
+                              }}
+                              className="text-red-500 hover:bg-red-500/10 hover:text-red-400"
+                              title="Delete Workflow"
+                            >
+                              <Trash2Icon className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan={5} className="px-6 py-8 text-center">
+                        <p className="text-gray-400">No workflows match the current filters.</p>
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </Card>
+
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <Card className="bg-[#1a1f2e] border-[#2a3142] shadow-sm">
+              <div className="p-6 flex items-center justify-between">
+                <div className="text-sm text-gray-400">
+                  Page {currentPage} of {totalPages} ({filteredWorkflows.length} total)
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="border-gray-600 text-gray-400 hover:bg-[#2a3142] disabled:opacity-50 disabled:cursor-not-allowed"
+                    onClick={() => updatePagination(currentPage - 1, itemsPerPage)}
+                    disabled={currentPage === 1}
+                  >
+                    <ChevronLeftIcon className="w-4 h-4" />
+                  </Button>
+
+                  <div className="flex gap-1">
+                    {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                      <Button
+                        key={page}
+                        size="sm"
+                        variant={currentPage === page ? 'default' : 'outline'}
+                        className={currentPage === page
+                          ? 'bg-cyan-500 text-white hover:bg-cyan-600'
+                          : 'border-gray-600 text-gray-400 hover:bg-[#2a3142]'
+                        }
+                        onClick={() => updatePagination(page, itemsPerPage)}
+                      >
+                        {page}
+                      </Button>
+                    ))}
+                  </div>
+
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="border-gray-600 text-gray-400 hover:bg-[#2a3142] disabled:opacity-50 disabled:cursor-not-allowed"
+                    onClick={() => updatePagination(currentPage + 1, itemsPerPage)}
+                    disabled={currentPage === totalPages}
+                  >
+                    <ChevronRightIcon className="w-4 h-4" />
+                  </Button>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <label htmlFor="itemsPerPageSelect" className="text-sm text-gray-400">Items per page:</label>
+                  <select
+                    id="itemsPerPageSelect"
+                    value={itemsPerPage}
+                    onChange={(e) => updatePagination(1, Number.parseInt(e.target.value, 10))}
+                    className="px-2 py-1 bg-[#0f1419] border border-[#2a3142] rounded text-white text-sm focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500"
+                  >
+                    <option value={5}>5</option>
+                    <option value={10}>10</option>
+                    <option value={20}>20</option>
+                    <option value={50}>50</option>
+                  </select>
+                </div>
+              </div>
+            </Card>
+          )}
+        </>
       )}
 
       <ExecuteWorkflowModal

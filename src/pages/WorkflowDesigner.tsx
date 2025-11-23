@@ -6,6 +6,7 @@ import ReactFlow, {
   addEdge,
   useNodesState,
   useEdgesState,
+  useReactFlow,
   Connection,
   Edge,
   Node,
@@ -57,6 +58,7 @@ import { TaskLibrarySidebar } from '@/components/workflow/TaskLibrarySidebar';
 import { workerTasks, operators, systemTasks } from '@/constants/taskDefinitions';
 import { formatDate, formatDateForInput, formatDateFromInput } from '@/utils/dateFormatters';
 import { useTaskModals } from '@/hooks/useTaskModals';
+import { conductorWorkflowToLocal, type ConductorWorkflow } from '@/lib/utils';
 
 import logo from '../../resources/logo.svg';
 
@@ -64,13 +66,34 @@ const nodeTypes = {
   custom: CustomNode,
 };
 
+// Helper component to handle auto-fit view when fitView event is triggered
+function FitViewListener() {
+  const { fitView } = useReactFlow();
+
+  useEffect(() => {
+    const handleFitView = () => {
+      try {
+        fitView({ padding: 0.2, duration: 300 });
+      } catch (error_) {
+        // fitView may not be available in all contexts
+        console.debug('fitView not available:', error_);
+      }
+    };
+
+    globalThis.addEventListener('fitView', handleFitView as EventListener);
+    return () => globalThis.removeEventListener('fitView', handleFitView as EventListener);
+  }, [fitView]);
+
+  return null;
+}
+
 export function WorkflowDesigner() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { workflows, updateWorkflow, executeWorkflow, persistWorkflows } = useWorkflowStore();
+  const { workflows, updateWorkflow, executeWorkflow } = useWorkflowStore();
   const { saveWorkflowToCache, markAsDraft, markAsSyncing, markAsPublished, syncToFileStore } = useWorkflowCacheStore();
   const { toast } = useToast();
-  const { saveWorkflow } = useConductorApi({ enableFallback: false });
+  const { saveWorkflow, fetchWorkflowByVersion } = useConductorApi({ enableFallback: false });
 
   const workflow = id ? workflows.find((w) => w.id === id) : null;
   const [workflowName, setWorkflowName] = useState('New Workflow');
@@ -221,22 +244,42 @@ export function WorkflowDesigner() {
     
     useWorkflowStore.getState().addWorkflow(newWorkflow);
     
-    await persistWorkflows().catch(err => {
-      console.warn('Failed to persist new workflow:', err);
-    });
+    // DISABLED: persistWorkflows() was causing infinite loop
+    // await persistWorkflows().catch(err => {
+    //   console.warn('Failed to persist new workflow:', err);
+    // });
     
     sessionStorage.setItem('lastActiveWorkflow', newWorkflow.id);
     navigate(`/workflows/${newWorkflow.id}`, { replace: true });
-  }, [navigate, persistWorkflows]);
+  }, [navigate]);
 
-  // Helper function to sync workflows from fileStore
+  // Helper function to load workflows from localStorage as fallback
+  const loadWorkflowsFromLocalStorage = useCallback((): Workflow[] | null => {
+    try {
+      const localStorageData = localStorage.getItem('workflows');
+      if (localStorageData) {
+        const localWorkflows = JSON.parse(localStorageData) as Workflow[];
+        if (localWorkflows && localWorkflows.length > 0) {
+          console.log(`Loaded ${localWorkflows.length} workflows from localStorage`);
+          return localWorkflows;
+        }
+      }
+      return null;
+    } catch (error_) {
+      console.warn('Failed to load workflows from localStorage:', error_);
+      return null;
+    }
+  }, []);
+
+  // Helper function to sync workflows from fileStore and fallback to localStorage
   const syncWorkflowsFromFileStore = useCallback(async () => {
     try {
       const { fileStoreClient } = await import('@/utils/fileStore');
       const storedWorkflows = await fileStoreClient.loadWorkflows();
       
       if (storedWorkflows && storedWorkflows.length > 0) {
-        const workflowsToLoad: Workflow[] = storedWorkflows.map((w) => ({
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const workflowsToLoad: Workflow[] = storedWorkflows.map((w: any) => ({
           id: w.id,
           name: w.name || 'Unnamed',
           description: w.description,
@@ -244,41 +287,111 @@ export function WorkflowDesigner() {
           edges: (w.edges as WorkflowEdge[]) || [],
           createdAt: w.createdAt || new Date().toISOString(),
           status: (w.status as 'draft' | 'active' | 'paused') || 'draft',
+          syncStatus: (w.syncStatus as 'local-only' | 'synced' | 'syncing') || 'local-only',
+          publicationStatus: (w.publicationStatus as 'LOCAL' | 'PUBLISHED') || 'LOCAL',
+          settings: w.settings,
         }));
         useWorkflowStore.getState().loadWorkflows(workflowsToLoad);
+        return;
       }
-    } catch (err) {
-      console.warn('Error syncing workflows from fileStore:', err);
+      
+      // Fallback to localStorage if fileStore is empty
+      console.log('No workflows found in fileStore, checking localStorage...');
+      const localWorkflows = loadWorkflowsFromLocalStorage();
+      if (localWorkflows) {
+        useWorkflowStore.getState().loadWorkflows(localWorkflows);
+      }
+    } catch (error_) {
+      console.warn('Error syncing workflows from fileStore:', error_);
+      // Try localStorage as final fallback
+      const localWorkflows = loadWorkflowsFromLocalStorage();
+      if (localWorkflows) {
+        useWorkflowStore.getState().loadWorkflows(localWorkflows);
+      }
     }
-  }, []);
+  }, [loadWorkflowsFromLocalStorage]);
 
   // Helper function to load nodes and edges from workflow
+  // Helper function to load cached workflow from localStorage
+  const loadCachedWorkflow = (workflowId: string) => {
+    try {
+      const cachedData = localStorage.getItem(`workflow-cache-${workflowId}`);
+      if (!cachedData) return null;
+      
+      const cache = JSON.parse(cachedData);
+      return cache.nodes?.length > 0 ? cache : null;
+    } catch {
+      return null;
+    }
+  };
+
   const loadNodesAndEdgesFromWorkflow = useCallback((foundWorkflow: Workflow) => {
     setWorkflowName(foundWorkflow.name);
     if (foundWorkflow.settings) {
       setWorkflowSettings(foundWorkflow.settings);
     }
     
-    if (foundWorkflow.nodes && foundWorkflow.nodes.length > 0) {
-      setNodes(foundWorkflow.nodes.map(node => ({ 
-        ...node, 
-        draggable: false,
-        data: {
-          ...node.data,
-          onEdit: handleEditNode,
-          onDelete: handleDeleteNode,
-        }
-      })));
-    } else {
-      setNodes([]);
+    const cached = loadCachedWorkflow(foundWorkflow.id);
+    const mapNode = (node: WorkflowNode) => ({
+      ...node,
+      draggable: false,
+      data: {
+        ...node.data,
+        onEdit: handleEditNode,
+        onDelete: handleDeleteNode,
+      }
+    });
+    
+    if (cached) {
+      setNodes(cached.nodes.map(mapNode));
+      setEdges(cached.edges?.length > 0 ? (cached.edges as Edge[]) : []);
+      return;
     }
     
-    if (foundWorkflow.edges && foundWorkflow.edges.length > 0) {
-      setEdges(foundWorkflow.edges as Edge[]);
-    } else {
-      setEdges([]);
-    }
+    const nodes = foundWorkflow.nodes?.length > 0 
+      ? foundWorkflow.nodes.map(mapNode)
+      : [];
+    const edges = foundWorkflow.edges?.length > 0 ? (foundWorkflow.edges as Edge[]) : [];
+    
+    setNodes(nodes);
+    setEdges(edges);
   }, [handleEditNode, handleDeleteNode, setNodes, setEdges]);
+
+  // Helper function to load published workflow from API
+  const loadPublishedWorkflowFromApi = useCallback(async (workflowId: string): Promise<Workflow | null> => {
+    try {
+      // Extract workflow name and version from the stored workflow if available
+      const storedWorkflow = useWorkflowStore.getState().workflows.find((w) => w.id === workflowId);
+      
+      if (!storedWorkflow?.name || !storedWorkflow?.settings?.version) {
+        console.warn('Cannot load published workflow: missing workflow name or version');
+        return storedWorkflow || null;
+      }
+
+      console.log(`Fetching published workflow: ${storedWorkflow.name} version ${storedWorkflow.settings.version}`);
+      
+      // Fetch the published workflow definition from Conductor API
+      const workflowDef = await fetchWorkflowByVersion(storedWorkflow.name, storedWorkflow.settings.version);
+      
+      if (!workflowDef) {
+        console.warn('Failed to fetch published workflow from API, falling back to cache');
+        return storedWorkflow;
+      }
+
+      // Convert to local workflow format
+      const localWorkflow = conductorWorkflowToLocal(workflowDef as ConductorWorkflow);
+      
+      // Preserve the original ID and other metadata from stored workflow
+      localWorkflow.id = workflowId;
+      localWorkflow.publicationStatus = 'PUBLISHED';
+      localWorkflow.createdAt = storedWorkflow.createdAt || localWorkflow.createdAt;
+      
+      return localWorkflow;
+    } catch (error) {
+      console.error('Error loading published workflow from API:', error);
+      return useWorkflowStore.getState().workflows.find((w) => w.id === workflowId) || null;
+    }
+  }, [fetchWorkflowByVersion]);
 
   // Initialize/Load workflow on component mount or when ID changes
   useEffect(() => {
@@ -292,9 +405,18 @@ export function WorkflowDesigner() {
       
       await syncWorkflowsFromFileStore();
       
-      const foundWorkflow = useWorkflowStore.getState().workflows.find((w) => w.id === id);
+      let foundWorkflow = useWorkflowStore.getState().workflows.find((w) => w.id === id);
       
       if (foundWorkflow) {
+        // Check if the workflow is published - if so, fetch from API
+        if (foundWorkflow.publicationStatus === 'PUBLISHED') {
+          console.log('Workflow is marked as PUBLISHED, fetching from API...');
+          const apiWorkflow = await loadPublishedWorkflowFromApi(foundWorkflow.id);
+          if (apiWorkflow) {
+            foundWorkflow = apiWorkflow;
+          }
+        }
+        
         loadNodesAndEdgesFromWorkflow(foundWorkflow);
       } else {
         console.warn('Workflow not found after fileStore sync:', id);
@@ -310,7 +432,7 @@ export function WorkflowDesigner() {
       // Cleanup logic
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id]); // Only depend on id
+  }, [id]); // Only depend on id, NOT on loadPublishedWorkflowFromApi
 
   // Persist workflow state when component unmounts (user navigates away)
   useEffect(() => {
@@ -349,17 +471,65 @@ export function WorkflowDesigner() {
         // Get all workflows from store and persist IMMEDIATELY
         const workflows = useWorkflowStore.getState().workflows;
         
-        // Save directly to localStorage for immediate persistence (fileStore may take longer)
+        // Save to localStorage for immediate persistence
         try {
           localStorage.setItem('workflows', JSON.stringify(workflows));
+          console.log('Workflows persisted to localStorage on unmount');
         } catch (err) {
           console.warn('Failed to save to localStorage on unmount:', err);
         }
         
-        // Also start an async persist to fileStore (fire and forget, since unmount can't wait)
-        persistWorkflows().catch(err => {
-          console.warn('Failed to persist workflows to fileStore on unmount:', err);
-        });
+        // Also persist to fileStore asynchronously (non-blocking)
+        // This ensures workflows are saved even if only localStorage is available initially
+        (async () => {
+          try {
+            const { fileStoreClient } = await import('@/utils/fileStore');
+            let savedCount = 0;
+            for (const wf of workflows) {
+              const workflowToSave = {
+                id: wf.id,
+                name: wf.name,
+                description: wf.description,
+                version: wf.version,
+                schemaVersion: wf.schemaVersion,
+                ownerEmail: wf.ownerEmail,
+                ownerApp: wf.ownerApp,
+                createdBy: wf.createdBy,
+                updatedBy: wf.updatedBy,
+                createTime: wf.createTime,
+                updateTime: wf.updateTime,
+                nodes: wf.nodes,
+                edges: wf.edges,
+                createdAt: wf.createdAt,
+                status: wf.status,
+                syncStatus: wf.syncStatus,
+                restartable: wf.restartable,
+                timeoutSeconds: wf.timeoutSeconds,
+                timeoutPolicy: wf.timeoutPolicy,
+                workflowStatusListenerEnabled: wf.workflowStatusListenerEnabled,
+                failureWorkflow: wf.failureWorkflow,
+                inputParameters: wf.inputParameters,
+                outputParameters: wf.outputParameters,
+                inputTemplate: wf.inputTemplate,
+                accessPolicy: wf.accessPolicy,
+                variables: wf.variables,
+                tasks: wf.tasks,
+                settings: wf.settings,
+                publicationStatus: wf.publicationStatus,
+              };
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              const result = await fileStoreClient.saveWorkflow(workflowToSave as any);
+              if (result) {
+                savedCount++;
+              }
+            }
+            if (savedCount > 0) {
+              console.log(`Persisted ${savedCount}/${workflows.length} workflows to fileStore on unmount`);
+            }
+          } catch (err) {
+            console.warn('Failed to persist workflows to fileStore on unmount:', err);
+          }
+        })();
       }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -387,82 +557,13 @@ export function WorkflowDesigner() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [nodes.length]); // Only check when nodes count changes
 
-  // Auto-arrange nodes whenever they change (but not on initial load)
-  useEffect(() => {
-    if (nodes.length > 0) {
-      // Auto-arrange nodes in snake pattern whenever a new node is added
-      const sortedNodes = [...nodes].sort((a, b) => {
-        const seqA = a.data.sequenceNo || 0;
-        const seqB = b.data.sequenceNo || 0;
-        return seqA - seqB;
-      });
-
-      // Configuration for snake layout
-      const nodesPerRow = 6;
-      const horizontalSpacing = 200;
-      const verticalSpacing = 120;
-      const startX = 50;
-      const startY = 50;
-
-      // Arrange nodes in a snake pattern
-      const arrangedNodes = sortedNodes.map((node, index) => {
-        const rowIndex = Math.floor(index / nodesPerRow);
-        const colIndex = index % nodesPerRow;
-        const isOddRow = rowIndex % 2 === 1;
-        const actualColIndex = isOddRow ? (nodesPerRow - 1 - colIndex) : colIndex;
-
-        return {
-          ...node,
-          draggable: false,
-          position: {
-            x: startX + (actualColIndex * horizontalSpacing),
-            y: startY + (rowIndex * verticalSpacing),
-          },
-          data: {
-            ...node.data,
-            onEdit: handleEditNode,
-            onDelete: handleDeleteNode,
-          },
-        };
-      });
-
-      setNodes(arrangedNodes);
-
-      // Auto-connect all nodes in sequence
-      const newEdges: Edge[] = [];
-      for (let i = 0; i < sortedNodes.length - 1; i++) {
-        const sourceNode = sortedNodes[i];
-        const targetNode = sortedNodes[i + 1];
-        
-        const sourceIndex = i;
-        const targetIndex = i + 1;
-        const sourceRow = Math.floor(sourceIndex / nodesPerRow);
-        const targetRow = Math.floor(targetIndex / nodesPerRow);
-        const isRowTransition = sourceRow !== targetRow;
-        
-        let sourceHandle = 'right';
-        let targetHandle = 'left';
-        
-        if (isRowTransition) {
-          sourceHandle = 'bottom';
-          targetHandle = 'top';
-        }
-        
-        newEdges.push({
-          id: `${sourceNode.id}-${targetNode.id}`,
-          source: sourceNode.id,
-          sourceHandle: sourceHandle,
-          target: targetNode.id,
-          targetHandle: targetHandle,
-          type: 'straight',
-          animated: true,
-          style: { stroke: '#00bcd4', strokeWidth: 2 },
-        });
-      }
-      setEdges(newEdges);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [nodes.length]); // Only run when node count changes
+  // DISABLED: Auto-arrange was causing nodes to disappear when dragging/dropping
+  // The auto-arrange logic now only runs when user explicitly clicks "Auto Arrange" button
+  // This prevents unwanted repositioning that was causing visual glitches
+  // See handleAutoArrange() function for the actual implementation
+  // useEffect(() => {
+  //   // This effect has been disabled to fix drag-drop disappearing nodes issue
+  // }, [nodes.length]);
 
   // Auto-save nodes and edges whenever they change
   useEffect(() => {
@@ -473,16 +574,49 @@ export function WorkflowDesigner() {
           nodes: nodes,
           edges: edges as WorkflowEdge[],
         });
-        // Also persist to storage so changes aren't lost on navigation
-        persistWorkflows().catch(err => {
-          console.warn('Failed to persist workflows during auto-save:', err);
-        });
+        
+        // Also save to localStorage for local cache persistence
+        try {
+          const cacheData = {
+            workflowId: workflow.id,
+            workflowName: workflowName,
+            nodes: nodes,
+            edges: edges,
+            timestamp: new Date().toISOString(),
+          };
+          localStorage.setItem(`workflow-cache-${workflow.id}`, JSON.stringify(cacheData));
+        } catch (err) {
+          console.warn('Failed to save workflow to localStorage:', err);
+        }
+        
+        // DISABLED: persistWorkflows() was causing performance issues by saving all 90+ workflows
+        // This will be called manually on unmount instead
+        // persistWorkflows().catch(err => {
+        //   console.warn('Failed to persist workflows during auto-save:', err);
+        // });
       }, 500);
 
       return () => clearTimeout(timeoutId);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [nodes, edges, workflow?.id]); // Only depend on workflow.id, not the entire workflow object
+  }, [nodes, edges, workflow?.id, workflowName]); // Include workflowName for cache
+
+  // Auto-fit view when nodes are added or removed (via drag/drop)
+  // Store previous node count to detect when nodes are added/removed
+  const prevNodeCountRef = useRef(nodes.length);
+  useEffect(() => {
+    // Trigger fit-view if nodes were added or removed
+    if (nodes.length !== prevNodeCountRef.current && nodes.length > 0) {
+      prevNodeCountRef.current = nodes.length;
+      // Dispatch custom event that can be caught by ReactFlow component
+      // We'll use a small delay to allow the DOM to update
+      const fitTimer = setTimeout(() => {
+        globalThis.dispatchEvent(new CustomEvent('fitView'));
+      }, 50);
+      return () => clearTimeout(fitTimer);
+    }
+    prevNodeCountRef.current = nodes.length;
+  }, [nodes.length]);
 
   // Sync JSON text when nodes, settings, or workflowName change
   useEffect(() => {
@@ -713,6 +847,86 @@ export function WorkflowDesigner() {
       .filter(Boolean); // Remove nodes without config
   };
 
+  // Helper function to perform auto-arrange logic (extracted for reuse)
+  const performAutoArrange = useCallback((nodesToArrange: Node[]) => {
+    if (nodesToArrange.length === 0) return nodesToArrange;
+
+    // Sort nodes by their sequence number to maintain logical order
+    const sortedNodes = [...nodesToArrange].sort((a, b) => {
+      const seqA = a.data.sequenceNo || 0;
+      const seqB = b.data.sequenceNo || 0;
+      return seqA - seqB;
+    });
+
+    // Configuration for snake layout
+    const nodesPerRow = 5; // Number of nodes in each row
+    const horizontalSpacing = 200; // Space between nodes horizontally
+    const verticalSpacing = 120; // Space between rows
+    const startX = 50; // Starting X position
+    const startY = 50; // Starting Y position
+
+    // Arrange nodes in a snake pattern
+    const arrangedNodes = sortedNodes.map((node, index) => {
+      const rowIndex = Math.floor(index / nodesPerRow);
+      const colIndex = index % nodesPerRow;
+
+      // Snake pattern: reverse direction on odd rows
+      const isOddRow = rowIndex % 2 === 1;
+      const actualColIndex = isOddRow ? (nodesPerRow - 1 - colIndex) : colIndex;
+
+      return {
+        ...node,
+        draggable: false,
+        position: {
+          x: startX + (actualColIndex * horizontalSpacing),
+          y: startY + (rowIndex * verticalSpacing),
+        },
+      };
+    });
+
+    // Auto-connect all nodes in sequence with proper row transitions
+    const newEdges: Edge[] = [];
+    for (let i = 0; i < sortedNodes.length - 1; i++) {
+      const sourceNode = sortedNodes[i];
+      const targetNode = sortedNodes[i + 1];
+      
+      const sourceIndex = i;
+      const targetIndex = i + 1;
+      
+      // Determine if we're transitioning to the next row
+      const sourceRow = Math.floor(sourceIndex / nodesPerRow);
+      const targetRow = Math.floor(targetIndex / nodesPerRow);
+      const isRowTransition = sourceRow !== targetRow;
+      
+      // Determine handle positions based on layout
+      let sourceHandle = 'right'; // Default: connect from right
+      let targetHandle = 'left';  // Default: connect to left
+      
+      // If it's a row transition (moving to next row)
+      if (isRowTransition) {
+        // Connect from bottom of last task in row to top of first task in next row
+        sourceHandle = 'bottom';
+        targetHandle = 'top';
+      }
+      
+      newEdges.push({
+        id: `${sourceNode.id}-${targetNode.id}`,
+        source: sourceNode.id,
+        sourceHandle: sourceHandle,
+        target: targetNode.id,
+        targetHandle: targetHandle,
+        type: 'straight',
+        animated: true,
+        style: { stroke: '#00bcd4', strokeWidth: 2 },
+      });
+    }
+    
+    setNodes(arrangedNodes);
+    setEdges(newEdges);
+    
+    return arrangedNodes;
+  }, [setNodes, setEdges]);
+
   // Helper to handle the config save logic - wrapped in useCallback to fix hook dependencies
   const saveTaskConfigLogic = useCallback((
     config: unknown,
@@ -733,7 +947,7 @@ export function WorkflowDesigner() {
         const newNode: Node = {
           id: taskRefId,
           type: 'custom',
-          position: { x: 0, y: 0 }, // Temporary position - will be arranged automatically
+          position: pendingTaskDrop.position, // Use the actual drop position where user dragged the task
           draggable: false,
           data: {
             label: (cfg.taskReferenceName as string) || (cfg.name as string),
@@ -755,11 +969,11 @@ export function WorkflowDesigner() {
           updateWorkflow(workflow.id, { tasks: workflowTasks });
         }
 
-        return updatedNodes;
+        // Auto-arrange nodes immediately after adding a new one
+        return performAutoArrange(updatedNodes);
       });
 
       setPendingTaskDrop(null);
-      // Auto-arrange will be triggered by nodes state change via useEffect
     } else {
       // Editing existing node
       const targetNode = selectedNodeForConfig || pendingNodeForAutoConfig;
@@ -789,7 +1003,7 @@ export function WorkflowDesigner() {
     }
 
     setModalOpen(false);
-  }, [selectedNodeForConfig, pendingNodeForAutoConfig, pendingTaskDrop, setNodes, workflow, updateWorkflow, handleEditNode, handleDeleteNode, setPendingNodeForAutoConfig, setPendingTaskDrop, setSelectedNodeForConfig, updateNodeWithConfig]);
+  }, [selectedNodeForConfig, pendingNodeForAutoConfig, pendingTaskDrop, setNodes, workflow, updateWorkflow, handleEditNode, handleDeleteNode, setPendingNodeForAutoConfig, setPendingTaskDrop, setSelectedNodeForConfig, updateNodeWithConfig, performAutoArrange]);
 
   // Generic save handler for task configs
   const createTaskConfigHandler = useCallback((
@@ -912,8 +1126,8 @@ export function WorkflowDesigner() {
 
       const reactFlowBounds = event.currentTarget.getBoundingClientRect();
       const position = {
-        x: event.clientX - reactFlowBounds.left - 80,
-        y: event.clientY - reactFlowBounds.top - 40,
+        x: event.clientX - reactFlowBounds.left - 62.5,
+        y: event.clientY - reactFlowBounds.top - 25,
       };
 
       // Store the pending drop information - node will be created when config is saved
@@ -940,79 +1154,8 @@ export function WorkflowDesigner() {
       return;
     }
 
-    // Sort nodes by their sequence number to maintain logical order
-    const sortedNodes = [...nodes].sort((a, b) => {
-      const seqA = a.data.sequenceNo || 0;
-      const seqB = b.data.sequenceNo || 0;
-      return seqA - seqB;
-    });
-
-    // Configuration for snake layout
-    const nodesPerRow = 5; // Number of nodes in each row
-    const horizontalSpacing = 200; // Space between nodes horizontally
-    const verticalSpacing = 120; // Space between rows
-    const startX = 50; // Starting X position
-    const startY = 50; // Starting Y position
-
-    // Arrange nodes in a snake pattern
-    const arrangedNodes = sortedNodes.map((node, index) => {
-      const rowIndex = Math.floor(index / nodesPerRow);
-      const colIndex = index % nodesPerRow;
-
-      // Snake pattern: reverse direction on odd rows
-      const isOddRow = rowIndex % 2 === 1;
-      const actualColIndex = isOddRow ? (nodesPerRow - 1 - colIndex) : colIndex;
-
-      return {
-        ...node,
-        draggable: false,
-        position: {
-          x: startX + (actualColIndex * horizontalSpacing),
-          y: startY + (rowIndex * verticalSpacing),
-        },
-      };
-    });
-
-    setNodes(arrangedNodes);
-
-    // Auto-connect all nodes in sequence with proper row transitions
-    const newEdges: Edge[] = [];
-    for (let i = 0; i < sortedNodes.length - 1; i++) {
-      const sourceNode = sortedNodes[i];
-      const targetNode = sortedNodes[i + 1];
-      
-      const sourceIndex = i;
-      const targetIndex = i + 1;
-      
-      // Determine if we're transitioning to the next row
-      const sourceRow = Math.floor(sourceIndex / nodesPerRow);
-      const targetRow = Math.floor(targetIndex / nodesPerRow);
-      const isRowTransition = sourceRow !== targetRow;
-      
-      // Determine handle positions based on layout
-      let sourceHandle = 'right'; // Default: connect from right
-      let targetHandle = 'left';  // Default: connect to left
-      
-      // If it's a row transition (moving to next row)
-      if (isRowTransition) {
-        // Connect from bottom of last task in row to top of first task in next row
-        sourceHandle = 'bottom';
-        targetHandle = 'top';
-      }
-      
-      newEdges.push({
-        id: `${sourceNode.id}-${targetNode.id}`,
-        source: sourceNode.id,
-        sourceHandle: sourceHandle,
-        target: targetNode.id,
-        targetHandle: targetHandle,
-        type: 'straight',
-        animated: true,
-        style: { stroke: '#00bcd4', strokeWidth: 2 },
-      });
-    }
-    setEdges(newEdges);
-  }, [nodes, setNodes, setEdges, toast]);
+    performAutoArrange(nodes);
+  }, [nodes, performAutoArrange, toast]);
 
   const handlePreview = () => {
     // Save current state temporarily
@@ -1077,7 +1220,8 @@ export function WorkflowDesigner() {
         });
         
         // Persist to local storage
-        await persistWorkflows();
+        // DISABLED: persistWorkflows() was causing infinite loop
+        // await persistWorkflows();
         
         // Sync cache to filestore
         await syncToFileStore().catch(err => {
@@ -1153,7 +1297,8 @@ export function WorkflowDesigner() {
       });
       
       // Persist to local storage
-      await persistWorkflows();
+      // DISABLED: persistWorkflows() was causing infinite loop
+      // await persistWorkflows();
       
       // Sync cache to filestore
       await syncToFileStore().catch(err => {
@@ -1291,11 +1436,9 @@ export function WorkflowDesigner() {
           ...config,
           sequenceNo: selectedNodeForConfig.data.sequenceNo,
         };
-        console.log(`[getInitialConfig] Returning config for ${taskType}:`, configWithSequence);
         return configWithSequence;
       }
       
-      console.log(`[getInitialConfig] selectedNodeForConfig found but no config for ${taskType}`);
       return nodeConfig;
     }
     
@@ -1308,15 +1451,12 @@ export function WorkflowDesigner() {
           ...(config as Record<string, unknown>),
           sequenceNo: pendingNodeForAutoConfig.data.sequenceNo,
         };
-        console.log(`[getInitialConfig] Returning pending config for ${taskType}:`, configWithSequence);
         return configWithSequence;
       }
       
-      console.log(`[getInitialConfig] pendingNodeForAutoConfig found but no config for ${taskType}`);
       return config;
     }
     
-    console.log(`[getInitialConfig] No config found for ${taskType}. selectedNodeForConfig:`, selectedNodeForConfig?.data?.taskType, 'pendingNodeForAutoConfig:', pendingNodeForAutoConfig?.data?.taskType);
     return undefined;
   };
 
@@ -1478,9 +1618,9 @@ export function WorkflowDesigner() {
                   {/* Canvas Info Bar */}
                   <div className="bg-[#1a1f2e] border-b border-[#2a3142] px-4 py-2">
                   <p className="text-xs text-gray-400">
-                    <span className="font-medium">Tip:</span> Tasks auto-connect in sequence • Use <span className="font-medium">Auto Arrange</span> to organize in snake pattern (5 per row)
+                    <span className="font-medium">Tip:</span> Drop tasks on canvas to add them • Tasks are automatically organized in a snake pattern (5 per row)
                     <br />
-                    <span className="font-medium">Edit/Delete:</span> Hover over task and click blue Edit or red Delete button
+                    <span className="font-medium">Note:</span> Nodes auto-arrange on every drop for optimal layout. Edit/Delete: Hover over task and click blue/red buttons
                   </p>
                 </div>
 
@@ -1522,7 +1662,13 @@ export function WorkflowDesigner() {
                         }}
                         onDrop={onDrop}
                         onDragOver={onDragOver}
+                        panOnScroll={false}
+                        panOnDrag={false}
+                        zoomOnScroll={false}
+                        zoomOnDoubleClick={false}
+                        zoomOnPinch={false}
                       >
+                        <FitViewListener />
                         <Background
                           color="#2a3142"
                           gap={20}

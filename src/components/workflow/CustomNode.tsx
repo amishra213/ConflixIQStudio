@@ -44,8 +44,8 @@ export const CustomNode = memo(({ data, selected, id }: NodeProps) => {
       }`}
       style={{
         borderColor: selected ? '#00bcd4' : data.color || '#2a3142',
-        width: '140px',
-        height: '80px',
+        width: '125px',
+        height: '50px',
         display: 'flex',
         flexDirection: 'column',
         justifyContent: 'center',
