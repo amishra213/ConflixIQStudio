@@ -27,22 +27,26 @@ import { format } from 'date-fns';
 export default function LogsViewer() {
   const { toast } = useToast();
   const navigate = useNavigate();
-  // Subscribe to the store with proper selector to ensure re-renders
+  
+  // Subscribe to the store
   const logs = useLoggingStore((state) => state.logs);
   const clearLogs = useLoggingStore((state) => state.clearLogs);
   const exportLogs = useLoggingStore((state) => state.exportLogs);
-  const getFilteredLogs = useLoggingStore((state) => state.getFilteredLogs);
   
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedType, setSelectedType] = useState<string>('all');
   const [expandedLog, setExpandedLog] = useState<string | null>(null);
 
-  const filteredLogs = useMemo(() => {
-    return getFilteredLogs({
-      type: selectedType === 'all' ? undefined : (selectedType as 'request' | 'response' | 'error' | undefined),
-      operation: searchQuery || undefined,
-    });
-  }, [searchQuery, selectedType, getFilteredLogs]);
+  // Filter logs based on current filters - this will automatically update when logs change
+  const filteredLogs = logs.filter((log) => {
+    // Filter by type
+    if (selectedType !== 'all' && log.type !== selectedType) return false;
+    
+    // Filter by operation name
+    if (searchQuery && !log.operation.toLowerCase().includes(searchQuery.toLowerCase())) return false;
+    
+    return true;
+  });
 
   const logStats = useMemo(() => {
     return {
@@ -87,15 +91,26 @@ export default function LogsViewer() {
     });
   };
 
-  const handleClear = () => {
-    clearLogs();
-    setExpandedLog(null);
-    setSearchQuery('');
-    setSelectedType('all');
-    toast({
-      title: 'Logs Cleared',
-      description: 'All log entries have been deleted.',
-    });
+  const handleClear = async () => {
+    try {
+      await clearLogs();
+      // Force a small delay to ensure state update is processed
+      await new Promise(resolve => setTimeout(resolve, 100));
+      setExpandedLog(null);
+      setSearchQuery('');
+      setSelectedType('all');
+      toast({
+        title: 'Logs Cleared',
+        description: 'All log entries have been deleted.',
+      });
+    } catch (error) {
+      console.error('Failed to clear logs:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to clear logs. Please try again.',
+        variant: 'destructive',
+      });
+    }
   };
 
   const formatTimestamp = (timestamp: string) => {
