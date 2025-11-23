@@ -18,6 +18,7 @@ export function conductorWorkflowToLocal(conductorWorkflow: any): Workflow {
     edges: [],
     createdAt: new Date(conductorWorkflow.createTime || Date.now()).toISOString(),
     status: 'active',
+    publicationStatus: 'PUBLISHED', // Workflows loaded from server are published
     settings: {
       description: conductorWorkflow.description || '',
       version: conductorWorkflow.version || 1,

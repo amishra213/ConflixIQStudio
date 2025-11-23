@@ -30,6 +30,7 @@ export interface Workflow {
   edges: WorkflowEdge[];
   createdAt: string;
   status: 'draft' | 'active' | 'paused';
+  publicationStatus?: 'LOCAL' | 'PUBLISHED';
 }
 
 export interface Execution {

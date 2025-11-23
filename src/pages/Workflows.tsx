@@ -12,12 +12,48 @@ import { useConductorApi } from '@/hooks/useConductorApi';
 import { conductorWorkflowToLocal } from '@/lib/utils';
 import { generateUniqueWorkflowName } from '@/utils/nameGenerator';
 
+/**
+ * Filter and deduplicate workflows to show only the most recent, non-empty workflows
+ * Removes stale/duplicate entries and workflows without any tasks
+ */
+function filterAndDeduplicate(workflows: Workflow[]): Workflow[] {
+  // Group by name to identify duplicates
+  const workflowsByName = new Map<string, Workflow[]>();
+  
+  for (const workflow of workflows) {
+    const key = workflow.name;
+    if (!workflowsByName.has(key)) {
+      workflowsByName.set(key, []);
+    }
+    workflowsByName.get(key)!.push(workflow);
+  }
+
+  // For each name, keep only the most recent one (by createdAt)
+  const filtered: Workflow[] = [];
+  for (const [, duplicates] of workflowsByName) {
+    // Sort by timestamp (newer first) - spread to avoid mutating original
+    const sorted = [...duplicates].sort((a: Workflow, b: Workflow) => {
+      const aTime = new Date(a.createdAt || 0).getTime();
+      const bTime = new Date(b.createdAt || 0).getTime();
+      return bTime - aTime;
+    });
+    
+    // Keep the most recent workflow (even if it's a draft or has no nodes)
+    const recent = sorted[0];
+    if (recent) {
+      filtered.push(recent);
+    }
+  }
+
+  return filtered;
+}
+
 export function Workflows() {
   const navigate = useNavigate();
-  const { workflows, deleteWorkflow, executeWorkflow, addWorkflow, persistWorkflows } = useWorkflowStore();
+  const { workflows: allWorkflows, deleteWorkflow, executeWorkflow, addWorkflow, persistWorkflows } = useWorkflowStore();
   const { getAllWorkflows, markAsPublished, markAsSyncing, syncToFileStore } = useWorkflowCacheStore();
   const { toast } = useToast();
-  const { syncWorkflows, loading: syncLoading, fetchWorkflowByVersion, saveWorkflow } = useConductorApi();
+  const { syncWorkflows, loading: syncLoading, fetchWorkflowByVersion, saveWorkflow, deleteWorkflow: deleteWorkflowFromServer } = useConductorApi();
   const [executeModalOpen, setExecuteModalOpen] = useState(false);
   const [selectedWorkflow, setSelectedWorkflow] = useState<Workflow | null>(null);
   const [workflowListOpen, setWorkflowListOpen] = useState(false);
@@ -28,6 +64,9 @@ export function Workflows() {
   const [workflowVersionInput, setWorkflowVersionInput] = useState('1');
   const [isLoadingExecution, setIsLoadingExecution] = useState(false);
   const [publishingWorkflowId, setPublishingWorkflowId] = useState<string | null>(null);
+
+  // Filter and deduplicate workflows for display
+  const workflows = filterAndDeduplicate(allWorkflows);
 
   const handleCreateWorkflow = () => {
     // Create a new workflow immediately with an ID and unique name
@@ -42,6 +81,7 @@ export function Workflows() {
       createdAt: new Date().toISOString(),
       status: 'draft', // Business status
       syncStatus: 'local-only', // Conductor sync status
+      publicationStatus: 'LOCAL', // Internal publication status
     };
     
     // Add to store
@@ -210,8 +250,23 @@ export function Workflows() {
   };
 
   const handleDelete = async (id: string, name: string) => {
+    const workflow = allWorkflows.find(w => w.id === id);
+    
+    // If workflow is published, delete from Conductor server first
+    if (workflow?.publicationStatus === 'PUBLISHED') {
+      const deleted = await deleteWorkflowFromServer(name, workflow.version || 1);
+      if (!deleted) {
+        toast({
+          title: 'Server deletion failed',
+          description: `Failed to delete "${name}" from Conductor server. The workflow may still exist on the server.`,
+          variant: 'destructive',
+        });
+        return;
+      }
+    }
+    
+    // Remove from cache
     deleteWorkflow(id);
-    // Persist changes to storage
     await persistWorkflows();
     toast({
       title: 'Workflow deleted',

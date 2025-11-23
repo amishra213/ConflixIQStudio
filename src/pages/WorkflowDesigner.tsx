@@ -111,6 +111,7 @@ export function WorkflowDesigner() {
   const workflowSettingsRef = useRef(workflowSettings);
   const nodesRef = useRef(nodes);
   const edgesRef = useRef(edges);
+  const nodesStateRef = useRef(nodes); // Keep track of nodes for handleEditNode
 
   // Update refs when state changes
   useEffect(() => {
@@ -119,6 +120,7 @@ export function WorkflowDesigner() {
     workflowSettingsRef.current = workflowSettings;
     nodesRef.current = nodes;
     edgesRef.current = edges;
+    nodesStateRef.current = nodes; // Update nodes state ref
   }, [workflow, workflowName, workflowSettings, nodes, edges]);
 
   // Use the task modals hook
@@ -133,24 +135,36 @@ export function WorkflowDesigner() {
     setPendingTaskDrop,
   } = useTaskModals();
 
+  // Ref to track pending modal open action
+  const pendingModalOpenRef = useRef<string | null>(null);
+
   // Define edit and delete handlers BEFORE useEffects that use them
   const handleEditNode = useCallback((nodeId: string) => {
-    const node = nodes.find(n => n.id === nodeId);
+    console.log('handleEditNode called for:', nodeId);
+    const node = nodesStateRef.current.find(n => n.id === nodeId);
     if (node) {
-      setSelectedNodeForConfig(node);
-      modalActions.openModalForTaskType(node.data.taskType);
+      console.log('Found node, opening modal for taskType:', node.data.taskType, 'config:', node.data.config);
       
-      // Check if no modal was opened (unknown task type)
-      if (!node.data.taskType) {
-        toast({
-          title: 'Configuration not available',
-          description: `No specific configuration modal for task type: ${node.data.taskType}`,
-          variant: 'destructive',
-        });
-        setSelectedNodeForConfig(null);
-      }
+      // Store the taskType we want to open
+      pendingModalOpenRef.current = node.data.taskType;
+      
+      // Set the selected node - this will trigger the effect below
+      setSelectedNodeForConfig(node);
+    } else {
+      console.warn('Node not found:', nodeId);
     }
-  }, [nodes, toast, modalActions, setSelectedNodeForConfig]);
+  }, [setSelectedNodeForConfig]);
+
+  // When selectedNodeForConfig is set (from handleEditNode), open the modal for that node's taskType
+  useEffect(() => {
+    if (selectedNodeForConfig && pendingModalOpenRef.current) {
+      const taskTypeToOpen = pendingModalOpenRef.current;
+      pendingModalOpenRef.current = null;
+      
+      console.log('Effect: Opening modal for taskType:', taskTypeToOpen, 'with config:', selectedNodeForConfig.data.config);
+      modalActions.openModalForTaskType(taskTypeToOpen);
+    }
+  }, [selectedNodeForConfig, modalActions]);
 
   const handleDeleteNode = useCallback((nodeId: string) => {
     setNodes((nds) => {
@@ -202,6 +216,7 @@ export function WorkflowDesigner() {
       createdAt: new Date().toISOString(),
       status: 'draft',
       syncStatus: 'local-only',
+      publicationStatus: 'LOCAL',
     };
     
     useWorkflowStore.getState().addWorkflow(newWorkflow);
@@ -325,6 +340,7 @@ export function WorkflowDesigner() {
             createdAt: new Date().toISOString(),
             status: 'draft',
             syncStatus: 'local-only',
+            publicationStatus: 'LOCAL',
             settings: workflowSettingsRef.current,
           };
           useWorkflowStore.getState().addWorkflow(newWorkflow);
@@ -1017,6 +1033,7 @@ export function WorkflowDesigner() {
         edges: edges as WorkflowEdge[],
         createdAt: new Date().toISOString(),
         status: 'draft' as const,
+        publicationStatus: 'LOCAL' as const,
       };
       useWorkflowStore.getState().addWorkflow(tempWorkflow);
       navigate(`/diagram/${tempWorkflow.id}?mode=preview`);
@@ -1071,7 +1088,7 @@ export function WorkflowDesigner() {
         markAsSyncing(newWorkflow.id);
         
         // Now save to Conductor via proxy
-        const { localWorkflowToConductor } = await import('@/utils/workflowToMermaid');
+        const { localWorkflowToConductor } = await import('@/utils/workflowConverter');
         const conductorWorkflow = localWorkflowToConductor(newWorkflow);
         
         // Save via GraphQL proxy
@@ -1090,6 +1107,7 @@ export function WorkflowDesigner() {
         
         // Successfully saved to Conductor
         markAsPublished(newWorkflow.id);
+        updateWorkflow(newWorkflow.id, { publicationStatus: 'PUBLISHED' });
         toast({
           title: 'Workflow saved',
           description: `Workflow "${workflowName}" has been created and published to Conductor`,
@@ -1146,7 +1164,7 @@ export function WorkflowDesigner() {
       markAsSyncing(workflow.id);
       
       // Now save to Conductor via proxy
-      const { localWorkflowToConductor } = await import('@/utils/workflowToMermaid');
+      const { localWorkflowToConductor } = await import('@/utils/workflowConverter');
       const conductorWorkflow = localWorkflowToConductor(updatedWorkflow);
       
       // Save via GraphQL proxy
@@ -1164,6 +1182,7 @@ export function WorkflowDesigner() {
       
       // Successfully saved to Conductor
       markAsPublished(workflow.id);
+      updateWorkflow(workflow.id, { publicationStatus: 'PUBLISHED' });
       toast({
         title: 'Workflow saved',
         description: `Workflow "${workflowName}" has been updated and published to Conductor successfully`,
@@ -1268,12 +1287,15 @@ export function WorkflowDesigner() {
         const config = nodeConfig as Record<string, unknown>;
         
         // Add sequenceNo from node data for UI ordering (not stored in config itself)
-        return {
+        const configWithSequence = {
           ...config,
           sequenceNo: selectedNodeForConfig.data.sequenceNo,
         };
+        console.log(`[getInitialConfig] Returning config for ${taskType}:`, configWithSequence);
+        return configWithSequence;
       }
       
+      console.log(`[getInitialConfig] selectedNodeForConfig found but no config for ${taskType}`);
       return nodeConfig;
     }
     
@@ -1282,15 +1304,19 @@ export function WorkflowDesigner() {
       const config = pendingNodeForAutoConfig.data.config;
       
       if (config) {
-        return {
+        const configWithSequence = {
           ...(config as Record<string, unknown>),
           sequenceNo: pendingNodeForAutoConfig.data.sequenceNo,
         };
+        console.log(`[getInitialConfig] Returning pending config for ${taskType}:`, configWithSequence);
+        return configWithSequence;
       }
       
+      console.log(`[getInitialConfig] pendingNodeForAutoConfig found but no config for ${taskType}`);
       return config;
     }
     
+    console.log(`[getInitialConfig] No config found for ${taskType}. selectedNodeForConfig:`, selectedNodeForConfig?.data?.taskType, 'pendingNodeForAutoConfig:', pendingNodeForAutoConfig?.data?.taskType);
     return undefined;
   };
 

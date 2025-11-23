@@ -71,34 +71,10 @@ class FileStoreClient {
   }
 
   /**
-   * Load workflows from filestore
+   * Load workflows from filestore (uses the new multi-file approach)
    */
   async loadWorkflows(): Promise<FileStoreWorkflow[]> {
-    try {
-      const response = await fetch(`${this.baseUrl}/filestore/load-workflows`, {
-        method: 'GET',
-        headers: { 'Content-Type': 'application/json' },
-      });
-
-      if (!response.ok) {
-        return [];
-      }
-
-      const contentType = response.headers.get('content-type');
-      if (!contentType?.includes('application/json')) {
-        return [];
-      }
-
-      const result: FileStoreResponse<FileStoreWorkflow[]> = await response.json();
-      if (result.success && Array.isArray(result.data)) {
-        console.log('Loaded workflows from filestore:', result.data);
-        return result.data;
-      }
-      return [];
-    } catch (err) {
-      console.warn('Error loading workflows from filestore:', err);
-      return [];
-    }
+    return this.loadAllWorkflows();
   }
 
   /**
@@ -141,21 +117,28 @@ class FileStoreClient {
   }
 
   /**
-   * Save workflows to filestore
+   * Save a single workflow to filestore as individual file
+   * Files are stored as: workflows/{workflowName}_{version}.json
    */
-  async saveWorkflows(workflows: FileStoreWorkflow[]): Promise<boolean> {
+  async saveWorkflow(workflow: FileStoreWorkflow): Promise<boolean> {
     try {
-      const response = await fetch(`${this.baseUrl}/filestore/save-workflows`, {
+      // Create filename from workflow name and version (or use timestamp if no version)
+      const workflowData = workflow as unknown as Record<string, unknown>;
+      const version = (workflowData.version as number) || 1;
+      const filename = `workflows/${workflow.name}_v${version}.json`;
+      
+      const response = await fetch(`${this.baseUrl}/filestore/save-workflow`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          workflows,
+          filename,
+          data: workflow,
           timestamp: Date.now(),
         }),
       });
 
       if (!response.ok) {
-        console.warn('Failed to save workflows to filestore:', response.statusText);
+        console.warn(`Failed to save workflow ${workflow.name} to filestore:`, response.statusText);
         return false;
       }
 
@@ -167,11 +150,100 @@ class FileStoreClient {
 
       const result: FileStoreResponse<void> = await response.json();
       if (result.success) {
-        console.log('Successfully saved workflows to filestore');
+        console.log(`Successfully saved workflow ${workflow.name} to filestore`);
         return true;
       }
       console.warn('Filestore returned success: false');
       return false;
+    } catch (err) {
+      console.warn(`Error saving workflow ${workflow.name} to filestore:`, err);
+      return false;
+    }
+  }
+
+  /**
+   * Load all workflows from filestore (individual files in workflows/ directory)
+   */
+  async loadAllWorkflows(): Promise<FileStoreWorkflow[]> {
+    try {
+      const response = await fetch(`${this.baseUrl}/filestore/load-workflows-batch`, {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' },
+      });
+
+      if (!response.ok) {
+        console.warn('Failed to load workflows from filestore:', response.statusText);
+        return [];
+      }
+
+      const contentType = response.headers.get('content-type');
+      if (!contentType?.includes('application/json')) {
+        console.warn('Invalid response format from filestore');
+        return [];
+      }
+
+      const result: FileStoreResponse<FileStoreWorkflow[]> = await response.json();
+      if (result.success && Array.isArray(result.data)) {
+        console.log('Loaded all workflows from filestore:', result.data);
+        return result.data;
+      }
+      return [];
+    } catch (err) {
+      console.warn('Error loading workflows from filestore:', err);
+      return [];
+    }
+  }
+
+  /**
+   * Delete a single workflow file from filestore
+   */
+  async deleteWorkflow(workflowName: string, version: number = 1): Promise<boolean> {
+    try {
+      const filename = `workflows/${workflowName}_v${version}.json`;
+      
+      const response = await fetch(`${this.baseUrl}/filestore/delete-workflow`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ filename }),
+      });
+
+      if (!response.ok) {
+        console.warn(`Failed to delete workflow ${workflowName} from filestore:`, response.statusText);
+        return false;
+      }
+
+      const contentType = response.headers.get('content-type');
+      if (!contentType?.includes('application/json')) {
+        return false;
+      }
+
+      const result: FileStoreResponse<void> = await response.json();
+      if (result.success) {
+        console.log(`Successfully deleted workflow ${workflowName} from filestore`);
+        return true;
+      }
+      return false;
+    } catch (err) {
+      console.warn(`Error deleting workflow ${workflowName} from filestore:`, err);
+      return false;
+    }
+  }
+
+  /**
+   * Save workflows to filestore (legacy - kept for backward compatibility)
+   * This now saves each workflow as an individual file
+   */
+  async saveWorkflows(workflows: FileStoreWorkflow[]): Promise<boolean> {
+    try {
+      let allSuccessful = true;
+      for (const workflow of workflows) {
+        const success = await this.saveWorkflow(workflow);
+        if (!success) {
+          allSuccessful = false;
+          console.warn(`Failed to save workflow ${workflow.name}`);
+        }
+      }
+      return allSuccessful;
     } catch (err) {
       console.warn('Error saving workflows to filestore:', err);
       return false;

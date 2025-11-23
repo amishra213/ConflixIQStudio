@@ -22,3 +22,5 @@ dist-ssr
 *.sw?
 *.ps1
 QUICK-START.ps1
+.filestore/workflows-cache.json
+.filestore/workflows-cache.json

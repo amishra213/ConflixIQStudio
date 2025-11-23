@@ -202,6 +202,7 @@ const resolvers = {
       try {
         // Wrap workflow in array as expected by Conductor backend
         const workflowArray = Array.isArray(workflow) ? workflow : [workflow];
+        console.log('Sending workflow to Conductor:', JSON.stringify(workflowArray, null, 2));
         const response = await client.put('/api/metadata/workflow', workflowArray);
         
         if (response.status >= 200 && response.status < 300) {
@@ -211,8 +212,9 @@ const resolvers = {
             version: workflow.version || (Array.isArray(workflow) ? workflow[0]?.version : 1) || 1,
           };
         } else {
-          // Error response
-          throw new Error(`Failed to save workflow: ${response.status} ${response.statusText}`);
+          // Error response - log the actual error from Conductor
+          console.error('Conductor returned error:', response.status, response.statusText, response.data);
+          throw new Error(`Failed to save workflow: ${response.status} ${response.statusText}. Details: ${JSON.stringify(response.data)}`);
         }
       } catch (error) {
         console.error('Error saving workflow:', error);

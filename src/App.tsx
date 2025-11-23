@@ -34,7 +34,24 @@ function App() {
             const parsed = JSON.parse(localStorageWorkflows);
             if (Array.isArray(parsed) && parsed.length > 0) {
               console.log('Loaded workflows from localStorage:', parsed.length);
-              useWorkflowStore.getState().loadWorkflows(parsed);
+              // Ensure workflows have complete definitions
+              const normalizedWorkflows = parsed.map((wf: unknown) => {
+                const workflow = wf as Record<string, unknown>;
+                // If nodes/edges are empty but definition exists, restore from definition
+                if ((!workflow.nodes || (Array.isArray(workflow.nodes) && workflow.nodes.length === 0)) && 
+                    workflow.definition && typeof workflow.definition === 'object') {
+                  const def = workflow.definition as Record<string, unknown>;
+                  return {
+                    ...workflow,
+                    nodes: def.nodes || workflow.nodes || [],
+                    edges: def.edges || workflow.edges || [],
+                    settings: def.settings || workflow.settings,
+                    tasks: def.tasks || workflow.tasks,
+                  } as unknown as Workflow;
+                }
+                return workflow as unknown as Workflow;
+              });
+              useWorkflowStore.getState().loadWorkflows(normalizedWorkflows);
               return;
             }
           } catch (err) {
@@ -46,7 +63,44 @@ function App() {
         const storedWorkflows = await fileStoreClient.loadWorkflows();
         if (storedWorkflows && storedWorkflows.length > 0) {
           console.log('Loaded workflows from filestore:', storedWorkflows.length);
-          useWorkflowStore.getState().loadWorkflows(storedWorkflows as Workflow[]);
+          // Map filestore format (with definition) back to workflow format
+          const normalizedWorkflows = storedWorkflows.map((wf: unknown) => {
+            const workflow = wf as Record<string, unknown>;
+            const definition = (workflow.definition || {}) as Record<string, unknown>;
+            
+            return {
+              id: workflow.id,
+              name: workflow.name || definition.name || 'Unnamed Workflow',
+              description: workflow.description || definition.description,
+              version: definition.version as number | undefined,
+              schemaVersion: definition.schemaVersion as number | undefined,
+              ownerEmail: definition.ownerEmail as string | undefined,
+              ownerApp: definition.ownerApp as string | undefined,
+              createdBy: definition.createdBy as string | undefined,
+              updatedBy: definition.updatedBy as string | undefined,
+              createTime: definition.createTime as string | undefined,
+              updateTime: definition.updateTime as string | undefined,
+              // Restore nodes and edges from definition
+              nodes: (definition.nodes || workflow.nodes || []) as unknown[],
+              edges: (definition.edges || workflow.edges || []) as unknown[],
+              createdAt: workflow.createdAt as string | undefined,
+              status: (workflow.status || 'draft') as 'draft' | 'active' | 'paused',
+              syncStatus: (workflow.syncStatus || 'local-only') as 'local-only' | 'synced' | 'syncing',
+              restartable: definition.restartable as boolean | undefined,
+              timeoutSeconds: definition.timeoutSeconds as number | undefined,
+              timeoutPolicy: definition.timeoutPolicy as string | undefined,
+              workflowStatusListenerEnabled: definition.workflowStatusListenerEnabled as boolean | undefined,
+              failureWorkflow: definition.failureWorkflow as string | undefined,
+              inputParameters: definition.inputParameters as string[] | undefined,
+              outputParameters: definition.outputParameters as Record<string, unknown>,
+              inputTemplate: definition.inputTemplate as Record<string, unknown>,
+              accessPolicy: definition.accessPolicy as Record<string, unknown>,
+              variables: definition.variables as Record<string, unknown>,
+              tasks: definition.tasks as unknown[],
+              settings: definition.settings,
+            } as Workflow;
+          });
+          useWorkflowStore.getState().loadWorkflows(normalizedWorkflows);
           return;
         }
       } catch (err) {

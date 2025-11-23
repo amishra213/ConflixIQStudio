@@ -444,6 +444,57 @@ export function useConductorApi(options: UseConductorApiOptions = {}) {
     return true;
   }, [apiKey, proxyServer]);
 
+  const deleteWorkflow = useCallback(async (
+    name: string,
+    version: number = 1
+  ): Promise<boolean> => {
+    setLoading(true);
+    setError(null);
+    try {
+      const headers: HeadersInit = {};
+      if (apiKey) {
+        headers['X-Conductor-API-Key'] = apiKey;
+      }
+      
+      // Use DELETE endpoint: /api/metadata/workflow/{name}/{version}
+      const response = await fetch(`${baseUrl}/metadata/workflow/${name}/${version}`, {
+        method: 'DELETE',
+        headers,
+      });
+      
+      // Treat 404 as success - if workflow doesn't exist on server, it's already deleted
+      if (response.status === 404) {
+        console.log(`Workflow ${name} v${version} not found on server (already deleted or never published)`);
+        return true;
+      }
+      
+      if (!response.ok) {
+        let errorMessage = `Failed to delete workflow: ${response.statusText}`;
+        try {
+          const errorBody = await response.json();
+          if (errorBody?.message) {
+            errorMessage = errorBody.message;
+          } else if (typeof errorBody === 'string') {
+            errorMessage = errorBody;
+          }
+        } catch (parseError) {
+          console.debug('Failed to parse error response:', parseError);
+        }
+        throw new Error(errorMessage);
+      }
+      
+      console.log(`Successfully deleted workflow ${name} v${version} from Conductor server`);
+      return true;
+    } catch (err) {
+      console.warn('Failed to delete workflow from Conductor server:', err);
+      setError(err as Error);
+      // Return false when server deletion fails (but caller should remove from cache anyway)
+      return false;
+    } finally {
+      setLoading(false);
+    }
+  }, [baseUrl, apiKey]);
+
   return {
     loading,
     error,
@@ -457,5 +508,6 @@ export function useConductorApi(options: UseConductorApiOptions = {}) {
     fetchWorkflowExecution,
     createTaskDefinition,
     saveWorkflow,
+    deleteWorkflow,
   };
 }

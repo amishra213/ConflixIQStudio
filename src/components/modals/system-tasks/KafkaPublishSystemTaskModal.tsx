@@ -107,6 +107,7 @@ export function KafkaPublishTaskModal({ open, onOpenChange, onSave, initialConfi
 
   // Before saving, merge headers and value into kafka_request
   const handleSaveWithMerge = useCallback((cfg: KafkaPublishTaskConfig) => {
+    const timestamp = Date.now();
     const headersObj: Record<string, string> = {};
     for (const h of headers) {
       if (h.key && h.value) {
@@ -135,8 +136,8 @@ export function KafkaPublishTaskModal({ open, onOpenChange, onSave, initialConfi
     if (Object.keys(headersObj).length > 0) kafkaRequest.headers = headersObj;
 
     const updatedConfig: KafkaPublishTaskConfig = {
-      name: cfg.name || 'kafka',
-      taskReferenceName: cfg.taskReferenceName || 'kafka_ref',
+      name: cfg.name || `kafka_${timestamp}`,
+      taskReferenceName: cfg.taskReferenceName || `kafka_ref_${timestamp}`,
       description: cfg.description,
       type: 'KAFKA_PUBLISH',
       inputParameters: {

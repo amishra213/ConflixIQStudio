@@ -31,14 +31,19 @@ export function TerminateSystemTaskModal({ open, onOpenChange, onSave, initialCo
 
   useEffect(() => {
     if (open) {
+      const timestamp = Date.now();
       if (initialConfig) {
-        setConfig({ ...initialConfig });
+        setConfig({
+          ...initialConfig,
+          name: initialConfig.name || `terminate_${timestamp}`,
+          taskReferenceName: initialConfig.taskReferenceName || `terminate_ref_${timestamp}`,
+        });
         setOutputText(initialConfig.workflowOutput ? JSON.stringify(initialConfig.workflowOutput, null, 2) : '');
       } else {
         setConfig({
           type: 'TERMINATE',
-          name: '',
-          taskReferenceName: '',
+          name: `terminate_${timestamp}`,
+          taskReferenceName: `terminate_ref_${timestamp}`,
           terminationStatus: 'COMPLETED',
         });
         setOutputText('');

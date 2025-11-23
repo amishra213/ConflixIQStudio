@@ -23,13 +23,18 @@ export function NoopSystemTaskModal({ open, onOpenChange, onSave, initialConfig 
 
   useEffect(() => {
     if (open) {
+      const timestamp = Date.now();
       if (initialConfig) {
-        setConfig({ ...initialConfig });
+        setConfig({
+          ...initialConfig,
+          name: initialConfig.name || `noop_${timestamp}`,
+          taskReferenceName: initialConfig.taskReferenceName || `noop_ref_${timestamp}`,
+        });
       } else {
         setConfig({
           type: 'NOOP',
-          name: '',
-          taskReferenceName: '',
+          name: `noop_${timestamp}`,
+          taskReferenceName: `noop_ref_${timestamp}`,
         });
       }
     }

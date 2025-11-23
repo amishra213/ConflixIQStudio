@@ -27,13 +27,18 @@ export function WaitSystemTaskModal({ open, onOpenChange, onSave, initialConfig 
 
   useEffect(() => {
     if (open) {
+      const timestamp = Date.now();
       if (initialConfig) {
-        setConfig({ ...initialConfig });
+        setConfig({
+          ...initialConfig,
+          name: initialConfig.name || `wait_${timestamp}`,
+          taskReferenceName: initialConfig.taskReferenceName || `wait_ref_${timestamp}`,
+        });
       } else {
         setConfig({
           type: 'WAIT',
-          name: '',
-          taskReferenceName: '',
+          name: `wait_${timestamp}`,
+          taskReferenceName: `wait_ref_${timestamp}`,
           duration: '',
         });
       }

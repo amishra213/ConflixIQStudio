@@ -79,6 +79,7 @@ export interface Workflow {
   createdAt: string;
   status: 'draft' | 'active' | 'paused'; // Business status of the workflow
   syncStatus?: 'local-only' | 'synced' | 'syncing'; // Conductor sync status
+  publicationStatus?: 'LOCAL' | 'PUBLISHED'; // Internal publication status (LOCAL=cache only, PUBLISHED=on Conductor server)
   restartable?: boolean;
   timeoutSeconds?: number;
   timeoutPolicy?: 'TIME_OUT_WF' | 'ALERT_ONLY';
@@ -331,23 +332,51 @@ export const useWorkflowStore = create<WorkflowStore>((set) => {
       console.warn('Failed to save workflows to localStorage:', err);
     }
     
-    // Save to filestore for persistence across app restarts
+    // Save each workflow to filestore as individual file for scalability and Git compatibility
     try {
-      // Map workflows to FileStoreWorkflow format for compatibility
-      const workflowsToSave = workflows.map(wf => ({
-        id: wf.id,
-        name: wf.name,
-        description: wf.description,
-        nodes: wf.nodes,
-        edges: wf.edges,
-        createdAt: wf.createdAt,
-        status: wf.status,
-      }));
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const result = await fileStoreClient.saveWorkflows(workflowsToSave as any);
-      if (result) {
-        console.log('Workflows persisted to filestore');
+      let savedCount = 0;
+      for (const wf of workflows) {
+        const workflowToSave = {
+          id: wf.id,
+          name: wf.name,
+          description: wf.description,
+          version: wf.version,
+          schemaVersion: wf.schemaVersion,
+          ownerEmail: wf.ownerEmail,
+          ownerApp: wf.ownerApp,
+          createdBy: wf.createdBy,
+          updatedBy: wf.updatedBy,
+          createTime: wf.createTime,
+          updateTime: wf.updateTime,
+          nodes: wf.nodes, // Complete node data with all task configurations
+          edges: wf.edges, // All edge connections
+          createdAt: wf.createdAt,
+          status: wf.status,
+          syncStatus: wf.syncStatus,
+          restartable: wf.restartable,
+          timeoutSeconds: wf.timeoutSeconds,
+          timeoutPolicy: wf.timeoutPolicy,
+          workflowStatusListenerEnabled: wf.workflowStatusListenerEnabled,
+          failureWorkflow: wf.failureWorkflow,
+          inputParameters: wf.inputParameters,
+          outputParameters: wf.outputParameters,
+          inputTemplate: wf.inputTemplate,
+          accessPolicy: wf.accessPolicy,
+          variables: wf.variables,
+          tasks: wf.tasks, // OSS Conductor task definitions
+          settings: wf.settings, // Complete workflow settings
+          publicationStatus: wf.publicationStatus,
+        };
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const result = await fileStoreClient.saveWorkflow(workflowToSave as any);
+        if (result) {
+          savedCount++;
+          console.log(`Persisted workflow ${wf.name} to filestore (${savedCount}/${workflows.length})`);
+        } else {
+          console.warn(`Failed to persist workflow ${wf.name} to filestore`);
+        }
       }
+      console.log(`Successfully persisted ${savedCount}/${workflows.length} workflows to filestore with individual files`);
     } catch (err) {
       console.warn('Failed to save workflows to filestore:', err);
     }

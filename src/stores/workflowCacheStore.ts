@@ -212,26 +212,80 @@ export const useWorkflowCacheStore = create<WorkflowCacheStoreState>()(
       loadFromFileStore: async () => {
         set({ isFileStoreSyncing: true, fileStoreSyncError: null });
         try {
-          const cachedData = await fileStoreClient.loadWorkflows();
+          // Load all workflows from separate files in multi-file architecture for scalability and Git compatibility
+          const cachedData = await fileStoreClient.loadAllWorkflows();
           if (Array.isArray(cachedData) && cachedData.length > 0) {
             const workflows = new Map<string, CachedWorkflowData>();
+            const workflowsByName = new Map<string, CachedWorkflowData[]>(); // Track multiple versions by name
+            
             for (const item of cachedData) {
               const cachedItem = item as Record<string, unknown>;
-              workflows.set(item.id, {
+              const workflowName = item.name || 'Unnamed Workflow';
+              // Preserve complete definition including nodes, edges, settings, and all metadata
+              const cachedWorkflow: CachedWorkflowData = {
                 id: item.id,
-                name: item.name || 'Unnamed Workflow',
+                name: workflowName,
                 description: item.description,
                 syncStatus: (cachedItem.syncStatus as WorkflowSyncStatus) || 'local-only',
                 lastSyncTime: cachedItem.lastSyncTime as number | undefined,
                 isLocalOnly: (cachedItem.isLocalOnly as boolean) || false,
                 definition: {
+                  name: workflowName,
                   description: item.description,
-                  nodes: item.nodes,
-                  edges: item.edges,
-                  ...item,
+                  version: cachedItem.version as number | undefined,
+                  schemaVersion: cachedItem.schemaVersion as number | undefined,
+                  ownerEmail: cachedItem.ownerEmail as string | undefined,
+                  ownerApp: cachedItem.ownerApp as string | undefined,
+                  createdBy: cachedItem.createdBy as string | undefined,
+                  updatedBy: cachedItem.updatedBy as string | undefined,
+                  createTime: cachedItem.createTime as string | undefined,
+                  updateTime: cachedItem.updateTime as string | undefined,
+                  nodes: item.nodes, // Complete nodes array with all task configs
+                  edges: item.edges, // All edges
+                  tasks: (cachedItem.tasks as unknown[]) || undefined, // OSS Conductor task definitions
+                  settings: cachedItem.settings, // Complete workflow settings
+                  restartable: cachedItem.restartable as boolean | undefined,
+                  timeoutSeconds: cachedItem.timeoutSeconds as number | undefined,
+                  timeoutPolicy: cachedItem.timeoutPolicy as string | undefined,
+                  workflowStatusListenerEnabled: cachedItem.workflowStatusListenerEnabled as boolean | undefined,
+                  failureWorkflow: cachedItem.failureWorkflow as string | undefined,
+                  inputParameters: cachedItem.inputParameters as string[] | undefined,
+                  outputParameters: cachedItem.outputParameters as Record<string, unknown>,
+                  inputTemplate: cachedItem.inputTemplate as Record<string, unknown>,
+                  accessPolicy: cachedItem.accessPolicy as Record<string, unknown>,
+                  variables: cachedItem.variables as Record<string, unknown>,
+                  // Spread remaining properties (excluding already set fields)
+                  ...(Object.fromEntries(
+                    Object.entries(item).filter(
+                      ([key]) => !['name', 'description', 'nodes', 'edges', 'version', 'schemaVersion', 'ownerEmail', 'ownerApp', 'createdBy', 'updatedBy', 'createTime', 'updateTime', 'tasks', 'settings', 'restartable', 'timeoutSeconds', 'timeoutPolicy', 'workflowStatusListenerEnabled', 'failureWorkflow', 'inputParameters', 'outputParameters', 'inputTemplate', 'accessPolicy', 'variables'].includes(key)
+                    )
+                  )),
                 },
-              });
+              };
+              
+              workflows.set(item.id, cachedWorkflow);
+              
+              // Track multiple versions: keep the most recent by comparing timestamps
+              if (!workflowsByName.has(workflowName)) {
+                workflowsByName.set(workflowName, []);
+              }
+              workflowsByName.get(workflowName)?.push(cachedWorkflow);
             }
+            
+            // Log version handling for workflows with multiple versions
+            for (const [name, versions] of workflowsByName.entries()) {
+              if (versions.length > 1) {
+                const versionsCopy = [...versions];
+                versionsCopy.sort((a, b) => {
+                  const aTime = (a.definition?.createTime || 0) as number;
+                  const bTime = (b.definition?.createTime || 0) as number;
+                  return bTime - aTime; // Most recent first
+                });
+                console.log(`[WorkflowCacheStore] Found ${versions.length} versions of "${name}", using most recent (v${versionsCopy[0].definition?.version || 1})`);
+              }
+            }
+            
+            console.log('[WorkflowCacheStore] Loaded workflows from separate files (multi-file architecture):', Array.from(workflows.values()));
             set({ cachedWorkflows: workflows, lastFileStoreSyncTime: Date.now(), isFileStoreSyncing: false });
             return true;
           }

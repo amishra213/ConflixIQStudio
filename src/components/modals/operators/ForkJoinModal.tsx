@@ -95,13 +95,25 @@ export function ForkJoinModal({ open, onOpenChange, onSave, initialConfig }: For
   useEffect(() => {
     if (open) {
       if (initialConfig) {
-        setConfig({ ...initialConfig });
+        // Normalize forkTasks to ensure it's an array of arrays
+        const normalizedForkTasks = Array.isArray(initialConfig.forkTasks)
+          ? initialConfig.forkTasks.map(branch => 
+              Array.isArray(branch) ? branch : []
+            )
+          : [];
+        
+        const normalizedConfig: ForkJoinConfig = {
+          ...initialConfig,
+          forkTasks: normalizedForkTasks,
+        };
+        
+        setConfig(normalizedConfig);
         const branchIndices = new Set<number>();
-        for (let i = 0; i < (initialConfig.forkTasks || []).length; i++) {
+        for (let i = 0; i < normalizedForkTasks.length; i++) {
           branchIndices.add(i);
         }
         setExpandedBranches(branchIndices);
-        console.log('ForkJoinModal loaded with config:', initialConfig);
+        console.log('ForkJoinModal loaded with config:', normalizedConfig);
       } else {
         const timestamp = Date.now();
         setConfig({
@@ -221,9 +233,10 @@ export function ForkJoinModal({ open, onOpenChange, onSave, initialConfig }: For
   };
 
   const handleSaveModal = (finalConfig: ForkJoinConfig) => {
+    const timestamp = Date.now();
     const cleanConfig: ForkJoinConfig = {
-      name: finalConfig.name || 'Fork Join',
-      taskReferenceName: finalConfig.taskReferenceName || 'fork_join_ref',
+      name: finalConfig.name || `Fork Join_${timestamp}`,
+      taskReferenceName: finalConfig.taskReferenceName || `fork_join_ref_${timestamp}`,
       type: 'FORK_JOIN',
       description: finalConfig.description,
       inputParameters: finalConfig.inputParameters || {},
@@ -335,6 +348,8 @@ export function ForkJoinModal({ open, onOpenChange, onSave, initialConfig }: For
 
         <div className="space-y-2 max-h-[500px] overflow-y-auto">
           {config.forkTasks.map((branch, branchIndex) => {
+            // Ensure branch is an array
+            const branchArray = Array.isArray(branch) ? branch : [];
             // Use timestamp + index as unique identifier for branch
             const branchKey = `branch-${config.forkTasks.length}-${branchIndex}`;
             return (
@@ -359,7 +374,7 @@ export function ForkJoinModal({ open, onOpenChange, onSave, initialConfig }: For
                       <ChevronRight className="w-4 h-4 text-gray-400" />
                     )}
                     <Label className="text-white font-semibold cursor-pointer">
-                      Branch {branchIndex + 1} ({branch.length} tasks)
+                      Branch {branchIndex + 1} ({branchArray.length} tasks)
                     </Label>
                   </div>
                   <Button
@@ -377,7 +392,7 @@ export function ForkJoinModal({ open, onOpenChange, onSave, initialConfig }: For
 
                 {expandedBranches.has(branchIndex) && (
                   <div className="border-t border-[#2a3142] p-3 space-y-2">
-                    {branch.map((task, taskIndex) =>
+                    {branchArray.map((task, taskIndex) =>
                       renderTaskCard(task, branchIndex, taskIndex)
                     )}
 
