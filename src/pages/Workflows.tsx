@@ -487,7 +487,10 @@ export function Workflows() {
                         <Button
                           size="sm"
                           variant="ghost"
-                          onClick={() => navigate(`/workflows/${workflow.id}`)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            navigate(`/workflows/${workflow.id}`);
+                          }}
                           className="text-cyan-500 hover:bg-cyan-500/10 hover:text-cyan-400"
                           title="Edit Workflow"
                         >
@@ -496,7 +499,10 @@ export function Workflows() {
                         <Button
                           size="sm"
                           variant="ghost"
-                          onClick={() => navigate(`/workflows/${workflow.id}/diagram`)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            navigate(`/workflows/${workflow.id}/diagram?mode=preview`);
+                          }}
                           className="text-purple-500 hover:bg-purple-500/10 hover:text-purple-400"
                           title="View Diagram"
                         >
