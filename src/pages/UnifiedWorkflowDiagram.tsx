@@ -6,33 +6,90 @@ import { Badge } from '@/components/ui/badge';
 import { useWorkflowStore } from '@/stores/workflowStore';
 import { ArrowLeftIcon, RefreshCwIcon, AlertCircleIcon, DownloadIcon, ZoomInIcon, ZoomOutIcon, MaximizeIcon } from 'lucide-react';
 import { useConductorApi } from '@/hooks/useConductorApi';
-import { workflowToMermaid, localWorkflowToConductor } from '@/utils/workflowToMermaid';
+import { workflowToMermaid, type WorkflowDefinition } from '@/utils/workflowToMermaid';
+import { localWorkflowToConductor } from '@/utils/workflowConverter';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { JsonViewer } from '@/components/ui/json-viewer';
 import mermaid from 'mermaid';
 
 type DiagramMode = 'workflow' | 'execution' | 'preview';
 
+interface WorkflowTask {
+  name?: string;
+  taskName?: string;
+  taskReferenceName?: string;
+  taskId?: string;
+  type?: string;
+  taskType?: string;
+  status?: string;
+  description?: string;
+  inputParameters?: Record<string, unknown>;
+  inputData?: unknown;
+  outputData?: unknown;
+}
+
+interface DiagramDataType {
+  name?: string;
+  tasks?: WorkflowTask[];
+  workflowDefinition?: { tasks?: WorkflowTask[] };
+  [key: string]: unknown;
+}
+
+function getStatusBadgeClass(status?: string): string {
+  if (!status) return 'bg-muted';
+  
+  const upper = status.toUpperCase();
+  if (upper === 'COMPLETED') return 'bg-success';
+  if (upper === 'FAILED') return 'bg-destructive';
+  if (upper === 'IN_PROGRESS') return 'bg-primary';
+  
+  return 'bg-muted';
+}
+
+const TASK_TYPE_PATTERNS: Record<string, string[]> = {
+  'HTTP': ['http', 'api', 'request'],
+  'LAMBDA': ['lambda', 'function'],
+  'MAPPER': ['transform', 'map', 'mapper'],
+  'DECISION': ['decision', 'switch', 'condition'],
+  'FORK_JOIN': ['fork', 'parallel'],
+  'CONVERGE': ['join', 'converge'],
+  'WAIT_FOR_SIGNAL': ['wait', 'signal'],
+  'WAIT': ['wait'],
+  'SIGNAL': ['signal'],
+  'EVENT': ['event', 'publish'],
+  'DO_WHILE': ['loop', 'while'],
+  'TERMINATE': ['terminate', 'end', 'stop'],
+  'SUB_WORKFLOW': ['workflow', 'sub'],
+  'DYNAMIC': ['dynamic'],
+  'PASS_THROUGH': ['pass', 'passthrough'],
+};
+
 function inferTaskType(taskName: string): string {
   const nameLower = taskName.toLowerCase();
   
-  if (nameLower.includes('http') || nameLower.includes('api') || nameLower.includes('request')) return 'HTTP';
-  if (nameLower.includes('lambda') || nameLower.includes('function')) return 'LAMBDA';
-  if (nameLower.includes('transform') || nameLower.includes('map') || nameLower.includes('mapper')) return 'MAPPER';
-  if (nameLower.includes('decision') || nameLower.includes('switch') || nameLower.includes('condition')) return 'DECISION';
-  if (nameLower.includes('fork') || nameLower.includes('parallel')) return 'FORK_JOIN';
-  if (nameLower.includes('join') || nameLower.includes('converge')) return 'CONVERGE';
-  if (nameLower.includes('wait') && nameLower.includes('signal')) return 'WAIT_FOR_SIGNAL';
-  if (nameLower.includes('wait')) return 'WAIT';
-  if (nameLower.includes('signal')) return 'SIGNAL';
-  if (nameLower.includes('event') || nameLower.includes('publish')) return 'EVENT';
-  if (nameLower.includes('loop') || nameLower.includes('while')) return 'DO_WHILE';
-  if (nameLower.includes('terminate') || nameLower.includes('end') || nameLower.includes('stop')) return 'TERMINATE';
-  if (nameLower.includes('workflow') || nameLower.includes('sub')) return 'SUB_WORKFLOW';
-  if (nameLower.includes('dynamic')) return 'DYNAMIC';
-  if (nameLower.includes('pass') || nameLower.includes('passthrough')) return 'PASS_THROUGH';
+  // Check for WAIT_FOR_SIGNAL first (compound check)
+  if (nameLower.includes('wait') && nameLower.includes('signal')) {
+    return 'WAIT_FOR_SIGNAL';
+  }
+  
+  // Check other patterns
+  for (const [type, patterns] of Object.entries(TASK_TYPE_PATTERNS)) {
+    if (type === 'WAIT_FOR_SIGNAL') continue; // Already checked above
+    
+    if (patterns.some(pattern => nameLower.includes(pattern))) {
+      return type;
+    }
+  }
   
   return 'GENERIC';
+}
+
+// Helper component to safely render JSON data without type issues
+function SafeJsonViewer({ data, maxHeight = '200px', collapsible = true }: { readonly data: unknown; readonly maxHeight?: string; readonly collapsible?: boolean }) {
+  if (data === undefined || data === null) {
+    return <div className="text-sm text-muted-foreground">No data</div>;
+  }
+  return <JsonViewer data={data} maxHeight={maxHeight} collapsible={collapsible} />;
 }
 
 export function UnifiedWorkflowDiagram() {
@@ -44,9 +101,9 @@ export function UnifiedWorkflowDiagram() {
   const mermaidRef = useRef<HTMLDivElement>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [zoom, setZoom] = useState(100);
-  const [selectedTask, setSelectedTask] = useState<any>(null);
+  const [selectedTask, setSelectedTask] = useState<WorkflowTask | null>(null);
   const [autoRefresh, setAutoRefresh] = useState(false);
-  const [diagramData, setDiagramData] = useState<any>(null);
+  const [diagramData, setDiagramData] = useState<DiagramDataType | null>(null);
   const [dataSource, setDataSource] = useState<'api' | 'local' | 'execution'>('local');
   const [mode, setMode] = useState<DiagramMode>('workflow');
   
@@ -74,7 +131,7 @@ export function UnifiedWorkflowDiagram() {
     if (modeParam) {
       setMode(modeParam);
     } else {
-      const path = window.location.pathname;
+      const path = globalThis.location.pathname;
       if (path.includes('/executions/')) {
         setMode('execution');
       } else if (path.includes('/workflows/')) {
@@ -85,29 +142,7 @@ export function UnifiedWorkflowDiagram() {
     }
   }, [searchParams]);
 
-  useEffect(() => {
-    if (id) {
-      loadDiagram();
-    }
-  }, [id, mode]);
-
-  const loadDiagram = async () => {
-    if (!id) return;
-
-    try {
-      if (mode === 'execution') {
-        await loadExecution();
-      } else if (mode === 'workflow') {
-        await loadWorkflow();
-      } else if (mode === 'preview') {
-        loadPreview();
-      }
-    } catch (err) {
-      console.error('Failed to load diagram:', err);
-    }
-  };
-
-  const loadWorkflow = async () => {
+  const loadWorkflow = useCallback(async () => {
     const workflow = workflows.find((w) => w.id === id);
     if (!workflow) return;
 
@@ -115,21 +150,23 @@ export function UnifiedWorkflowDiagram() {
       const apiWorkflow = await fetchWorkflowByName(workflow.name);
       
       if (apiWorkflow) {
-        setDiagramData(apiWorkflow);
+        setDiagramData(apiWorkflow as DiagramDataType);
         setDataSource('api');
       } else {
         const converted = localWorkflowToConductor(workflow);
-        setDiagramData(converted);
+        setDiagramData(converted as DiagramDataType);
         setDataSource('local');
       }
     } catch (err) {
+      console.error('Error loading workflow:', err);
+      // Fallback: use local workflow if API fails
       const converted = localWorkflowToConductor(workflow);
-      setDiagramData(converted);
+      setDiagramData(converted as DiagramDataType);
       setDataSource('local');
     }
-  };
+  }, [id, workflows, fetchWorkflowByName]);
 
-  const loadExecution = async () => {
+  const loadExecution = useCallback(async () => {
     const execution = executions.find((e) => e.id === id);
     if (!execution) return;
 
@@ -137,19 +174,17 @@ export function UnifiedWorkflowDiagram() {
       const apiExecution = id ? await fetchExecution(id) : null;
       
       if (apiExecution) {
-        setDiagramData(apiExecution);
+        setDiagramData(apiExecution as unknown as DiagramDataType);
         setDataSource('api');
       } else {
-        const converted = {
+        const converted: DiagramDataType = {
           workflowId: execution.id,
           workflowDefinition: {
-            name: execution.workflowName,
-            version: 1,
             tasks: execution.tasks.map(task => ({
               name: task.taskName,
               taskReferenceName: task.taskId,
               type: task.taskType || 'GENERIC',
-              status: task.status.toUpperCase() as any,
+              status: (task.status.toUpperCase()) as unknown as string,
             })),
           },
           tasks: execution.tasks.map(task => ({
@@ -180,74 +215,100 @@ export function UnifiedWorkflowDiagram() {
         setAutoRefresh(true);
       }
     } catch (err) {
-      console.error('Failed to load execution:', err);
+      // Fallback: use local execution data
+      console.error('Failed to load execution from API:', err);
     }
-  };
+  }, [id, executions, fetchExecution]);
 
-  const loadPreview = () => {
+  const loadPreview = useCallback(() => {
     const workflow = workflows.find((w) => w.id === id);
     if (workflow) {
       const converted = localWorkflowToConductor(workflow);
-      setDiagramData(converted);
+      setDiagramData(converted as DiagramDataType);
       setDataSource('local');
     }
-  };
+  }, [id, workflows]);
+
+  const loadDiagram = useCallback(async () => {
+    if (!id) return;
+
+    try {
+      if (mode === 'execution') {
+        await loadExecution();
+      } else if (mode === 'workflow') {
+        await loadWorkflow();
+      } else if (mode === 'preview') {
+        loadPreview();
+      }
+    } catch (err) {
+      console.error('Failed to load diagram:', err);
+    }
+  }, [id, mode, loadExecution, loadWorkflow, loadPreview]);
+
+  useEffect(() => {
+    if (id) {
+      loadDiagram();
+    }
+  }, [id, mode, loadDiagram]);
+
+  const handleNodeClick = useCallback((node: Element, workflowToRender: WorkflowDefinition) => {
+    const nodeId = node.id;
+    const taskRef = nodeId.split('_')[0];
+    
+    const tasks = 'workflowDefinition' in workflowToRender 
+      ? (workflowToRender as unknown as { workflowDefinition: WorkflowDefinition }).workflowDefinition.tasks 
+      : workflowToRender.tasks;
+    
+    const task = tasks?.find(
+      (t: WorkflowTask) => t.taskReferenceName?.replaceAll(/[^a-zA-Z0-9]/g, '_') === taskRef
+    );
+    
+    if (task) {
+      setSelectedTask(task);
+    }
+  }, []);
+
+  const setupNodeListeners = useCallback((svgElement: SVGElement, workflowToRender: WorkflowDefinition) => {
+    const nodes = svgElement.querySelectorAll('.node');
+    for (const node of nodes) {
+      node.addEventListener('click', () => handleNodeClick(node, workflowToRender));
+      (node as HTMLElement).style.cursor = 'pointer';
+    }
+  }, [handleNodeClick]);
 
   const renderDiagram = useCallback(async () => {
-    if (diagramData && mermaidRef.current) {
-      try {
-        let workflowToRender = diagramData;
-        
-        if (mode === 'preview' && !diagramData.tasks) {
-          workflowToRender = localWorkflowToConductor(diagramData);
-        }
-        
-        const mermaidCode = workflowToMermaid(workflowToRender, {
-          showStatus: mode === 'execution',
-          interactive: true,
-          theme: 'dark',
-          direction: 'TD',
-        });
-        
-        const elementId = `mermaid-${mode}-${Date.now()}`;
-        const { svg } = await mermaid.render(elementId, mermaidCode);
-        
-        if (mermaidRef.current) {
-          mermaidRef.current.innerHTML = svg;
-          
-          const svgElement = mermaidRef.current.querySelector('svg');
-          if (svgElement) {
-            const nodes = svgElement.querySelectorAll('.node');
-            nodes.forEach((node) => {
-              node.addEventListener('click', () => {
-                const nodeId = node.id;
-                const taskRef = nodeId.split('_')[0];
-                
-                const tasks = 'workflowDefinition' in workflowToRender 
-                  ? workflowToRender.workflowDefinition.tasks 
-                  : workflowToRender.tasks;
-                
-                const task = tasks.find(
-                  (t: any) => t.taskReferenceName?.replace(/[^a-zA-Z0-9]/g, '_') === taskRef
-                );
-                
-                if (task) {
-                  setSelectedTask(task);
-                }
-              });
-              
-              (node as HTMLElement).style.cursor = 'pointer';
-            });
-          }
-        }
-      } catch (error) {
-        console.error('Error rendering diagram:', error);
-        if (mermaidRef.current) {
-          mermaidRef.current.innerHTML = '<p class="text-destructive">Error rendering workflow diagram</p>';
-        }
+    if (!diagramData || !mermaidRef.current) return;
+    
+    try {
+      let workflowToRender: WorkflowDefinition = diagramData as unknown as WorkflowDefinition;
+      
+      if (mode === 'preview' && diagramData && !('tasks' in diagramData)) {
+        workflowToRender = localWorkflowToConductor(diagramData as unknown as Parameters<typeof localWorkflowToConductor>[0]);
+      }
+      
+      const mermaidCode = workflowToMermaid(workflowToRender, {
+        showStatus: mode === 'execution',
+        interactive: true,
+        theme: 'dark',
+        direction: 'TD',
+      });
+      
+      const elementId = `mermaid-${mode}-${Date.now()}`;
+      const { svg } = await mermaid.render(elementId, mermaidCode);
+      
+      mermaidRef.current.innerHTML = svg;
+      
+      const svgElement = mermaidRef.current.querySelector('svg');
+      if (svgElement) {
+        setupNodeListeners(svgElement as SVGElement, workflowToRender);
+      }
+    } catch (error) {
+      console.error('Error rendering diagram:', error);
+      if (mermaidRef.current) {
+        mermaidRef.current.innerHTML = '<p class="text-destructive">Error rendering workflow diagram</p>';
       }
     }
-  }, [diagramData, mode]);
+  }, [diagramData, mode, setupNodeListeners]);
 
   useEffect(() => {
     renderDiagram();
@@ -261,13 +322,13 @@ export function UnifiedWorkflowDiagram() {
       
       return () => clearInterval(interval);
     }
-  }, [autoRefresh, mode]);
+  }, [autoRefresh, mode, loadDiagram]);
 
-  const handleRefresh = () => {
+  const handleRefresh = useCallback(() => {
     loadDiagram();
-  };
+  }, [loadDiagram]);
 
-  const handleDownloadSVG = () => {
+  const handleDownloadSVG = useCallback(() => {
     if (mermaidRef.current) {
       const svgElement = mermaidRef.current.querySelector('svg');
       if (svgElement) {
@@ -276,19 +337,18 @@ export function UnifiedWorkflowDiagram() {
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        const workflowName = diagramData?.name || 'workflow';
-        a.download = `${workflowName.replace(/\s+/g, '-')}-diagram.svg`;
+        a.download = `${(diagramData?.name || 'workflow').replaceAll(/\s+/g, '-')}-diagram.svg`;
         document.body.appendChild(a);
         a.click();
-        document.body.removeChild(a);
+        a.remove();
         URL.revokeObjectURL(url);
       }
     }
-  };
+  }, [diagramData]);
 
-  const handleDownloadMermaid = () => {
-    if (diagramData) {
-      const mermaidCode = workflowToMermaid(diagramData, {
+  const handleDownloadMermaid = useCallback(() => {
+    if (diagramData?.name) {
+      const mermaidCode = workflowToMermaid(diagramData as WorkflowDefinition, {
         showStatus: mode === 'execution',
         interactive: true,
         theme: 'dark',
@@ -299,14 +359,13 @@ export function UnifiedWorkflowDiagram() {
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      const workflowName = diagramData?.name || 'workflow';
-      a.download = `${workflowName.replace(/\s+/g, '-')}-diagram.mmd`;
+      a.download = `${diagramData.name.replaceAll(/\s+/g, '-')}-diagram.mmd`;
       document.body.appendChild(a);
       a.click();
-      document.body.removeChild(a);
+      a.remove();
       URL.revokeObjectURL(url);
     }
-  };
+  }, [diagramData, mode]);
 
   const handleZoomIn = () => {
     setZoom((prev) => Math.min(prev + 10, 200));
@@ -551,57 +610,62 @@ export function UnifiedWorkflowDiagram() {
             <div className="space-y-4">
               <div className="grid grid-cols-3 gap-4">
                 <div>
-                  <label className="text-sm font-semibold text-foreground">Task Reference</label>
-                  <p className="text-sm text-muted-foreground mt-1 font-mono">
+                  <label className="text-sm font-semibold text-foreground" htmlFor="task-ref">Task Reference</label>
+                  <p className="text-sm text-muted-foreground mt-1 font-mono" id="task-ref">
                     {selectedTask.taskReferenceName || selectedTask.taskId}
                   </p>
                 </div>
                 <div>
-                  <label className="text-sm font-semibold text-foreground">Task Type</label>
-                  <Badge className="mt-1 bg-purple-500 text-white">
-                    {selectedTask.type || selectedTask.taskType || inferTaskType(selectedTask.name || selectedTask.taskName)}
-                  </Badge>
+                  <label className="text-sm font-semibold text-foreground" htmlFor="task-type">Task Type</label>
+                  <div id="task-type">
+                    <Badge className="mt-1 bg-purple-500 text-white">
+                      {selectedTask.type || selectedTask.taskType || inferTaskType(selectedTask.name || selectedTask.taskName || '')}
+                    </Badge>
+                  </div>
                 </div>
                 {selectedTask.status && (
                   <div>
-                    <label className="text-sm font-semibold text-foreground">Status</label>
-                    <Badge className={`mt-1 ${
-                      selectedTask.status.toUpperCase() === 'COMPLETED' ? 'bg-success' :
-                      selectedTask.status.toUpperCase() === 'FAILED' ? 'bg-destructive' :
-                      selectedTask.status.toUpperCase() === 'IN_PROGRESS' ? 'bg-primary' :
-                      'bg-muted'
-                    } text-white`}>
-                      {selectedTask.status.toUpperCase()}
-                    </Badge>
+                    <label className="text-sm font-semibold text-foreground" htmlFor="task-status">Status</label>
+                    <div id="task-status">
+                      <Badge className={`mt-1 ${getStatusBadgeClass(selectedTask.status)} text-white`}>
+                        {selectedTask.status.toUpperCase()}
+                      </Badge>
+                    </div>
                   </div>
                 )}
               </div>
               
               {selectedTask.description && (
                 <div>
-                  <label className="text-sm font-semibold text-foreground">Description</label>
-                  <p className="text-sm text-muted-foreground mt-1">{selectedTask.description}</p>
+                  <label className="text-sm font-semibold text-foreground" htmlFor="task-desc">Description</label>
+                  <p className="text-sm text-muted-foreground mt-1" id="task-desc">{selectedTask.description}</p>
                 </div>
               )}
               
               {selectedTask.inputParameters && Object.keys(selectedTask.inputParameters).length > 0 && (
                 <div>
-                  <label className="text-sm font-semibold text-foreground mb-2 block">Input Parameters</label>
-                  <JsonViewer data={selectedTask.inputParameters} maxHeight="200px" collapsible={true} />
+                  <label className="text-sm font-semibold text-foreground" htmlFor="input-params">Input Parameters</label>
+                  <div id="input-params" className="text-sm text-muted-foreground mt-1">
+                    <SafeJsonViewer data={selectedTask.inputParameters} maxHeight="200px" collapsible={true} />
+                  </div>
                 </div>
               )}
               
-              {selectedTask.inputData && (
+              {selectedTask.inputData !== undefined && selectedTask.inputData !== null && (
                 <div>
-                  <label className="text-sm font-semibold text-foreground mb-2 block">Input Data</label>
-                  <JsonViewer data={selectedTask.inputData} maxHeight="200px" collapsible={true} />
+                  <label className="text-sm font-semibold text-foreground mb-2 block" htmlFor="input-data-viewer">Input Data</label>
+                  <div id="input-data-viewer">
+                    <SafeJsonViewer data={selectedTask.inputData} maxHeight="200px" collapsible={true} />
+                  </div>
                 </div>
               )}
               
-              {selectedTask.outputData && (
+              {selectedTask.outputData !== undefined && selectedTask.outputData !== null && (
                 <div>
-                  <label className="text-sm font-semibold text-foreground mb-2 block">Output Data</label>
-                  <JsonViewer data={selectedTask.outputData} maxHeight="200px" collapsible={true} />
+                  <label className="text-sm font-semibold text-foreground mb-2 block" htmlFor="output-data-viewer">Output Data</label>
+                  <div id="output-data-viewer">
+                    <SafeJsonViewer data={selectedTask.outputData} maxHeight="200px" collapsible={true} />
+                  </div>
                 </div>
               )}
             </div>

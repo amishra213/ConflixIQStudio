@@ -5,9 +5,9 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useWorkflowStore } from '@/stores/workflowStore';
 import { useSettingsStore } from '@/stores/settingsStore';
-import { ArrowLeftIcon, CheckCircleIcon, XCircleIcon, AlertTriangleIcon, PlayIcon, RefreshCwIcon, ChevronDownIcon, ChevronRightIcon, Trash2Icon } from 'lucide-react';
+import { ArrowLeftIcon, CheckCircleIcon, XCircleIcon, AlertTriangleIcon, PlayIcon, RefreshCwIcon, Trash2Icon } from 'lucide-react';
 import { JsonViewer } from '@/components/ui/json-viewer';
-import { localWorkflowToConductor } from '@/utils/workflowToMermaid';
+import { localWorkflowToConductor } from '@/utils/workflowConverter';
 import { 
   generateTestScenarios, 
   generateTestInputForScenario, 
@@ -15,6 +15,25 @@ import {
   TestScenario 
 } from '@/services/llmService';
 import { useToast } from '@/hooks/use-toast';
+
+interface TestInput {
+  [key: string]: unknown;
+}
+
+interface WorkflowDefinitionCached {
+  name: string;
+  version?: number;
+  tasks?: WorkflowTask[];
+  description?: string;
+  [key: string]: unknown;
+}
+
+interface WorkflowTask {
+  name?: string;
+  taskReferenceName?: string;
+  type?: string;
+  [key: string]: unknown;
+}
 
 export function WorkflowValidation() {
   const { id } = useParams();
@@ -24,9 +43,9 @@ export function WorkflowValidation() {
   const { toast } = useToast();
   const { openAiLlm, conductorApi } = useSettingsStore();
   
-  const [inputData, setInputData] = useState<any>(null);
+  const [inputData, setInputData] = useState<TestInput | null>(null);
   const [llmContextData, setLlmContextData] = useState<string>('');
-  const [workflowDefinitionCache, setWorkflowDefinitionCache] = useState<any>(null);
+  const [workflowDefinitionCache, setWorkflowDefinitionCache] = useState<WorkflowDefinitionCached | null>(null);
   const [isGeneratingScenarios, setIsGeneratingScenarios] = useState(true);
   const [generationProgress, setGenerationProgress] = useState({ current: 0, total: 0, message: '' });
   const [testScenarios, setTestScenarios] = useState<TestScenario[]>([]);
@@ -36,30 +55,7 @@ export function WorkflowValidation() {
 
   const workflow = workflows.find((w) => w.id === id);
 
-  useEffect(() => {
-    if (workflow) {
-      const inputParam = searchParams.get('input');
-      const contextParam = searchParams.get('context');
-      
-      if (inputParam) {
-        try {
-          const parsedInput = JSON.parse(decodeURIComponent(inputParam));
-          const parsedContext = contextParam ? decodeURIComponent(contextParam) : '';
-          
-          setInputData(parsedInput);
-          setLlmContextData(parsedContext);
-          generateScenarios(parsedInput, parsedContext);
-        } catch (err) {
-          console.error('Failed to parse input:', err);
-          setIsGeneratingScenarios(false);
-        }
-      } else {
-        setIsGeneratingScenarios(false);
-      }
-    }
-  }, [workflow, searchParams]);
-
-  const generateScenarios = async (input: any, context?: string) => {
+  const generateScenarios = useCallback(async (input: TestInput, context?: string) => {
     setIsGeneratingScenarios(true);
     setGenerationProgress({ current: 0, total: 0, message: 'Initializing...' });
     
@@ -76,7 +72,7 @@ export function WorkflowValidation() {
     try {
       // Convert and cache workflow definition
       const conductorWorkflow = localWorkflowToConductor(workflow!);
-      setWorkflowDefinitionCache(conductorWorkflow);
+      setWorkflowDefinitionCache(conductorWorkflow as WorkflowDefinitionCached);
       
       // Progress callback for recursive generation
       const onProgress = (message: string, current: number, total: number) => {
@@ -108,7 +104,30 @@ export function WorkflowValidation() {
       setIsGeneratingScenarios(false);
       setGenerationProgress({ current: 0, total: 0, message: '' });
     }
-  };
+  }, [workflow, openAiLlm.apiKey, toast]);
+
+  useEffect(() => {
+    if (workflow) {
+      const inputParam = searchParams.get('input');
+      const contextParam = searchParams.get('context');
+      
+      if (inputParam) {
+        try {
+          const parsedInput = JSON.parse(decodeURIComponent(inputParam)) as TestInput;
+          const parsedContext = contextParam ? decodeURIComponent(contextParam) : '';
+          
+          setInputData(parsedInput);
+          setLlmContextData(parsedContext);
+          generateScenarios(parsedInput, parsedContext);
+        } catch (err) {
+          console.error('Failed to parse input:', err);
+          setIsGeneratingScenarios(false);
+        }
+      } else {
+        setIsGeneratingScenarios(false);
+      }
+    }
+  }, [workflow, searchParams, generateScenarios]);
 
   const generateInputForScenario = useCallback(async (scenario: TestScenario) => {
     setTestScenarios(prev =>
@@ -468,8 +487,8 @@ export function WorkflowValidation() {
                 
                 return (
                   <Card key={scenario.id} className="bg-background border-border overflow-hidden">
-                    <div 
-                      className="p-4 cursor-pointer hover:bg-muted/50 transition-colors"
+                    <button 
+                      className="w-full p-4 cursor-pointer hover:bg-muted/50 transition-colors text-left"
                       onClick={() => toggleScenarioExpansion(scenario.id)}
                     >
                       <div className="flex items-start gap-4">
@@ -534,7 +553,7 @@ export function WorkflowValidation() {
                           )}
                         </div>
                       </div>
-                    </div>
+                    </button>
 
                     {isExpanded && (
                       <div className="border-t border-border bg-muted/30 p-4 space-y-4">

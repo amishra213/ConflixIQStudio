@@ -8,6 +8,20 @@ import { workflowToMermaid, WorkflowDefinition, WorkflowExecution } from '@/util
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { JsonViewer } from '@/components/ui/json-viewer';
 
+interface WorkflowTask {
+  name?: string;
+  taskName?: string;
+  taskReferenceName?: string;
+  taskId?: string;
+  type?: string;
+  taskType?: string;
+  status?: string;
+  description?: string;
+  inputParameters?: Record<string, unknown>;
+  inputData?: unknown;
+  outputData?: unknown;
+}
+
 interface WorkflowDiagramViewerProps {
   readonly workflow: WorkflowDefinition | WorkflowExecution | null;
   readonly type: 'definition' | 'execution' | 'preview';
@@ -62,8 +76,8 @@ const getStatusBadgeClass = (status: string): string => {
   return 'bg-gray-500';
 };
 
-const handleNodeClick = (node: Element, workflow: WorkflowDefinition | WorkflowExecution | null) => {
-  if (!workflow) return;
+const handleNodeClick = (node: Element, workflow: WorkflowDefinition | WorkflowExecution | null): WorkflowTask | null => {
+  if (!workflow) return null;
   
   const nodeId = node.id;
   const taskRef = nodeId.split('_')[0];
@@ -73,7 +87,7 @@ const handleNodeClick = (node: Element, workflow: WorkflowDefinition | WorkflowE
     : workflow.tasks;
   
   const task = tasks?.find(
-    (t: any) => t.taskReferenceName?.replaceAll(/[^a-zA-Z0-9]/g, '_') === taskRef
+    (t: WorkflowTask) => t.taskReferenceName?.replaceAll(/[^a-zA-Z0-9]/g, '_') === taskRef
   );
   
   return task || null;
@@ -89,7 +103,7 @@ export function WorkflowDiagramViewer({
 }: Readonly<WorkflowDiagramViewerProps>) {
   const mermaidRef = useRef<HTMLDivElement>(null);
   const [zoom, setZoom] = useState(100);
-  const [selectedTask, setSelectedTask] = useState<any>(null);
+  const [selectedTask, setSelectedTask] = useState<WorkflowTask | null>(null);
   const [refreshInterval, setRefreshInterval] = useState<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
@@ -105,7 +119,7 @@ export function WorkflowDiagramViewer({
     });
   }, []);
 
-  const setupDiagramInteractions = (svgElement: SVGElement) => {
+  const setupDiagramInteractions = useCallback((svgElement: SVGElement) => {
     const nodes = svgElement.querySelectorAll('.node');
     for (const node of nodes) {
       node.addEventListener('click', () => {
@@ -116,26 +130,27 @@ export function WorkflowDiagramViewer({
       });
       (node as HTMLElement).style.cursor = 'pointer';
     }
-  };
+  }, [workflow]);
 
-  const convertWorkflowForRendering = async () => {
+  const convertWorkflowForRendering = useCallback(async () => {
     if (!workflow) return null;
     
     let workflowToRender = workflow;
-    
-    // If it's a preview (raw local workflow), convert it first
-    if (type === 'preview' && !workflow.tasks) {
-      const { localWorkflowToConductor } = await import('@/utils/workflowToMermaid');
-      workflowToRender = localWorkflowToConductor(workflow);
-    }
     
     // If it's a WorkflowExecution, extract the definition
     if ('workflowDefinition' in workflowToRender) {
       return workflowToRender.workflowDefinition;
     }
     
+    // If it's a preview (raw local workflow), convert it first
+    if (type === 'preview' && !('tasks' in workflowToRender)) {
+      const { localWorkflowToConductor } = await import('@/utils/workflowConverter');
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      workflowToRender = localWorkflowToConductor(workflowToRender as any);
+    }
+    
     return workflowToRender;
-  };
+  }, [workflow, type]);
 
   const renderDiagram = useCallback(async () => {
     if (!workflow || !mermaidRef.current) {
@@ -172,7 +187,7 @@ export function WorkflowDiagramViewer({
         mermaidRef.current.innerHTML = '<p class="text-destructive">Error rendering workflow diagram</p>';
       }
     }
-  }, [workflow, type]);
+  }, [workflow, type, convertWorkflowForRendering, setupDiagramInteractions]);
 
   useEffect(() => {
     renderDiagram();
@@ -394,7 +409,7 @@ export function WorkflowDiagramViewer({
                   <label htmlFor="task-type" className="text-sm font-semibold text-foreground">Task Type</label>
                   <div id="task-type">
                     <Badge className="mt-1 bg-purple-500 text-white">
-                      {selectedTask.type || selectedTask.taskType || inferTaskType(selectedTask.name || selectedTask.taskName)}
+                      {selectedTask.type || selectedTask.taskType || inferTaskType(selectedTask.name || selectedTask.taskName || '')}
                     </Badge>
                   </div>
                 </div>
@@ -426,7 +441,7 @@ export function WorkflowDiagramViewer({
                 </div>
               )}
               
-              {selectedTask.inputData && (
+              {selectedTask.inputData !== undefined && selectedTask.inputData !== null && (
                 <div>
                   <label htmlFor="task-input-data" className="text-sm font-semibold text-foreground mb-2 block">Input Data</label>
                   <div id="task-input-data">
@@ -435,7 +450,7 @@ export function WorkflowDiagramViewer({
                 </div>
               )}
               
-              {selectedTask.outputData && (
+              {selectedTask.outputData !== undefined && selectedTask.outputData !== null && (
                 <div>
                   <label htmlFor="task-output-data" className="text-sm font-semibold text-foreground mb-2 block">Output Data</label>
                   <div id="task-output-data">
