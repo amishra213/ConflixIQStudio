@@ -6,10 +6,33 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
+interface ConductorWorkflow {
+  name: string;
+  description?: string;
+  version?: number;
+  createTime?: number | string;
+  timeoutSeconds?: number;
+  restartable?: boolean;
+  schemaVersion?: number;
+  inputParameters?: string[];
+  outputParameters?: Record<string, unknown>;
+  tasks?: Array<{
+    name?: string;
+    type?: string;
+    description?: string;
+    taskReferenceName?: string;
+    inputParameters?: Record<string, unknown>;
+    optional?: boolean;
+    asyncComplete?: boolean;
+  }>;
+}
+
+export type { ConductorWorkflow };
+
 /**
  * Converts a Conductor API workflow to local Workflow format
  */
-export function conductorWorkflowToLocal(conductorWorkflow: any): Workflow {
+export function conductorWorkflowToLocal(conductorWorkflow: ConductorWorkflow): Workflow {
   const workflow: Workflow = {
     id: `${conductorWorkflow.name}-v${conductorWorkflow.version}`,
     name: conductorWorkflow.name,
@@ -25,8 +48,6 @@ export function conductorWorkflowToLocal(conductorWorkflow: any): Workflow {
       timeoutSeconds: conductorWorkflow.timeoutSeconds || 0,
       restartable: conductorWorkflow.restartable || true,
       schemaVersion: conductorWorkflow.schemaVersion || 2,
-      orgId: '',
-      workflowId: conductorWorkflow.name,
       effectiveDate: new Date(conductorWorkflow.createTime || Date.now()).toISOString(),
       endDate: '',
       status: 'ACTIVE',
@@ -37,7 +58,7 @@ export function conductorWorkflowToLocal(conductorWorkflow: any): Workflow {
 
   // Generate nodes from tasks if available
   if (Array.isArray(conductorWorkflow.tasks) && conductorWorkflow.tasks.length > 0) {
-    workflow.nodes = conductorWorkflow.tasks.map((task: any, index: number) => ({
+    workflow.nodes = conductorWorkflow.tasks.map((task, index) => ({
       id: `task-${index}`,
       type: 'default',
       position: { x: index * 300, y: 0 },

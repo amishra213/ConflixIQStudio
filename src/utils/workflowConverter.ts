@@ -3,6 +3,36 @@
  * Handles field validation, cleaning internal graph fields, and ensuring required fields
  */
 
+interface WorkflowNode {
+  id: string;
+  data?: Record<string, unknown>;
+}
+
+interface LocalWorkflow {
+  name: string;
+  description?: string;
+  version?: number;
+  nodes?: WorkflowNode[];
+  settings?: {
+    description?: string;
+    version?: number;
+    timeoutSeconds?: number;
+    timeoutPolicy?: string;
+    restartable?: boolean;
+    schemaVersion?: number;
+    workflowStatusListenerEnabled?: boolean;
+    inputParameters?: string[];
+    outputParameters?: Record<string, unknown>;
+  };
+  timeoutSeconds?: number;
+  restartable?: boolean;
+  schemaVersion?: number;
+  timeoutPolicy?: string;
+  workflowStatusListenerEnabled?: boolean;
+  inputParameters?: string[];
+  outputParameters?: Record<string, unknown>;
+}
+
 export interface WorkflowTask {
   name: string;
   taskReferenceName: string;
@@ -114,17 +144,126 @@ function ensureRequiredOperatorFields(task: Record<string, unknown>): Record<str
 }
 
 /**
+ * Build clean config by filtering valid task fields and handling special cases
+ */
+function buildCleanConfig(
+  taskConfig: Record<string, unknown>,
+  validTaskFields: Set<string>,
+  excludedFields: Set<string>
+): Record<string, unknown> {
+  const cleanConfig: Record<string, unknown> = {};
+
+  for (const [key, value] of Object.entries(taskConfig)) {
+    // Skip excluded fields
+    if (excludedFields.has(key)) {
+      continue;
+    }
+
+    // Only include valid fields
+    if (validTaskFields.has(key)) {
+      cleanConfig[key] = value;
+    } else if (key === 'kafka_request' || key === 'http_request') {
+      // Move task-specific configs into inputParameters
+      const inputParams = typeof cleanConfig.inputParameters === 'object' && cleanConfig.inputParameters !== null
+        ? cleanConfig.inputParameters as Record<string, unknown>
+        : {};
+      cleanConfig.inputParameters = {
+        ...inputParams,
+        [key]: value
+      };
+    }
+  }
+
+  return cleanConfig;
+}
+
+/**
+ * Process and clean operator-specific task structures
+ */
+function processOperatorFields(cleanConfig: Record<string, unknown>, excludedFields: Set<string>): Record<string, unknown> {
+  // loopOver should contain full task objects, not just references
+  if (cleanConfig.loopOver && !Array.isArray(cleanConfig.loopOver)) {
+    cleanConfig.loopOver = [];
+  }
+
+  // forkTasks should contain full task objects in each branch
+  if (cleanConfig.forkTasks && Array.isArray(cleanConfig.forkTasks)) {
+    cleanConfig.forkTasks = (cleanConfig.forkTasks as unknown[]).map((branch) => {
+      return Array.isArray(branch) ? branch : [];
+    });
+  }
+
+  // defaultCase should contain full task objects, not strings
+  if (cleanConfig.defaultCase && !Array.isArray(cleanConfig.defaultCase)) {
+    cleanConfig.defaultCase = [];
+  }
+
+  // Clean decisionCases - recursively clean nested tasks in each case
+  if (cleanConfig.decisionCases && typeof cleanConfig.decisionCases === 'object') {
+    const cleanedCases: Record<string, unknown> = {};
+    for (const [caseKey, caseTasks] of Object.entries(cleanConfig.decisionCases)) {
+      if (Array.isArray(caseTasks)) {
+        cleanedCases[caseKey] = caseTasks.map(task => cleanTaskObject(task, excludedFields));
+      } else {
+        cleanedCases[caseKey] = cleanTaskObject(caseTasks, excludedFields);
+      }
+    }
+    cleanConfig.decisionCases = cleanedCases;
+  }
+
+  return cleanConfig;
+}
+
+/**
+ * Create task object from node data and config
+ */
+function createTaskObject(
+  node: WorkflowNode,
+  finalCleanConfig: Record<string, unknown>
+): Record<string, unknown> {
+  return {
+    name: node.data?.taskName || node.data?.label || 'Unnamed Task',
+    taskReferenceName: node.id,
+    type: node.data?.taskType || 'GENERIC',
+    description: node.data?.description,
+    inputParameters: finalCleanConfig.inputParameters || node.data?.inputParameters || {},
+    ...finalCleanConfig,
+  };
+}
+
+/**
+ * Process all nodes and convert to workflow tasks
+ */
+function processWorkflowNodes(
+  nodes: WorkflowNode[] | undefined,
+  validTaskFields: Set<string>,
+  excludedFields: Set<string>
+): WorkflowTask[] {
+  const tasks: WorkflowTask[] = [];
+
+  if (!nodes || nodes.length === 0) {
+    return tasks;
+  }
+
+  for (const node of nodes) {
+    const taskConfig = node.data?.config || {};
+    const cleanConfig = buildCleanConfig(taskConfig as Record<string, unknown>, validTaskFields, excludedFields);
+    const processedConfig = processOperatorFields(cleanConfig, excludedFields);
+    const finalCleanConfig = cleanTaskObject(processedConfig, excludedFields) as Record<string, unknown>;
+    const taskObject = createTaskObject(node, finalCleanConfig);
+    const taskWithDefaults = ensureRequiredOperatorFields(taskObject);
+    tasks.push(taskWithDefaults as unknown as WorkflowTask);
+  }
+
+  return tasks;
+}
+
+/**
  * Convert local workflow (from designer) to Conductor-compatible format
  * Removes internal graph fields, cleans task objects, and ensures required fields are present
  */
-export function localWorkflowToConductor(workflow: any): WorkflowDefinition {
-  const tasks: WorkflowTask[] = [];
-
-  // Extract settings from workflow.settings or use defaults
-  const settings = workflow.settings || {};
-
+export function localWorkflowToConductor(workflow: LocalWorkflow): WorkflowDefinition {
   // Valid fields according to GraphQL WorkflowTaskInput schema
-  // Explicitly exclude internal graph fields like taskRefId, nodeId, etc.
   const validTaskFields = new Set([
     'name', 'taskReferenceName', 'type', 'workflowTaskType', 'description',
     'inputParameters', 'outputParameters', 'optional', 'asyncComplete',
@@ -141,82 +280,8 @@ export function localWorkflowToConductor(workflow: any): WorkflowDefinition {
     'position', 'data', 'config', '__typename'
   ]);
 
-  if (workflow.nodes && workflow.nodes.length > 0) {
-    for (const node of workflow.nodes) {
-      // Extract the full task config from node data
-      const taskConfig = node.data?.config || {};
-
-      // Filter to only valid fields and clean up invalid ones
-      const cleanConfig: Record<string, any> = {};
-      for (const [key, value] of Object.entries(taskConfig)) {
-        // Skip excluded fields
-        if (excludedFields.has(key)) {
-          continue;
-        }
-        // Only include valid fields
-        if (validTaskFields.has(key)) {
-          cleanConfig[key] = value;
-        } else if (key === 'kafka_request' || key === 'http_request') {
-          // Move task-specific configs into inputParameters
-          cleanConfig.inputParameters = {
-            ...cleanConfig.inputParameters,
-            [key]: value
-          };
-        }
-      }
-
-      // loopOver should contain full task objects, not just references
-      // Keep the task objects as they are - Conductor expects full task definitions
-      if (cleanConfig.loopOver && !Array.isArray(cleanConfig.loopOver)) {
-        cleanConfig.loopOver = [];
-      }
-
-      // forkTasks should contain full task objects in each branch
-      // Keep the task objects as they are - Conductor expects full task definitions
-      if (cleanConfig.forkTasks && Array.isArray(cleanConfig.forkTasks)) {
-        // Validate that each branch is an array
-        cleanConfig.forkTasks = cleanConfig.forkTasks.map((branch: any) => {
-          return Array.isArray(branch) ? branch : [];
-        });
-      }
-
-      // defaultCase should contain full task objects, not strings
-      if (cleanConfig.defaultCase && !Array.isArray(cleanConfig.defaultCase)) {
-        cleanConfig.defaultCase = [];
-      }
-
-      // Clean decisionCases - recursively clean nested tasks in each case
-      if (cleanConfig.decisionCases && typeof cleanConfig.decisionCases === 'object') {
-        const cleanedCases: Record<string, unknown> = {};
-        for (const [caseKey, caseTasks] of Object.entries(cleanConfig.decisionCases)) {
-          if (Array.isArray(caseTasks)) {
-            cleanedCases[caseKey] = caseTasks.map(task => cleanTaskObject(task, excludedFields));
-          } else {
-            cleanedCases[caseKey] = cleanTaskObject(caseTasks, excludedFields);
-          }
-        }
-        cleanConfig.decisionCases = cleanedCases;
-      }
-
-      // Final pass: clean any remaining nested objects/arrays to remove excluded fields
-      const finalCleanConfig = cleanTaskObject(cleanConfig, excludedFields) as Record<string, unknown>;
-
-      // Create the task object
-      const taskObject: Record<string, unknown> = {
-        name: node.data?.taskName || node.data?.label || 'Unnamed Task',
-        taskReferenceName: node.id,
-        type: node.data?.taskType || 'GENERIC',
-        description: node.data?.description,
-        inputParameters: finalCleanConfig.inputParameters || node.data?.inputParameters || {},
-        ...finalCleanConfig, // Spread additional task fields from config
-      };
-
-      // Ensure required fields are present for operator tasks
-      const taskWithDefaults = ensureRequiredOperatorFields(taskObject);
-      
-      tasks.push(taskWithDefaults as unknown as WorkflowTask);
-    }
-  }
+  const settings = workflow.settings || {};
+  const tasks = processWorkflowNodes(workflow.nodes, validTaskFields, excludedFields);
 
   return {
     name: workflow.name || 'Unnamed Workflow',

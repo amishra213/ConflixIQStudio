@@ -9,7 +9,7 @@ export interface TerminateSystemTaskConfig extends BaseTaskConfig {
   name: string;
   taskReferenceName: string;
   terminationStatus: 'COMPLETED' | 'FAILED';
-  workflowOutput?: Record<string, any>;
+  workflowOutput?: Record<string, unknown>;
 }
 
 interface TerminateSystemTaskModalProps {
@@ -87,7 +87,7 @@ export function TerminateSystemTaskModal({ open, onOpenChange, onSave, initialCo
   );
 
   const handleSaveWithOutput = (finalConfig: TerminateSystemTaskConfig) => {
-    let workflowOutput: Record<string, any> | undefined = undefined;
+    let workflowOutput: Record<string, unknown> | undefined = undefined;
     if (outputText.trim()) {
       try {
         workflowOutput = JSON.parse(outputText);

@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react';
-import { WorkflowDefinition, WorkflowExecution } from '@/utils/workflowToMermaid';
+import { WorkflowDefinition } from '@/utils/workflowConverter';
+import { WorkflowExecution } from '@/utils/workflowToMermaid';
 import { useWorkflowStore } from '@/stores/workflowStore';
 import { useSettingsStore } from '@/stores/settingsStore';
 import type { TaskDefinition } from '@/types/taskDefinition';
@@ -43,7 +44,7 @@ export function useConductorApi(options: UseConductorApiOptions = {}) {
         const localWorkflow = workflows.find(w => w.name === name);
         if (localWorkflow) {
           console.log('Using local workflow from Zustand store');
-          const { localWorkflowToConductor } = await import('@/utils/workflowToMermaid');
+          const { localWorkflowToConductor } = await import('@/utils/workflowConverter');
           return localWorkflowToConductor(localWorkflow);
         }
       }
@@ -80,7 +81,7 @@ export function useConductorApi(options: UseConductorApiOptions = {}) {
         const localWorkflow = workflows.find(w => w.name === name);
         if (localWorkflow) {
           console.log('Using local workflow from Zustand store (version ignored)');
-          const { localWorkflowToConductor } = await import('@/utils/workflowToMermaid');
+          const { localWorkflowToConductor } = await import('@/utils/workflowConverter');
           return localWorkflowToConductor(localWorkflow);
         }
       }
@@ -111,7 +112,7 @@ export function useConductorApi(options: UseConductorApiOptions = {}) {
       
       if (enableFallback) {
         console.log('Using local workflows from Zustand store');
-        const { localWorkflowToConductor } = await import('@/utils/workflowToMermaid');
+        const { localWorkflowToConductor } = await import('@/utils/workflowConverter');
         return workflows.map(w => localWorkflowToConductor(w));
       }
       

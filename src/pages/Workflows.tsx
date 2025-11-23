@@ -9,7 +9,7 @@ import { PlusIcon, PlayIcon, Trash2Icon, EditIcon, NetworkIcon, CheckCircleIcon,
 import { useToast } from '@/hooks/use-toast';
 import { ExecuteWorkflowModal } from '@/components/modals/ExecuteWorkflowModal';
 import { useConductorApi } from '@/hooks/useConductorApi';
-import { conductorWorkflowToLocal } from '@/lib/utils';
+import { conductorWorkflowToLocal, type ConductorWorkflow } from '@/lib/utils';
 import { generateUniqueWorkflowName } from '@/utils/nameGenerator';
 
 /**
@@ -114,7 +114,7 @@ export function Workflows() {
 
       let addedCount = 0;
       for (const conductorWorkflow of conductorWorkflows) {
-        const localWorkflow = conductorWorkflowToLocal(conductorWorkflow);
+        const localWorkflow = conductorWorkflowToLocal(conductorWorkflow as ConductorWorkflow);
         addWorkflow(localWorkflow);
         addedCount += 1;
       }
@@ -333,7 +333,7 @@ export function Workflows() {
       markAsSyncing(workflowId);
 
       // Convert to Conductor format and publish
-      const { localWorkflowToConductor } = await import('@/utils/workflowToMermaid');
+      const { localWorkflowToConductor } = await import('@/utils/workflowConverter');
       const conductorWorkflow = localWorkflowToConductor(workflow);
 
       // Attempt to publish to Conductor
@@ -623,7 +623,7 @@ export function Workflows() {
                             size="sm"
                             className="bg-cyan-500 text-white hover:bg-cyan-600 flex-1"
                             onClick={async () => {
-                              const localWorkflow = conductorWorkflowToLocal(wf as unknown as Workflow);
+                              const localWorkflow = conductorWorkflowToLocal(wf as unknown as ConductorWorkflow);
                               addWorkflow(localWorkflow);
                               // Persist to storage
                               await persistWorkflows();

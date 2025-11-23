@@ -41,8 +41,8 @@ export interface Execution {
   startTime: string;
   endTime?: string;
   duration?: number;
-  input?: any;
-  output?: any;
+  input?: unknown;
+  output?: unknown;
   tasks: {
     taskId: string;
     taskName: string;
@@ -50,7 +50,7 @@ export interface Execution {
     status: 'pending' | 'running' | 'completed' | 'failed';
     startTime?: string;
     endTime?: string;
-    input?: any;
-    output?: any;
+    input?: unknown;
+    output?: unknown;
   }[];
 }
