@@ -22,20 +22,111 @@ export function useConductorApi(options: UseConductorApiOptions = {}) {
     : conductorApi.endpoint || '/api';
   const apiKey = proxyServer.enabled ? proxyServer.conductorApiKey : conductorApi.apiKey;
 
+  // Helper function to make GraphQL requests
+  const graphqlRequest = useCallback(async (query: string, variables?: unknown): Promise<unknown> => {
+    const headers: HeadersInit = {
+      'Content-Type': 'application/json',
+    };
+    if (apiKey) {
+      headers['X-Conductor-API-Key'] = apiKey;
+    }
+
+    const response = await fetch(baseUrl, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        query,
+        variables,
+      }),
+    });
+
+    const data = await response.json();
+    if (data.errors) {
+      const errorMessage = data.errors[0]?.message || 'GraphQL error';
+      throw new Error(errorMessage);
+    }
+
+    return data.data;
+  }, [baseUrl, apiKey]);
+
   const fetchWorkflowByName = useCallback(async (name: string): Promise<WorkflowDefinition | null> => {
     setLoading(true);
     setError(null);
     try {
-      const headers: HeadersInit = {};
-      if (apiKey) {
-        headers['X-Conductor-API-Key'] = apiKey;
+      if (proxyServer.enabled && proxyServer.proxyEndpoint) {
+        // Use GraphQL
+        const query = `
+          query GetWorkflowByName($name: String!) {
+            workflow(name: $name) {
+              name
+              description
+              version
+              createTime
+              updateTime
+              createdBy
+              updatedBy
+              ownerEmail
+              ownerApp
+              timeoutSeconds
+              timeoutPolicy
+              tasks {
+                name
+                taskReferenceName
+                type
+                description
+                workflowTaskType
+                inputParameters
+                outputParameters
+                optional
+                asyncComplete
+                retryCount
+                startDelay
+                rateLimited
+                evaluatorType
+                expression
+                scriptExpression
+                decisionCases
+                defaultCase
+                forkTasks
+                joinOn
+                defaultExclusiveJoinTask
+                loopCondition
+                loopOver
+                dynamicForkTasksParam
+                dynamicForkTasksInputParamName
+                dynamicTaskNameParam
+                sink
+                subWorkflowParam
+              }
+              inputParameters
+              inputTemplate
+              outputParameters
+              restartable
+              schemaVersion
+              accessPolicy
+              failureWorkflow
+              variables
+              workflowStatusListenerEnabled
+              effectiveDate
+              endDate
+              status
+            }
+          }
+        `;
+        const data = await graphqlRequest(query, { name }) as Record<string, unknown>;
+        return data.workflow as WorkflowDefinition;
+      } else {
+        // Use REST
+        const headers: HeadersInit = {};
+        if (apiKey) {
+          headers['X-Conductor-API-Key'] = apiKey;
+        }
+        const response = await fetch(`${baseUrl}/metadata/workflow/${name}`, { headers });
+        if (!response.ok) {
+          throw new Error(`Failed to fetch workflow: ${response.statusText}`);
+        }
+        return await response.json();
       }
-      const response = await fetch(`${baseUrl}/metadata/workflow/${name}`, { headers });
-      if (!response.ok) {
-        throw new Error(`Failed to fetch workflow: ${response.statusText}`);
-      }
-      const data = await response.json();
-      return data;
     } catch (err) {
       console.warn('API fetch failed, attempting fallback to local store:', err);
       setError(err as Error);
@@ -53,7 +144,7 @@ export function useConductorApi(options: UseConductorApiOptions = {}) {
     } finally {
       setLoading(false);
     }
-  }, [baseUrl, apiKey, enableFallback, workflows]);
+  }, [baseUrl, apiKey, proxyServer, enableFallback, workflows, graphqlRequest]);
 
   const fetchWorkflowByVersion = useCallback(async (
     name: string,
@@ -62,17 +153,80 @@ export function useConductorApi(options: UseConductorApiOptions = {}) {
     setLoading(true);
     setError(null);
     try {
-      const headers: HeadersInit = {};
-      if (apiKey) {
-        headers['X-Conductor-API-Key'] = apiKey;
+      if (proxyServer.enabled && proxyServer.proxyEndpoint) {
+        // Use GraphQL
+        const query = `
+          query GetWorkflowByVersion($name: String!, $version: Int) {
+            workflow(name: $name, version: $version) {
+              name
+              description
+              version
+              createTime
+              updateTime
+              createdBy
+              updatedBy
+              ownerEmail
+              ownerApp
+              timeoutSeconds
+              timeoutPolicy
+              tasks {
+                name
+                taskReferenceName
+                type
+                description
+                workflowTaskType
+                inputParameters
+                outputParameters
+                optional
+                asyncComplete
+                retryCount
+                startDelay
+                rateLimited
+                evaluatorType
+                expression
+                scriptExpression
+                decisionCases
+                defaultCase
+                forkTasks
+                joinOn
+                defaultExclusiveJoinTask
+                loopCondition
+                loopOver
+                dynamicForkTasksParam
+                dynamicForkTasksInputParamName
+                dynamicTaskNameParam
+                sink
+                subWorkflowParam
+              }
+              inputParameters
+              inputTemplate
+              outputParameters
+              restartable
+              schemaVersion
+              accessPolicy
+              failureWorkflow
+              variables
+              workflowStatusListenerEnabled
+              effectiveDate
+              endDate
+              status
+            }
+          }
+        `;
+        const data = await graphqlRequest(query, { name, version }) as Record<string, unknown>;
+        return data.workflow as WorkflowDefinition;
+      } else {
+        // Use REST
+        const headers: HeadersInit = {};
+        if (apiKey) {
+          headers['X-Conductor-API-Key'] = apiKey;
+        }
+        const response = await fetch(`${baseUrl}/metadata/workflow/${name}?version=${version}`, { headers });
+        if (!response.ok) {
+          throw new Error(`Failed to fetch workflow: ${response.statusText}`);
+        }
+        return await response.json();
       }
-      // Conductor API uses query parameter for version
-      const response = await fetch(`${baseUrl}/metadata/workflow/${name}?version=${version}`, { headers });
-      if (!response.ok) {
-        throw new Error(`Failed to fetch workflow: ${response.statusText}`);
-      }
-      const data = await response.json();
-      return data;
     } catch (err) {
       console.warn('API fetch failed, attempting fallback to local store:', err);
       setError(err as Error);
@@ -90,22 +244,86 @@ export function useConductorApi(options: UseConductorApiOptions = {}) {
     } finally {
       setLoading(false);
     }
-  }, [baseUrl, apiKey, enableFallback, workflows]);
+  }, [baseUrl, apiKey, proxyServer, enableFallback, workflows, graphqlRequest]);
 
   const fetchAllWorkflows = useCallback(async (): Promise<WorkflowDefinition[]> => {
     setLoading(true);
     setError(null);
     try {
-      const headers: HeadersInit = {};
-      if (apiKey) {
-        headers['X-Conductor-API-Key'] = apiKey;
+      if (proxyServer.enabled && proxyServer.proxyEndpoint) {
+        // Use GraphQL
+        const query = `
+          query GetAllWorkflows {
+            workflows(limit: 1000, offset: 0) {
+              name
+              description
+              version
+              createTime
+              updateTime
+              createdBy
+              updatedBy
+              ownerEmail
+              ownerApp
+              timeoutSeconds
+              timeoutPolicy
+              tasks {
+                name
+                taskReferenceName
+                type
+                description
+                workflowTaskType
+                inputParameters
+                outputParameters
+                optional
+                asyncComplete
+                retryCount
+                startDelay
+                rateLimited
+                evaluatorType
+                expression
+                scriptExpression
+                decisionCases
+                defaultCase
+                forkTasks
+                joinOn
+                defaultExclusiveJoinTask
+                loopCondition
+                loopOver
+                dynamicForkTasksParam
+                dynamicForkTasksInputParamName
+                dynamicTaskNameParam
+                sink
+                subWorkflowParam
+              }
+              inputParameters
+              inputTemplate
+              outputParameters
+              restartable
+              schemaVersion
+              accessPolicy
+              failureWorkflow
+              variables
+              workflowStatusListenerEnabled
+              effectiveDate
+              endDate
+              status
+            }
+          }
+        `;
+        const data = await graphqlRequest(query) as Record<string, unknown>;
+        return (data.workflows as WorkflowDefinition[]) || [];
+      } else {
+        // Use REST
+        const headers: HeadersInit = {};
+        if (apiKey) {
+          headers['X-Conductor-API-Key'] = apiKey;
+        }
+        const response = await fetch(`${baseUrl}/metadata/workflow`, { headers });
+        if (!response.ok) {
+          throw new Error(`Failed to fetch workflows: ${response.statusText}`);
+        }
+        return await response.json();
       }
-      const response = await fetch(`${baseUrl}/metadata/workflow`, { headers });
-      if (!response.ok) {
-        throw new Error(`Failed to fetch workflows: ${response.statusText}`);
-      }
-      const data = await response.json();
-      return data;
     } catch (err) {
       console.warn('API fetch failed, attempting fallback to local store:', err);
       setError(err as Error);
@@ -120,7 +338,7 @@ export function useConductorApi(options: UseConductorApiOptions = {}) {
     } finally {
       setLoading(false);
     }
-  }, [baseUrl, apiKey, enableFallback, workflows]);
+  }, [baseUrl, apiKey, proxyServer, enableFallback, workflows, graphqlRequest]);
 
   const fetchExecution = useCallback(async (workflowId: string): Promise<WorkflowExecution | null> => {
     setLoading(true);
@@ -200,16 +418,57 @@ export function useConductorApi(options: UseConductorApiOptions = {}) {
     setLoading(true);
     setError(null);
     try {
-      const headers: HeadersInit = {};
-      if (apiKey) {
-        headers['X-Conductor-API-Key'] = apiKey;
+      if (proxyServer.enabled && proxyServer.proxyEndpoint) {
+        // Use GraphQL
+        console.log('Fetching task definitions via GraphQL from:', proxyServer.proxyEndpoint);
+        const query = `
+          query GetTaskDefinitions {
+            taskDefinitions {
+              name
+              description
+              retryCount
+              timeoutSeconds
+              inputKeys
+              outputKeys
+              responseTimeoutSeconds
+              ownerEmail
+              createdBy
+              updatedBy
+              createTime
+              updateTime
+              timeoutPolicy
+              retryLogic
+              executionNameSpace
+              ownerApp
+              retryDelaySeconds
+              concurrentExecLimit
+              rateLimitPerFrequency
+              rateLimitFrequencyInSeconds
+              isolationGroupId
+              pollTimeoutSeconds
+              backoffScaleFactor
+            }
+          }
+        `;
+        const data = await graphqlRequest(query) as Record<string, unknown>;
+        const taskDefs = (data.taskDefinitions as TaskDefinition[]) || [];
+        console.log('Fetched task definitions via GraphQL:', taskDefs.length);
+        return taskDefs;
+      } else {
+        // Use REST
+        const headers: HeadersInit = {};
+        if (apiKey) {
+          headers['X-Conductor-API-Key'] = apiKey;
+        }
+        
+        console.log('Fetching task definitions via REST from:', `${baseUrl}/metadata/taskdefs`);
+        const response = await fetch(`${baseUrl}/metadata/taskdefs`, { headers });
+        if (!response.ok) {
+          throw new Error(`Failed to fetch task definitions: ${response.statusText}`);
+        }
+        const data = await response.json();
+        return Array.isArray(data) ? data : [];
       }
-      const response = await fetch(`${baseUrl}/metadata/taskdefs`, { headers });
-      if (!response.ok) {
-        throw new Error(`Failed to fetch task definitions: ${response.statusText}`);
-      }
-      const data = await response.json();
-      return Array.isArray(data) ? data : [];
     } catch (err) {
       console.error('Failed to fetch task definitions from Conductor API:', err);
       setError(err as Error);
@@ -217,22 +476,92 @@ export function useConductorApi(options: UseConductorApiOptions = {}) {
     } finally {
       setLoading(false);
     }
-  }, [baseUrl, apiKey]);
+  }, [baseUrl, apiKey, proxyServer, graphqlRequest]);
 
   const syncWorkflows = useCallback(async (): Promise<unknown[]> => {
     setLoading(true);
     setError(null);
     try {
-      const headers: HeadersInit = {};
-      if (apiKey) {
-        headers['X-Conductor-API-Key'] = apiKey;
+      if (proxyServer.enabled && proxyServer.proxyEndpoint) {
+        // Use GraphQL
+        console.log('Fetching workflows via GraphQL from:', proxyServer.proxyEndpoint);
+        const query = `
+          query GetAllWorkflows {
+            workflows(limit: 1000, offset: 0) {
+              name
+              description
+              version
+              createTime
+              updateTime
+              createdBy
+              updatedBy
+              ownerEmail
+              ownerApp
+              timeoutSeconds
+              timeoutPolicy
+              tasks {
+                name
+                taskReferenceName
+                type
+                description
+                workflowTaskType
+                inputParameters
+                outputParameters
+                optional
+                asyncComplete
+                retryCount
+                startDelay
+                rateLimited
+                evaluatorType
+                expression
+                scriptExpression
+                decisionCases
+                defaultCase
+                forkTasks
+                joinOn
+                defaultExclusiveJoinTask
+                loopCondition
+                loopOver
+                dynamicForkTasksParam
+                dynamicForkTasksInputParamName
+                dynamicTaskNameParam
+                sink
+                subWorkflowParam
+              }
+              inputParameters
+              inputTemplate
+              outputParameters
+              restartable
+              schemaVersion
+              accessPolicy
+              failureWorkflow
+              variables
+              workflowStatusListenerEnabled
+              effectiveDate
+              endDate
+              status
+            }
+          }
+        `;
+        const data = await graphqlRequest(query) as Record<string, unknown>;
+        const workflows = (data.workflows as unknown[]) || [];
+        console.log('Fetched workflows via GraphQL:', workflows.length);
+        return workflows;
+      } else {
+        // Use REST
+        const headers: HeadersInit = {};
+        if (apiKey) {
+          headers['X-Conductor-API-Key'] = apiKey;
+        }
+        
+        console.log('Fetching workflows via REST from:', `${baseUrl}/metadata/workflow`);
+        const response = await fetch(`${baseUrl}/metadata/workflow`, { headers });
+        if (!response.ok) {
+          throw new Error(`Failed to sync workflows: ${response.statusText}`);
+        }
+        const data = await response.json();
+        return Array.isArray(data) ? data : [];
       }
-      const response = await fetch(`${baseUrl}/metadata/workflow`, { headers });
-      if (!response.ok) {
-        throw new Error(`Failed to sync workflows: ${response.statusText}`);
-      }
-      const data = await response.json();
-      return Array.isArray(data) ? data : [];
     } catch (err) {
       console.error('Failed to sync workflows from Conductor API:', err);
       setError(err as Error);
@@ -240,7 +569,7 @@ export function useConductorApi(options: UseConductorApiOptions = {}) {
     } finally {
       setLoading(false);
     }
-  }, [baseUrl, apiKey]);
+  }, [baseUrl, apiKey, proxyServer, graphqlRequest]);
 
   const fetchWorkflowExecution = useCallback(async (workflowId: string): Promise<WorkflowExecution | null> => {
     setLoading(true);

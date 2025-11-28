@@ -11,9 +11,40 @@ export interface CachedTaskData {
   isLocalOnly: boolean;
 }
 
+export interface TaskDefinitionData {
+  name: string;
+  description?: string;
+  retryCount?: number;
+  timeoutSeconds?: number;
+  inputKeys?: string[];
+  outputKeys?: string[];
+  responseTimeoutSeconds?: number;
+  ownerEmail?: string;
+  createdBy?: string;
+  updatedBy?: string;
+  createTime?: string | number;
+  updateTime?: string | number;
+  timeoutPolicy?: string;
+  retryLogic?: string;
+  executionNameSpace?: string;
+  ownerApp?: string;
+  retryDelaySeconds?: number;
+  concurrentExecLimit?: number;
+  rateLimitPerFrequency?: number;
+  rateLimitFrequencyInSeconds?: number;
+  isolationGroupId?: string;
+  pollTimeoutSeconds?: number;
+  backoffScaleFactor?: number;
+  inputTemplate?: Record<string, unknown>;
+  [key: string]: unknown;
+}
+
 interface TaskStoreState {
   // Task cache
   cachedTasks: Map<string, CachedTaskData>;
+  
+  // Full task definitions cache (from server)
+  cachedTaskDefinitions: TaskDefinitionData[];
   
   // FileStore sync status
   isFileStoreSyncing: boolean;
@@ -29,6 +60,11 @@ interface TaskStoreState {
   markAllAsPublished: (taskNames: string[]) => void;
   clearCache: () => void;
   getSyncSummary: () => { published: number; draft: number; syncing: number };
+  
+  // Task definitions cache actions
+  setTaskDefinitions: (definitions: TaskDefinitionData[]) => void;
+  getTaskDefinitions: () => TaskDefinitionData[];
+  clearTaskDefinitions: () => void;
   
   // FileStore actions
   syncToFileStore: () => Promise<boolean>;
@@ -51,6 +87,7 @@ export const useTaskStore = create<TaskStoreState>()(
   persist(
     (set, get) => ({
       cachedTasks: new Map(),
+      cachedTaskDefinitions: [],
       isFileStoreSyncing: false,
       fileStoreSyncError: null,
       lastFileStoreSyncTime: null,
@@ -141,6 +178,25 @@ export const useTaskStore = create<TaskStoreState>()(
         return summary;
       },
 
+      setTaskDefinitions: (definitions: TaskDefinitionData[]) => {
+        // Clear old data completely before setting new data
+        set({ cachedTaskDefinitions: [] });
+        // Then set the new definitions
+        set({ cachedTaskDefinitions: definitions });
+        console.log('[TaskStore] Updated task definitions cache with', definitions.length, 'tasks');
+      },
+
+      getTaskDefinitions: () => {
+        const cached = get().cachedTaskDefinitions;
+        console.log('[TaskStore] Retrieved', cached.length, 'cached task definitions');
+        return cached;
+      },
+
+      clearTaskDefinitions: () => {
+        set({ cachedTaskDefinitions: [] });
+        console.log('[TaskStore] Cleared task definitions cache');
+      },
+
       setFileStoreSyncing: (syncing: boolean) => {
         set({ isFileStoreSyncing: syncing });
       },
@@ -225,6 +281,7 @@ export const useTaskStore = create<TaskStoreState>()(
               state: {
                 ...parsed.state,
                 cachedTasks: deserializeMap(parsed.state.cachedTasks || []),
+                cachedTaskDefinitions: parsed.state.cachedTaskDefinitions || [],
               },
               version: parsed.version,
             };
@@ -239,6 +296,7 @@ export const useTaskStore = create<TaskStoreState>()(
               state: {
                 ...value.state,
                 cachedTasks: serializeMap(value.state.cachedTasks),
+                cachedTaskDefinitions: value.state.cachedTaskDefinitions || [],
               },
               version: value.version,
             };

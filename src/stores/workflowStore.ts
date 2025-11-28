@@ -240,7 +240,23 @@ export const useWorkflowStore = create<WorkflowStore>((set) => {
   selectedExecution: null,
   canvasNodes: [],
   canvasEdges: [],
-  addWorkflow: (workflow) => set((state) => ({ workflows: [...state.workflows, workflow] })),
+  addWorkflow: (workflow) =>
+    set((state) => {
+      // Check if workflow with same name already exists
+      const existingIndex = state.workflows.findIndex((w) => w.name === workflow.name);
+      
+      if (existingIndex >= 0) {
+        // Replace existing workflow with updated version
+        console.log(`[WorkflowStore] Replacing existing workflow "${workflow.name}" with updated version`);
+        const updatedWorkflows = [...state.workflows];
+        updatedWorkflows[existingIndex] = workflow;
+        return { workflows: updatedWorkflows };
+      }
+      
+      // Add as new workflow if it doesn't exist
+      console.log(`[WorkflowStore] Adding new workflow "${workflow.name}"`);
+      return { workflows: [...state.workflows, workflow] };
+    }),
   updateWorkflow: (id, workflow) =>
     set((state) => ({
       workflows: state.workflows.map((w) => (w.id === id ? { ...w, ...workflow } : w)),

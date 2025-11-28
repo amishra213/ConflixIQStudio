@@ -43,21 +43,53 @@ const resolvers = {
             version
             createTime
             updateTime
+            createdBy
+            updatedBy
             ownerEmail
+            ownerApp
             timeoutSeconds
+            timeoutPolicy
             tasks {
               name
               taskReferenceName
               type
+              description
+              workflowTaskType
+              inputParameters
+              outputParameters
+              optional
+              asyncComplete
+              retryCount
+              startDelay
+              rateLimited
+              evaluatorType
+              expression
+              scriptExpression
+              decisionCases
+              defaultCase
+              forkTasks
+              joinOn
+              defaultExclusiveJoinTask
+              loopCondition
+              loopOver
+              dynamicForkTasksParam
+              dynamicForkTasksInputParamName
+              dynamicTaskNameParam
+              sink
+              subWorkflowParam
             }
-            # Custom attributes
             effectiveDate
             endDate
             status
             restartable
             schemaVersion
             inputParameters
+            inputTemplate
             outputParameters
+            accessPolicy
+            failureWorkflow
+            variables
+            workflowStatusListenerEnabled
           }
         }
       `;
@@ -72,21 +104,55 @@ const resolvers = {
             name
             description
             version
+            createTime
+            updateTime
+            createdBy
+            updatedBy
+            ownerEmail
+            ownerApp
+            timeoutSeconds
+            timeoutPolicy
             tasks {
               name
               taskReferenceName
               type
+              description
+              workflowTaskType
               inputParameters
+              outputParameters
               optional
+              asyncComplete
+              retryCount
+              startDelay
+              rateLimited
+              evaluatorType
+              expression
+              scriptExpression
+              decisionCases
+              defaultCase
+              forkTasks
+              joinOn
+              defaultExclusiveJoinTask
+              loopCondition
+              loopOver
+              dynamicForkTasksParam
+              dynamicForkTasksInputParamName
+              dynamicTaskNameParam
+              sink
+              subWorkflowParam
             }
             inputParameters
+            inputTemplate
             outputParameters
-            timeoutSeconds
-            restartable
-            schemaVersion
             effectiveDate
             endDate
             status
+            restartable
+            schemaVersion
+            accessPolicy
+            failureWorkflow
+            variables
+            workflowStatusListenerEnabled
           }
         }
       `;

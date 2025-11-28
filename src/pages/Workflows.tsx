@@ -79,13 +79,11 @@ function savePaginationSettings(settings: PaginationSettings) {
 export function Workflows() {
   const navigate = useNavigate();
   const { workflows: allWorkflows, deleteWorkflow, executeWorkflow, addWorkflow, persistWorkflows } = useWorkflowStore();
-  const { getAllWorkflows, markAsPublished, markAsSyncing, syncToFileStore } = useWorkflowCacheStore();
+  const { getAllWorkflows, markAsPublished, markAsSyncing, syncToFileStore, setServerWorkflows: setCachedServerWorkflows, getServerWorkflows } = useWorkflowCacheStore();
   const { toast } = useToast();
   const { syncWorkflows, loading: syncLoading, fetchWorkflowByVersion, saveWorkflow, deleteWorkflow: deleteWorkflowFromServer } = useConductorApi();
   const [executeModalOpen, setExecuteModalOpen] = useState(false);
   const [selectedWorkflow, setSelectedWorkflow] = useState<Workflow | null>(null);
-  const [workflowListOpen, setWorkflowListOpen] = useState(false);
-  const [serverWorkflows, setServerWorkflows] = useState<unknown[]>([]);
   const [listLoading, setListLoading] = useState(false);
   const [workflowIdModalOpen, setWorkflowIdModalOpen] = useState(false);
   const [workflowNameInput, setWorkflowNameInput] = useState('');
@@ -147,6 +145,14 @@ export function Workflows() {
     updatePagination(1, paginationSettings.itemsPerPage);
   }, [nameFilter, descriptionFilter, statusFilter]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Load cached server workflows on component mount
+  useEffect(() => {
+    const cachedWorkflows = getServerWorkflows();
+    if (cachedWorkflows && cachedWorkflows.length > 0) {
+      console.log('Restoring server workflows from cache:', cachedWorkflows);
+    }
+  }, [getServerWorkflows]);
+
   const handleCreateWorkflow = () => {
     // Create a new workflow immediately with an ID and unique name
     const uniqueName = generateUniqueWorkflowName();
@@ -194,6 +200,7 @@ export function Workflows() {
       let addedCount = 0;
       for (const conductorWorkflow of conductorWorkflows) {
         const localWorkflow = conductorWorkflowToLocal(conductorWorkflow as ConductorWorkflow);
+        // addWorkflow will replace existing workflows with same name or add if new
         addWorkflow(localWorkflow);
         addedCount += 1;
       }
@@ -229,8 +236,30 @@ export function Workflows() {
         return;
       }
 
-      setServerWorkflows(conductorWorkflows);
-      setWorkflowListOpen(true);
+      // Clear old cache completely to ensure old incomplete data is overwritten
+      // This ensures we use the freshly retrieved complete workflow data
+      console.log('[Workflows] Clearing old cache before storing new complete workflows');
+      
+      // Cache the workflows for persistence across page navigation
+      // This replaces any old incomplete workflows with new complete data
+      setCachedServerWorkflows(conductorWorkflows as Parameters<typeof setCachedServerWorkflows>[0]);
+
+      // Import all workflows directly into the page
+      // addWorkflow will replace existing workflows with same name or add if new
+      let importedCount = 0;
+      for (const conductorWorkflow of conductorWorkflows) {
+        const localWorkflow = conductorWorkflowToLocal(conductorWorkflow as ConductorWorkflow);
+        addWorkflow(localWorkflow);
+        importedCount += 1;
+      }
+
+      // Persist after importing workflows
+      await persistWorkflows();
+
+      toast({
+        title: 'Workflows loaded successfully',
+        description: `${importedCount} workflow(s) have been loaded from the Conductor server and added to this page.`,
+      });
     } catch (error) {
       toast({
         title: 'Failed to fetch workflow list',
@@ -801,105 +830,6 @@ export function Workflows() {
         workflow={selectedWorkflow}
         onExecute={handleExecuteWorkflow}
       />
-
-      {workflowListOpen && (
-        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
-          <Card className="w-full max-w-4xl bg-[#1a1f2e] border-[#2a3142] max-h-[90vh] overflow-hidden shadow-lg">
-            <div className="flex items-center justify-between p-6 border-b border-[#2a3142]">
-              <h2 className="text-2xl font-bold text-white">Conductor Server Workflows</h2>
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={() => setWorkflowListOpen(false)}
-                className="text-gray-400 hover:text-white hover:bg-[#2a3142]"
-              >
-                <XIcon className="w-5 h-5" />
-              </Button>
-            </div>
-
-            <div className="overflow-y-auto p-6" style={{ maxHeight: 'calc(90vh - 120px)' }}>
-              {serverWorkflows.length === 0 ? (
-                <div className="text-center py-12">
-                  <p className="text-gray-400 text-lg">No workflows found on the Conductor server</p>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {serverWorkflows.map((workflow: unknown) => {
-                    const wf = workflow as Record<string, unknown>;
-                    const name = (wf.name as string) || '';
-                    const description = (wf.description as string) || 'No description';
-                    const version = (wf.version as string) || '';
-                    return (
-                    <Card key={`${name}-${version}`} className="p-4 bg-[#0f1419] border-[#2a3142] hover:border-[#3a4152] transition-colors">
-                      <div className="space-y-2">
-                        <div className="flex items-start justify-between">
-                          <div className="flex-1">
-                            <h3 className="text-lg font-semibold text-white">{name}</h3>
-                            <p className="text-sm text-gray-400 line-clamp-2">{description}</p>
-                          </div>
-                          <Badge className="bg-blue-500/20 text-blue-400 border border-blue-500/50 font-medium ml-4">
-                            v{version}
-                          </Badge>
-                        </div>
-
-                        <div className="grid grid-cols-2 gap-4 text-sm mt-3 pt-3 border-t border-[#2a3142]">
-                          <div>
-                            <span className="text-gray-500">Owner App:</span>
-                            <p className="text-gray-400">{(wf.ownerApp as string) || 'N/A'}</p>
-                          </div>
-                          <div>
-                            <span className="text-gray-500">Tasks Count:</span>
-                            <p className="text-gray-400">{(wf.tasks as unknown[])?.length || 0}</p>
-                          </div>
-                        </div>
-
-                        <div className="flex gap-2 mt-3 pt-3 border-t border-[#2a3142]">
-                          <Button
-                            size="sm"
-                            className="bg-cyan-500 text-white hover:bg-cyan-600 flex-1"
-                            onClick={async () => {
-                              const localWorkflow = conductorWorkflowToLocal(wf as unknown as ConductorWorkflow);
-                              addWorkflow(localWorkflow);
-                              // Persist to storage
-                              await persistWorkflows();
-                              toast({
-                                title: 'Workflow imported',
-                                description: `${name} has been imported successfully.`,
-                              });
-                            }}
-                          >
-                            <DownloadIcon className="w-4 h-4 mr-2" />
-                            Import
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="border-gray-600 text-gray-400 hover:bg-[#2a3142] flex-1"
-                            onClick={() => {
-                              const jsonStr = JSON.stringify(wf, null, 2);
-                              const blob = new Blob([jsonStr], { type: 'application/json' });
-                              const url = URL.createObjectURL(blob);
-                              const a = document.createElement('a');
-                              a.href = url;
-                              a.download = `${name}-v${version}.json`;
-                              a.click();
-                              URL.revokeObjectURL(url);
-                            }}
-                          >
-                            <DownloadIcon className="w-4 h-4 mr-2" />
-                            Export JSON
-                          </Button>
-                        </div>
-                      </div>
-                    </Card>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          </Card>
-        </div>
-      )}
 
       {workflowIdModalOpen && (
         <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">

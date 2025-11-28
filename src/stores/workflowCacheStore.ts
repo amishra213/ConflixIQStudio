@@ -25,9 +25,37 @@ export interface CachedWorkflowData {
   };
 }
 
+export interface ServerWorkflowDefinition {
+  name: string;
+  description?: string;
+  version?: number;
+  createTime?: string | number;
+  updateTime?: string | number;
+  createdBy?: string;
+  updatedBy?: string;
+  ownerEmail?: string;
+  ownerApp?: string;
+  timeoutSeconds?: number;
+  timeoutPolicy?: string;
+  tasks?: unknown[];
+  inputParameters?: string[];
+  outputParameters?: Record<string, unknown>;
+  restartable?: boolean;
+  schemaVersion?: number;
+  failureWorkflow?: string;
+  workflowStatusListenerEnabled?: boolean;
+  accessPolicy?: Record<string, unknown>;
+  inputTemplate?: Record<string, unknown>;
+  variables?: Record<string, unknown>;
+  [key: string]: unknown;
+}
+
 interface WorkflowCacheStoreState {
   // Workflow cache
   cachedWorkflows: Map<string, CachedWorkflowData>;
+  
+  // Full workflow definitions from server (cached)
+  cachedServerWorkflows: ServerWorkflowDefinition[];
   
   // FileStore sync status
   isFileStoreSyncing: boolean;
@@ -45,6 +73,11 @@ interface WorkflowCacheStoreState {
   getSyncSummary: () => { synced: number; localOnly: number; syncing: number };
   saveWorkflowToCache: (workflow: CachedWorkflowData) => void;
   removeFromCache: (workflowId: string) => void;
+  
+  // Server workflows caching
+  setServerWorkflows: (workflows: ServerWorkflowDefinition[]) => void;
+  getServerWorkflows: () => ServerWorkflowDefinition[];
+  clearServerWorkflows: () => void;
   
   // FileStore actions
   syncToFileStore: () => Promise<boolean>;
@@ -67,6 +100,7 @@ export const useWorkflowCacheStore = create<WorkflowCacheStoreState>()(
   persist(
     (set, get) => ({
       cachedWorkflows: new Map(),
+      cachedServerWorkflows: [],
       isFileStoreSyncing: false,
       fileStoreSyncError: null,
       lastFileStoreSyncTime: null,
@@ -178,6 +212,25 @@ export const useWorkflowCacheStore = create<WorkflowCacheStoreState>()(
           else if (workflow.syncStatus === 'syncing') summary.syncing++;
         }
         return summary;
+      },
+
+      setServerWorkflows: (workflows: ServerWorkflowDefinition[]) => {
+        // Clear old data completely before setting new data
+        set({ cachedServerWorkflows: [] });
+        // Then set the new workflows
+        set({ cachedServerWorkflows: workflows });
+        console.log('[WorkflowCacheStore] Updated server workflows cache with', workflows.length, 'workflows');
+      },
+
+      getServerWorkflows: () => {
+        const cached = get().cachedServerWorkflows;
+        console.log('[WorkflowCacheStore] Retrieved', cached.length, 'cached server workflows');
+        return cached;
+      },
+
+      clearServerWorkflows: () => {
+        set({ cachedServerWorkflows: [] });
+        console.log('[WorkflowCacheStore] Cleared server workflows cache');
       },
 
       setFileStoreSyncing: (syncing: boolean) => {
@@ -323,6 +376,7 @@ export const useWorkflowCacheStore = create<WorkflowCacheStoreState>()(
               state: {
                 ...parsed.state,
                 cachedWorkflows: deserializeMap(parsed.state.cachedWorkflows || []),
+                cachedServerWorkflows: parsed.state.cachedServerWorkflows || [],
               },
               version: parsed.version,
             };
@@ -337,6 +391,7 @@ export const useWorkflowCacheStore = create<WorkflowCacheStoreState>()(
               state: {
                 ...value.state,
                 cachedWorkflows: serializeMap(value.state.cachedWorkflows),
+                cachedServerWorkflows: value.state.cachedServerWorkflows || [],
               },
               version: value.version,
             };

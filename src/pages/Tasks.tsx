@@ -13,7 +13,15 @@ import type { SimpleTaskDefinitionConfig } from '@/components/modals/SimpleTaskD
 
 export function Tasks() {
   const { tasks, addTask, deleteTask } = useWorkflowStore();
-  const { markAsPublished, markAllAsPublished, syncToFileStore, loadFromFileStore, getTaskStatus } = useTaskStore();
+  const { 
+    markAsPublished, 
+    markAllAsPublished, 
+    syncToFileStore, 
+    loadFromFileStore, 
+    getTaskStatus,
+    setTaskDefinitions,
+    getTaskDefinitions,
+  } = useTaskStore();
   const { toast } = useToast();
   const { fetchAllTaskDefinitions, createTaskDefinition } = useConductorApi({ enableFallback: false });
 
@@ -29,6 +37,15 @@ export function Tasks() {
   useEffect(() => {
     loadFromFileStore();
   }, [loadFromFileStore]);
+
+  // Load cached task definitions on component mount
+  useEffect(() => {
+    const cachedDefs = getTaskDefinitions();
+    if (cachedDefs && cachedDefs.length > 0) {
+      console.log('Restoring task definitions from cache:', cachedDefs);
+      setAllTasks(cachedDefs as TaskDefinition[]);
+    }
+  }, [getTaskDefinitions]);
 
   // Load all task definitions
   const loadAllTasks = async () => {
@@ -60,8 +77,16 @@ export function Tasks() {
       if (!tasksArray || tasksArray.length === 0) {
         // No mock data - show empty state
         setAllTasks([]);
+        setTaskDefinitions([]);
       } else {
         setAllTasks(tasksArray);
+        // Cache the full task definitions (cast to compatible type)
+        const definitionsToCache = tasksArray.map(t => ({
+          ...t,
+          createTime: typeof t.createTime === 'number' ? t.createTime.toString() : t.createTime,
+          updateTime: typeof t.updateTime === 'number' ? t.updateTime.toString() : t.updateTime,
+        }));
+        setTaskDefinitions(definitionsToCache);
         // Mark API tasks as published
         markAllAsPublished(tasksArray.map((t: TaskDefinition) => t.name));
       }

@@ -2,19 +2,28 @@ import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { useWorkflowStore } from '@/stores/workflowStore';
 import { useWorkflowCacheStore } from '@/stores/workflowCacheStore';
-import { ActivityIcon, CheckCircle2Icon, XCircleIcon, ClockIcon, TrendingUpIcon } from 'lucide-react';
+import { useTaskStore } from '@/stores/taskStore';
+import { ActivityIcon, CheckCircle2Icon, XCircleIcon, ClockIcon, TrendingUpIcon, TrashIcon } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
 export function Dashboard() {
   const { workflows, executions } = useWorkflowStore();
-  const { clearCache } = useWorkflowCacheStore();
+  const { clearCache, getServerWorkflows, clearServerWorkflows } = useWorkflowCacheStore();
+  const { getTaskDefinitions, clearTaskDefinitions } = useTaskStore();
 
-  // Handler to clear workflow cache
-  const handleClearCache = () => {
+  // Get cached data
+  const cachedWorkflows = getServerWorkflows();
+  const cachedTasks = getTaskDefinitions();
+
+  // Handler to clear all caches
+  const handleClearAllCaches = () => {
     clearCache();
+    clearServerWorkflows();
+    clearTaskDefinitions();
     localStorage.removeItem('workflow-cache-store');
-    // Optionally, show a notification or alert
-    alert('Workflow cache cleared!');
+    localStorage.removeItem('task-store');
+    
+    console.log('[Dashboard] All caches cleared successfully');
   };
 
   const activeWorkflows = workflows.filter((w) => w.status === 'active').length;
@@ -37,18 +46,12 @@ export function Dashboard() {
 
   return (
     <div className="p-8 space-y-8 bg-[#0f1419]">
-      <div className="mb-4">
-        <button
-          className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 transition-colors"
-          onClick={handleClearCache}
-        >
-          Clear Workflow Cache
-        </button>
-      </div>
       <div>
         <h1 className="text-4xl font-bold text-foreground mb-2">Dashboard</h1>
         <p className="text-base text-muted-foreground">Overview of your workflow orchestration</p>
       </div>
+
+      {/* Main Metrics */}
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <Card className="p-6 bg-[#1a1f2e] border-[#2a3142] shadow-sm hover:shadow-md transition-shadow duration-200">
@@ -100,6 +103,138 @@ export function Dashboard() {
         </Card>
       </div>
 
+      {/* Cached Data Dashboard */}
+      <div className="mt-12">
+        <div className="mb-6">
+          <h2 className="text-2xl font-bold text-white mb-2">Cached Data</h2>
+          <p className="text-sm text-gray-400">Monitor and manage cached workflows and task definitions</p>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+          {/* Cached Workflows Card */}
+          <Card className="p-6 bg-[#1a1f2e] border-[#2a3142] shadow-sm hover:shadow-md transition-shadow duration-200">
+            <div className="flex items-start justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-400 mb-2">Cached Workflows</p>
+                <p className="text-3xl font-bold text-white">{cachedWorkflows.length}</p>
+                <p className="text-xs text-gray-500 mt-2">Server workflows in cache</p>
+              </div>
+              <div className="p-3 bg-blue-500/10 rounded-xl">
+                <ActivityIcon className="w-6 h-6 text-blue-500" />
+              </div>
+            </div>
+          </Card>
+
+          {/* Cached Tasks Card */}
+          <Card className="p-6 bg-[#1a1f2e] border-[#2a3142] shadow-sm hover:shadow-md transition-shadow duration-200">
+            <div className="flex items-start justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-400 mb-2">Cached Tasks</p>
+                <p className="text-3xl font-bold text-white">{cachedTasks.length}</p>
+                <p className="text-xs text-gray-500 mt-2">Task definitions in cache</p>
+              </div>
+              <div className="p-3 bg-purple-500/10 rounded-xl">
+                <ActivityIcon className="w-6 h-6 text-purple-500" />
+              </div>
+            </div>
+          </Card>
+
+          {/* Cache Status Card */}
+          <Card className="p-6 bg-[#1a1f2e] border-[#2a3142] shadow-sm hover:shadow-md transition-shadow duration-200">
+            <div className="flex items-start justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-400 mb-2">Cache Status</p>
+                <p className="text-3xl font-bold text-white">{cachedWorkflows.length + cachedTasks.length}</p>
+                <p className="text-xs text-gray-500 mt-2">Total cached items</p>
+              </div>
+              <div className="p-3 bg-green-500/10 rounded-xl">
+                <CheckCircle2Icon className="w-6 h-6 text-green-500" />
+              </div>
+            </div>
+          </Card>
+        </div>
+
+        {/* Cached Workflows Table */}
+        {cachedWorkflows.length > 0 && (
+          <Card className="p-6 bg-[#1a1f2e] border-[#2a3142] shadow-sm mb-6">
+            <h3 className="text-lg font-semibold text-white mb-4">Cached Workflows</h3>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-[#2a3142]">
+                    <th className="text-left py-3 px-4 text-gray-400 font-medium">Name</th>
+                    <th className="text-left py-3 px-4 text-gray-400 font-medium">Version</th>
+                    <th className="text-left py-3 px-4 text-gray-400 font-medium">Owner</th>
+                    <th className="text-left py-3 px-4 text-gray-400 font-medium">Created By</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {cachedWorkflows.slice(0, 5).map((workflow) => (
+                    <tr key={workflow.name} className="border-b border-[#2a3142] hover:bg-[#252d3d] transition-colors">
+                      <td className="py-3 px-4 text-white">{workflow.name}</td>
+                      <td className="py-3 px-4 text-gray-400">{workflow.version || '-'}</td>
+                      <td className="py-3 px-4 text-gray-400">{workflow.ownerApp || '-'}</td>
+                      <td className="py-3 px-4 text-gray-400">{workflow.createdBy || '-'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              {cachedWorkflows.length > 5 && (
+                <div className="text-center py-3 text-gray-400 text-xs">
+                  +{cachedWorkflows.length - 5} more workflows
+                </div>
+              )}
+            </div>
+          </Card>
+        )}
+
+        {/* Cached Tasks Table */}
+        {cachedTasks.length > 0 && (
+          <Card className="p-6 bg-[#1a1f2e] border-[#2a3142] shadow-sm mb-6">
+            <h3 className="text-lg font-semibold text-white mb-4">Cached Task Definitions</h3>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-[#2a3142]">
+                    <th className="text-left py-3 px-4 text-gray-400 font-medium">Name</th>
+                    <th className="text-left py-3 px-4 text-gray-400 font-medium">Owner App</th>
+                    <th className="text-left py-3 px-4 text-gray-400 font-medium">Created By</th>
+                    <th className="text-left py-3 px-4 text-gray-400 font-medium">Retry Count</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {cachedTasks.slice(0, 5).map((task) => (
+                    <tr key={task.name} className="border-b border-[#2a3142] hover:bg-[#252d3d] transition-colors">
+                      <td className="py-3 px-4 text-white">{task.name}</td>
+                      <td className="py-3 px-4 text-gray-400">{task.ownerApp || '-'}</td>
+                      <td className="py-3 px-4 text-gray-400">{task.createdBy || '-'}</td>
+                      <td className="py-3 px-4 text-gray-400">{task.retryCount ?? '-'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              {cachedTasks.length > 5 && (
+                <div className="text-center py-3 text-gray-400 text-xs">
+                  +{cachedTasks.length - 5} more tasks
+                </div>
+              )}
+            </div>
+          </Card>
+        )}
+
+        {/* Clear Cache Button */}
+        <div className="flex justify-end mb-6">
+          <button
+            className="px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors flex items-center gap-2 font-medium"
+            onClick={handleClearAllCaches}
+          >
+            <TrashIcon className="w-4 h-4" />
+            Clear All Cache
+          </button>
+        </div>
+      </div>
+
+      {/* Execution Trends Section */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <Card className="lg:col-span-2 p-6 bg-[#1a1f2e] border-[#2a3142] shadow-sm">
           <div className="flex items-center justify-between mb-6">
