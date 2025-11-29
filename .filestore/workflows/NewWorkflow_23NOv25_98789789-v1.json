@@ -1,5 +1,5 @@
 {
-  "timestamp": 1764392442188,
+  "timestamp": 1764392840557,
   "id": "NewWorkflow_23NOv25_98789789-v1",
   "name": "NewWorkflow_23NOv25_98789789",
   "description": "A new workflow definition",
@@ -8,8 +8,8 @@
       "id": "http_task_ref_1763904162568",
       "type": "custom",
       "position": {
-        "x": 0,
-        "y": 0
+        "x": 50,
+        "y": 50
       },
       "draggable": false,
       "data": {
@@ -59,14 +59,16 @@
           "dynamicForkTasksParam": null,
           "dynamicForkTasksInputParamName": null
         }
-      }
+      },
+      "width": 125,
+      "height": 50
     },
     {
       "id": "inline_ref_1763904370596",
       "type": "custom",
       "position": {
-        "x": 300,
-        "y": 0
+        "x": 250,
+        "y": 50
       },
       "draggable": false,
       "data": {
@@ -106,14 +108,16 @@
           "dynamicForkTasksParam": null,
           "dynamicForkTasksInputParamName": null
         }
-      }
+      },
+      "width": 125,
+      "height": 50
     },
     {
       "id": "task_ref_1763904700557",
       "type": "custom",
       "position": {
-        "x": 600,
-        "y": 0
+        "x": 450,
+        "y": 50
       },
       "draggable": false,
       "data": {
@@ -155,14 +159,16 @@
           "dynamicForkTasksParam": null,
           "dynamicForkTasksInputParamName": null
         }
-      }
+      },
+      "width": 125,
+      "height": 50
     },
     {
       "id": "event_ref_1763904826127",
       "type": "custom",
       "position": {
-        "x": 900,
-        "y": 0
+        "x": 650,
+        "y": 50
       },
       "draggable": false,
       "data": {
@@ -202,14 +208,16 @@
           "dynamicForkTasksParam": null,
           "dynamicForkTasksInputParamName": null
         }
-      }
+      },
+      "width": 125,
+      "height": 50
     },
     {
       "id": "human_ref_1763904830424",
       "type": "custom",
       "position": {
-        "x": 1200,
-        "y": 0
+        "x": 850,
+        "y": 50
       },
       "draggable": false,
       "data": {
@@ -249,14 +257,16 @@
           "dynamicForkTasksParam": null,
           "dynamicForkTasksInputParamName": null
         }
-      }
+      },
+      "width": 125,
+      "height": 50
     },
     {
       "id": "human_ref_1763904833310",
       "type": "custom",
       "position": {
-        "x": 1500,
-        "y": 0
+        "x": 850,
+        "y": 170
       },
       "draggable": false,
       "data": {
@@ -296,14 +306,16 @@
           "dynamicForkTasksParam": null,
           "dynamicForkTasksInputParamName": null
         }
-      }
+      },
+      "width": 125,
+      "height": 50
     },
     {
       "id": "http_task_ref_1763904836644",
       "type": "custom",
       "position": {
-        "x": 1800,
-        "y": 0
+        "x": 650,
+        "y": 170
       },
       "draggable": false,
       "data": {
@@ -353,14 +365,16 @@
           "dynamicForkTasksParam": null,
           "dynamicForkTasksInputParamName": null
         }
-      }
+      },
+      "width": 125,
+      "height": 50
     },
     {
       "id": "human_ref_1763904840459",
       "type": "custom",
       "position": {
-        "x": 2100,
-        "y": 0
+        "x": 450,
+        "y": 170
       },
       "draggable": false,
       "data": {
@@ -400,14 +414,16 @@
           "dynamicForkTasksParam": null,
           "dynamicForkTasksInputParamName": null
         }
-      }
+      },
+      "width": 125,
+      "height": 50
     },
     {
       "id": "kafka_ref",
       "type": "custom",
       "position": {
-        "x": 2400,
-        "y": 0
+        "x": 250,
+        "y": 170
       },
       "draggable": false,
       "data": {
@@ -452,100 +468,118 @@
           "dynamicForkTasksParam": null,
           "dynamicForkTasksInputParamName": null
         }
-      }
+      },
+      "width": 125,
+      "height": 50
     }
   ],
   "edges": [
     {
-      "id": "edge-0",
+      "id": "http_task_ref_1763904162568-inline_ref_1763904370596",
       "source": "http_task_ref_1763904162568",
+      "sourceHandle": "right",
       "target": "inline_ref_1763904370596",
-      "animated": true,
+      "targetHandle": "left",
       "type": "straight",
+      "animated": true,
       "style": {
         "stroke": "#00bcd4",
         "strokeWidth": 2
       }
     },
     {
-      "id": "edge-1",
+      "id": "inline_ref_1763904370596-task_ref_1763904700557",
       "source": "inline_ref_1763904370596",
+      "sourceHandle": "right",
       "target": "task_ref_1763904700557",
-      "animated": true,
+      "targetHandle": "left",
       "type": "straight",
+      "animated": true,
       "style": {
         "stroke": "#00bcd4",
         "strokeWidth": 2
       }
     },
     {
-      "id": "edge-2",
+      "id": "task_ref_1763904700557-event_ref_1763904826127",
       "source": "task_ref_1763904700557",
+      "sourceHandle": "right",
       "target": "event_ref_1763904826127",
-      "animated": true,
+      "targetHandle": "left",
       "type": "straight",
+      "animated": true,
       "style": {
         "stroke": "#00bcd4",
         "strokeWidth": 2
       }
     },
     {
-      "id": "edge-3",
+      "id": "event_ref_1763904826127-human_ref_1763904830424",
       "source": "event_ref_1763904826127",
+      "sourceHandle": "right",
       "target": "human_ref_1763904830424",
-      "animated": true,
+      "targetHandle": "left",
       "type": "straight",
+      "animated": true,
       "style": {
         "stroke": "#00bcd4",
         "strokeWidth": 2
       }
     },
     {
-      "id": "edge-4",
+      "id": "human_ref_1763904830424-human_ref_1763904833310",
       "source": "human_ref_1763904830424",
+      "sourceHandle": "bottom",
       "target": "human_ref_1763904833310",
-      "animated": true,
+      "targetHandle": "top",
       "type": "straight",
+      "animated": true,
       "style": {
         "stroke": "#00bcd4",
         "strokeWidth": 2
       }
     },
     {
-      "id": "edge-5",
+      "id": "human_ref_1763904833310-http_task_ref_1763904836644",
       "source": "human_ref_1763904833310",
+      "sourceHandle": "right",
       "target": "http_task_ref_1763904836644",
-      "animated": true,
+      "targetHandle": "left",
       "type": "straight",
+      "animated": true,
       "style": {
         "stroke": "#00bcd4",
         "strokeWidth": 2
       }
     },
     {
-      "id": "edge-6",
+      "id": "http_task_ref_1763904836644-human_ref_1763904840459",
       "source": "http_task_ref_1763904836644",
+      "sourceHandle": "right",
       "target": "human_ref_1763904840459",
-      "animated": true,
+      "targetHandle": "left",
       "type": "straight",
+      "animated": true,
       "style": {
         "stroke": "#00bcd4",
         "strokeWidth": 2
       }
     },
     {
-      "id": "edge-7",
+      "id": "human_ref_1763904840459-kafka_ref",
       "source": "human_ref_1763904840459",
+      "sourceHandle": "right",
       "target": "kafka_ref",
-      "animated": true,
+      "targetHandle": "left",
       "type": "straight",
+      "animated": true,
       "style": {
         "stroke": "#00bcd4",
         "strokeWidth": 2
       }
     }
   ],
-  "createdAt": "2025-11-29T04:59:37.559Z",
+  "createdAt": "2025-11-29T05:07:10.802Z",
   "status": "active",
   "syncStatus": "local-only",
   "tasks": [
@@ -844,7 +878,7 @@
     "timeoutSeconds": 3600,
     "restartable": true,
     "schemaVersion": 2,
-    "effectiveDate": "2025-11-29T04:59:37.559Z",
+    "effectiveDate": "2025-11-29T05:07:12.499Z",
     "endDate": "",
     "status": "ACTIVE",
     "inputParameters": [],

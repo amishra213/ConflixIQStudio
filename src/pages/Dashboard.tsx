@@ -149,6 +149,67 @@ export function Dashboard() {
         </Card>
       </div>
 
+      {/* Execution Trends Section */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <Card className="lg:col-span-2 p-6 bg-[#1a1f2e] border-[#2a3142] shadow-sm">
+          <div className="flex items-center justify-between mb-6">
+            <h3 className="text-xl font-semibold text-white">Execution Trends</h3>
+            <TrendingUpIcon className="w-5 h-5 text-cyan-500" />
+          </div>
+          <ResponsiveContainer width="100%" height={300}>
+            <BarChart data={chartData}>
+              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+              <XAxis dataKey="name" stroke="hsl(var(--muted-foreground))" />
+              <YAxis stroke="hsl(var(--muted-foreground))" />
+              <Tooltip
+                contentStyle={{
+                  backgroundColor: 'hsl(var(--card))',
+                  border: '1px solid hsl(var(--border))',
+                  borderRadius: '8px',
+                  color: 'hsl(var(--foreground))',
+                }}
+              />
+              <Bar dataKey="executions" fill="hsl(var(--primary))" radius={[8, 8, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </Card>
+
+        <Card className="p-6 bg-[#1a1f2e] border-[#2a3142] shadow-sm">
+          <h3 className="text-xl font-semibold text-white mb-6">Recent Executions</h3>
+          <div className="space-y-4">
+            {executions.slice(0, 5).map((execution) => {
+              let badgeClassName = 'bg-primary text-primary-foreground font-medium';
+              if (execution.status === 'completed') {
+                badgeClassName = 'bg-success text-white font-medium';
+              } else if (execution.status === 'failed') {
+                badgeClassName = 'bg-destructive text-white font-medium';
+              }
+
+              return (
+                <div key={execution.id} className="flex items-start gap-3">
+                  <div className="mt-1">
+                    {execution.status === 'completed' && <CheckCircle2Icon className="w-5 h-5 text-success" />}
+                    {execution.status === 'failed' && <XCircleIcon className="w-5 h-5 text-destructive" />}
+                    {execution.status === 'running' && (
+                      <ActivityIcon className="w-5 h-5 text-primary animate-pulse" />
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-white truncate">{execution.workflowName}</p>
+                    <p className="text-xs text-gray-400">
+                      {new Date(execution.startTime).toLocaleTimeString()}
+                    </p>
+                  </div>
+                  <Badge className={badgeClassName}>
+                    {execution.status}
+                  </Badge>
+                </div>
+              );
+            })}
+          </div>
+        </Card>
+      </div>
+
       {/* Cached Data Dashboard */}
       <div className="mt-12">
         <div className="mb-6">
@@ -292,67 +353,6 @@ export function Dashboard() {
             Clear All Cache
           </button>
         </div>
-      </div>
-
-      {/* Execution Trends Section */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <Card className="lg:col-span-2 p-6 bg-[#1a1f2e] border-[#2a3142] shadow-sm">
-          <div className="flex items-center justify-between mb-6">
-            <h3 className="text-xl font-semibold text-white">Execution Trends</h3>
-            <TrendingUpIcon className="w-5 h-5 text-cyan-500" />
-          </div>
-          <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={chartData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-              <XAxis dataKey="name" stroke="hsl(var(--muted-foreground))" />
-              <YAxis stroke="hsl(var(--muted-foreground))" />
-              <Tooltip
-                contentStyle={{
-                  backgroundColor: 'hsl(var(--card))',
-                  border: '1px solid hsl(var(--border))',
-                  borderRadius: '8px',
-                  color: 'hsl(var(--foreground))',
-                }}
-              />
-              <Bar dataKey="executions" fill="hsl(var(--primary))" radius={[8, 8, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
-        </Card>
-
-        <Card className="p-6 bg-[#1a1f2e] border-[#2a3142] shadow-sm">
-          <h3 className="text-xl font-semibold text-white mb-6">Recent Executions</h3>
-          <div className="space-y-4">
-            {executions.slice(0, 5).map((execution) => {
-              let badgeClassName = 'bg-primary text-primary-foreground font-medium';
-              if (execution.status === 'completed') {
-                badgeClassName = 'bg-success text-white font-medium';
-              } else if (execution.status === 'failed') {
-                badgeClassName = 'bg-destructive text-white font-medium';
-              }
-
-              return (
-                <div key={execution.id} className="flex items-start gap-3">
-                  <div className="mt-1">
-                    {execution.status === 'completed' && <CheckCircle2Icon className="w-5 h-5 text-success" />}
-                    {execution.status === 'failed' && <XCircleIcon className="w-5 h-5 text-destructive" />}
-                    {execution.status === 'running' && (
-                      <ActivityIcon className="w-5 h-5 text-primary animate-pulse" />
-                    )}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-white truncate">{execution.workflowName}</p>
-                    <p className="text-xs text-gray-400">
-                      {new Date(execution.startTime).toLocaleTimeString()}
-                    </p>
-                  </div>
-                  <Badge className={badgeClassName}>
-                    {execution.status}
-                  </Badge>
-                </div>
-              );
-            })}
-          </div>
-        </Card>
       </div>
     </div>
   );

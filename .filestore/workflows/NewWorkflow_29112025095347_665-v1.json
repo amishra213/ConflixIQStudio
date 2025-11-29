@@ -1,5 +1,5 @@
 {
-  "timestamp": 1764392442211,
+  "timestamp": 1764392840569,
   "id": "NewWorkflow_29112025095347_665-v1",
   "name": "NewWorkflow_29112025095347_665",
   "description": "A new workflow definition",
@@ -8,8 +8,8 @@
       "id": "http_task_ref_1764390234350",
       "type": "custom",
       "position": {
-        "x": 0,
-        "y": 0
+        "x": 50,
+        "y": 50
       },
       "draggable": false,
       "data": {
@@ -59,14 +59,16 @@
           "dynamicForkTasksParam": null,
           "dynamicForkTasksInputParamName": null
         }
-      }
+      },
+      "width": 125,
+      "height": 50
     },
     {
       "id": "human_ref_1764390237646",
       "type": "custom",
       "position": {
-        "x": 300,
-        "y": 0
+        "x": 250,
+        "y": 50
       },
       "draggable": false,
       "data": {
@@ -106,14 +108,16 @@
           "dynamicForkTasksParam": null,
           "dynamicForkTasksInputParamName": null
         }
-      }
+      },
+      "width": 125,
+      "height": 50
     },
     {
       "id": "inline_ref_1764390243765",
       "type": "custom",
       "position": {
-        "x": 600,
-        "y": 0
+        "x": 450,
+        "y": 50
       },
       "draggable": false,
       "data": {
@@ -153,14 +157,16 @@
           "dynamicForkTasksParam": null,
           "dynamicForkTasksInputParamName": null
         }
-      }
+      },
+      "width": 125,
+      "height": 50
     },
     {
       "id": "kafka_ref",
       "type": "custom",
       "position": {
-        "x": 900,
-        "y": 0
+        "x": 650,
+        "y": 50
       },
       "draggable": false,
       "data": {
@@ -205,14 +211,16 @@
           "dynamicForkTasksParam": null,
           "dynamicForkTasksInputParamName": null
         }
-      }
+      },
+      "width": 125,
+      "height": 50
     },
     {
       "id": "task_ref_1764391619615",
       "type": "custom",
       "position": {
-        "x": 1200,
-        "y": 0
+        "x": 850,
+        "y": 50
       },
       "draggable": false,
       "data": {
@@ -318,49 +326,59 @@
           "dynamicForkTasksParam": null,
           "dynamicForkTasksInputParamName": null
         }
-      }
+      },
+      "width": 125,
+      "height": 50
     }
   ],
   "edges": [
     {
-      "id": "edge-0",
+      "id": "http_task_ref_1764390234350-human_ref_1764390237646",
       "source": "http_task_ref_1764390234350",
+      "sourceHandle": "right",
       "target": "human_ref_1764390237646",
-      "animated": true,
+      "targetHandle": "left",
       "type": "straight",
+      "animated": true,
       "style": {
         "stroke": "#00bcd4",
         "strokeWidth": 2
       }
     },
     {
-      "id": "edge-1",
+      "id": "human_ref_1764390237646-inline_ref_1764390243765",
       "source": "human_ref_1764390237646",
+      "sourceHandle": "right",
       "target": "inline_ref_1764390243765",
-      "animated": true,
+      "targetHandle": "left",
       "type": "straight",
+      "animated": true,
       "style": {
         "stroke": "#00bcd4",
         "strokeWidth": 2
       }
     },
     {
-      "id": "edge-2",
+      "id": "inline_ref_1764390243765-kafka_ref",
       "source": "inline_ref_1764390243765",
+      "sourceHandle": "right",
       "target": "kafka_ref",
-      "animated": true,
+      "targetHandle": "left",
       "type": "straight",
+      "animated": true,
       "style": {
         "stroke": "#00bcd4",
         "strokeWidth": 2
       }
     },
     {
-      "id": "edge-3",
+      "id": "kafka_ref-task_ref_1764391619615",
       "source": "kafka_ref",
+      "sourceHandle": "right",
       "target": "task_ref_1764391619615",
-      "animated": true,
+      "targetHandle": "left",
       "type": "straight",
+      "animated": true,
       "style": {
         "stroke": "#00bcd4",
         "strokeWidth": 2
@@ -604,7 +622,7 @@
     "timeoutSeconds": 3600,
     "restartable": true,
     "schemaVersion": 2,
-    "effectiveDate": "2025-11-29T04:59:37.556Z",
+    "effectiveDate": "2025-11-29T05:01:43.268Z",
     "endDate": "",
     "status": "ACTIVE",
     "inputParameters": [],
