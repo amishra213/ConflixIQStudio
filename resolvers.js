@@ -34,67 +34,40 @@ const resolvers = {
   JSON: GraphQLJSON,
   Query: {
     async workflows(_, { limit, offset }) {
-      const client = createConductorClient();
-      const query = `
-        query GetWorkflows($limit: Int, $offset: Int) {
-          workflows(limit: $limit, offset: $offset) {
-            name
-            description
-            version
-            createTime
-            updateTime
-            createdBy
-            updatedBy
-            ownerEmail
-            ownerApp
-            timeoutSeconds
-            timeoutPolicy
-            tasks {
-              name
-              taskReferenceName
-              type
-              description
-              workflowTaskType
-              inputParameters
-              outputParameters
-              optional
-              asyncComplete
-              retryCount
-              startDelay
-              rateLimited
-              evaluatorType
-              expression
-              scriptExpression
-              decisionCases
-              defaultCase
-              forkTasks
-              joinOn
-              defaultExclusiveJoinTask
-              loopCondition
-              loopOver
-              dynamicForkTasksParam
-              dynamicForkTasksInputParamName
-              dynamicTaskNameParam
-              sink
-              subWorkflowParam
-            }
-            effectiveDate
-            endDate
-            status
-            restartable
-            schemaVersion
-            inputParameters
-            inputTemplate
-            outputParameters
-            accessPolicy
-            failureWorkflow
-            variables
-            workflowStatusListenerEnabled
-          }
+      // Fetch from Conductor REST API instead of GraphQL (Conductor may not have GraphQL endpoint)
+      try {
+        const client = axios.create({
+          baseURL: conductorConfig.serverUrl,
+          headers: {
+            'Content-Type': 'application/json',
+            ...(conductorConfig.apiKey && { 'X-API-Key': conductorConfig.apiKey }),
+          },
+          validateStatus: () => true,
+        });
+
+        // Fetch all workflows from REST endpoint
+        const response = await client.get('/api/metadata/workflow');
+        
+        if (response.status >= 400) {
+          console.error('[Resolvers] Error fetching workflows from REST:', response.status, response.data);
+          return [];
         }
-      `;
-      const response = await client.post('/', { query, variables: { limit, offset } });
-      return response.data?.data?.workflows || [];
+
+        let allWorkflows = Array.isArray(response.data) ? response.data : [];
+        
+        // Apply pagination if needed
+        if (offset !== undefined || limit !== undefined) {
+          const start = offset || 0;
+          const end = limit ? start + limit : undefined;
+          allWorkflows = allWorkflows.slice(start, end);
+        }
+
+        console.log(`[Resolvers] Fetched ${allWorkflows.length} workflows from Conductor REST API`);
+        return allWorkflows;
+      } catch (error) {
+        console.error('[Resolvers] Error in workflows resolver:', error.message);
+        return [];
+      }
     },
     async workflow(_, { name, version }) {
       const client = createConductorClient();
@@ -157,7 +130,43 @@ const resolvers = {
         }
       `;
       const response = await client.post('/', { query, variables: { name, version } });
-      return response.data?.data?.workflow || null;
+      
+      // Check if GraphQL returned errors OR null workflow data
+      const workflow = response.data?.data?.workflow;
+      if (response.data?.errors || !workflow) {
+        if (response.data?.errors) {
+          console.warn(`[Resolvers] GraphQL error fetching workflow: ${response.data.errors[0]?.message}`);
+        } else {
+          console.log(`[Resolvers] GraphQL returned null workflow for ${name} v${version}`);
+        }
+        console.log(`[Resolvers] Falling back to REST API for workflow ${name} v${version}`);
+        
+        // Fallback to REST API
+        try {
+          const axios = await import('axios').then(m => m.default);
+          const headers = {
+            'Content-Type': 'application/json',
+          };
+          
+          if (conductorConfig.apiKey) {
+            headers['X-Conductor-API-Key'] = conductorConfig.apiKey;
+          }
+          
+          let restUrl = `${conductorConfig.serverUrl}/api/metadata/workflow/${name}`;
+          if (version) {
+            restUrl += `?version=${version}`;
+          }
+          
+          const restResponse = await axios.get(restUrl, { headers });
+          console.log(`[Resolvers] Successfully fetched workflow via REST fallback: ${name} v${version}`);
+          return restResponse.data;
+        } catch (restError) {
+          console.error(`[Resolvers] REST fallback also failed: ${restError.message}`);
+          return null;
+        }
+      }
+      
+      return workflow;
     },
     async workflowExecutions(_, { workflowName, limit }) {
       const client = createConductorClient();

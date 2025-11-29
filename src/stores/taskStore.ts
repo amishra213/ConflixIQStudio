@@ -165,6 +165,8 @@ export const useTaskStore = create<TaskStoreState>()(
       },
 
       clearCache: () => {
+        // Clear the persist storage first
+        localStorage.removeItem('task-cache-store');
         set({ cachedTasks: new Map() });
       },
 
@@ -193,6 +195,8 @@ export const useTaskStore = create<TaskStoreState>()(
       },
 
       clearTaskDefinitions: () => {
+        // Clear the persist storage to ensure it doesn't re-hydrate
+        localStorage.removeItem('task-cache-store');
         set({ cachedTaskDefinitions: [] });
         console.log('[TaskStore] Cleared task definitions cache');
       },
@@ -257,13 +261,16 @@ export const useTaskStore = create<TaskStoreState>()(
         try {
           const success = await fileStoreClient.clearCache();
           if (success) {
-            set({ cachedTasks: new Map(), lastFileStoreSyncTime: Date.now(), isFileStoreSyncing: false });
+            // Clear both task cache AND task definitions
+            set({ cachedTasks: new Map(), cachedTaskDefinitions: [], lastFileStoreSyncTime: Date.now(), isFileStoreSyncing: false });
+            console.log('[TaskStore] Cleared filestore and local caches');
           } else {
             set({ fileStoreSyncError: 'Failed to clear filestore cache', isFileStoreSyncing: false });
           }
           return success;
         } catch (error) {
           const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+          console.error('[TaskStore] Error clearing filestore:', errorMsg);
           set({ fileStoreSyncError: errorMsg, isFileStoreSyncing: false });
           return false;
         }

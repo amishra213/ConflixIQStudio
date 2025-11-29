@@ -118,6 +118,7 @@ function App() {
           <Route path="/" element={<AppShell />}>
             <Route index element={<Dashboard />} />
             <Route path="workflow-designer" element={<WorkflowDesigner />} />
+            <Route path="workflow-designer/:id" element={<WorkflowDesigner />} />
             <Route path="workflows" element={<Workflows />} />
             <Route path="workflows/:id" element={<WorkflowDesigner />} />
             <Route path="workflows/:id/diagram" element={<UnifiedWorkflowDiagram />} />

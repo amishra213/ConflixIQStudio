@@ -67,12 +67,12 @@ const typeDefs = gql`
     expression: String
     scriptExpression: String
     decisionCases: JSON
-    defaultCase: [String]
-    forkTasks: [[String]]
+    defaultCase: JSON
+    forkTasks: JSON
     joinOn: [String]
     defaultExclusiveJoinTask: [String]
     loopCondition: String
-    loopOver: [String]
+    loopOver: JSON
     dynamicForkTasksParam: String
     dynamicForkTasksInputParamName: String
     dynamicTaskNameParam: String
@@ -203,12 +203,12 @@ const typeDefs = gql`
     expression: String
     scriptExpression: String
     decisionCases: JSON
-    defaultCase: [String]
+    defaultCase: JSON
     forkTasks: JSON
     joinOn: [String]
     defaultExclusiveJoinTask: [String]
     loopCondition: String
-    loopOver: [String]
+    loopOver: JSON
     dynamicForkTasksParam: String
     dynamicForkTasksInputParamName: String
     dynamicTaskNameParam: String

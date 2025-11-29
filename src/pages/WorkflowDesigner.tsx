@@ -73,7 +73,7 @@ function FitViewListener() {
   useEffect(() => {
     const handleFitView = () => {
       try {
-        fitView({ padding: 0.2, duration: 300 });
+        fitView({ padding: 0.2, duration: 300, maxZoom: 1, minZoom: 1 });
       } catch (error_) {
         // fitView may not be available in all contexts
         console.debug('fitView not available:', error_);
@@ -291,20 +291,43 @@ export function WorkflowDesigner() {
       const storedWorkflows = await fileStoreClient.loadWorkflows();
       
       if (storedWorkflows && storedWorkflows.length > 0) {
+        console.log(`[syncWorkflowsFromFileStore] Found ${storedWorkflows.length} workflows in fileStore`);
+        
+        // Get current workflows to check for existing PUBLISHED status
+        const currentWorkflows = useWorkflowStore.getState().workflows;
+        const publishedWorkflowIds = new Set(
+          currentWorkflows
+            .filter(w => w.publicationStatus === 'PUBLISHED')
+            .map(w => w.id)
+        );
+        
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const workflowsToLoad: Workflow[] = storedWorkflows.map((w: any) => ({
-          id: w.id,
-          name: w.name || 'Unnamed',
-          description: w.description,
-          nodes: (w.nodes as WorkflowNode[]) || [],
-          edges: (w.edges as WorkflowEdge[]) || [],
-          createdAt: w.createdAt || new Date().toISOString(),
-          status: (w.status as 'draft' | 'active' | 'paused') || 'draft',
-          syncStatus: (w.syncStatus as 'local-only' | 'synced' | 'syncing') || 'local-only',
-          publicationStatus: (w.publicationStatus as 'LOCAL' | 'PUBLISHED') || 'LOCAL',
-          settings: w.settings,
-        }));
-        useWorkflowStore.getState().loadWorkflows(workflowsToLoad);
+        const workflowsToLoad: Workflow[] = storedWorkflows.map((w: any) => {
+          const existingPublished = publishedWorkflowIds.has(w.id);
+          return {
+            id: w.id,
+            name: w.name || 'Unnamed',
+            description: w.description,
+            nodes: (w.nodes as WorkflowNode[]) || [],
+            edges: (w.edges as WorkflowEdge[]) || [],
+            createdAt: w.createdAt || new Date().toISOString(),
+            status: (w.status as 'draft' | 'active' | 'paused') || 'draft',
+            syncStatus: (w.syncStatus as 'local-only' | 'synced' | 'syncing') || 'local-only',
+            // IMPORTANT: If this workflow was previously marked as PUBLISHED, keep it as PUBLISHED
+            // This prevents fileStore from overwriting API workflows with wrong publication status
+            publicationStatus: existingPublished ? 'PUBLISHED' : ((w.publicationStatus as 'LOCAL' | 'PUBLISHED') || 'LOCAL'),
+            settings: w.settings,
+            tasks: w.tasks, // Preserve original Conductor task definitions
+          };
+        });
+        
+        // MERGE with existing workflows instead of replacing, to preserve workflows just added from API
+        const workflowIds = new Set(workflowsToLoad.map(w => w.id));
+        const existingWorkflowsNotInFileStore = currentWorkflows.filter(w => !workflowIds.has(w.id));
+        const mergedWorkflows = [...workflowsToLoad, ...existingWorkflowsNotInFileStore];
+        
+        console.log(`[syncWorkflowsFromFileStore] Merging: ${workflowsToLoad.length} from fileStore + ${existingWorkflowsNotInFileStore.length} existing = ${mergedWorkflows.length} total`);
+        useWorkflowStore.getState().loadWorkflows(mergedWorkflows);
         return;
       }
       
@@ -338,71 +361,243 @@ export function WorkflowDesigner() {
     }
   };
 
+  // Helper to check if workflow nodes are already arranged in snake pattern
+  const _checkIfArranged = (wf: Workflow): boolean => wf.nodes?.length && wf.nodes.length > 1
+    ? wf.nodes.some((node, idx) => idx > 0 && (node.position.x !== wf.nodes[0].position.x + (idx * 300) || node.position.y !== 0))
+    : false;
+
+  const checkIfArranged = _checkIfArranged;
+
+  // Helper: Map a node with event handlers
+  const mapNodeWithHandlers = useCallback((node: WorkflowNode) => ({
+    ...node,
+    draggable: false,
+    data: {
+      ...node.data,
+      onEdit: handleEditNode,
+      onDelete: handleDeleteNode,
+    }
+  }), [handleEditNode, handleDeleteNode]);
+
+  // Helper: Check if nodes are in linear layout
+  const isNodesInLinearLayout = (nodeList: Node[]): boolean => {
+    if (nodeList.length <= 1) return false;
+    return nodeList.every((node, idx) => {
+      if (idx === 0) return true;
+      const firstNodeX = nodeList[0].position.x;
+      const expectedLinearX = firstNodeX + (idx * 300);
+      return node.position.x === expectedLinearX && node.position.y === 0;
+    });
+  };
+
+  // Helper: Arrange nodes in snake pattern
+  const arrangeNodesInSnakePattern = (nodeList: Node[]): Node[] => {
+    const sortedNodes = [...nodeList].sort((a, b) => {
+      const seqA = a.data.sequenceNo || 0;
+      const seqB = b.data.sequenceNo || 0;
+      return seqA - seqB;
+    });
+
+    const nodesPerRow = 5;
+    const horizontalSpacing = 200;
+    const verticalSpacing = 120;
+    const startX = 50;
+    const startY = 50;
+
+    return sortedNodes.map((node, index) => {
+      const rowIndex = Math.floor(index / nodesPerRow);
+      const colIndex = index % nodesPerRow;
+      const isOddRow = rowIndex % 2 === 1;
+      const actualColIndex = isOddRow ? (nodesPerRow - 1 - colIndex) : colIndex;
+
+      return {
+        ...node,
+        position: {
+          x: startX + (actualColIndex * horizontalSpacing),
+          y: startY + (rowIndex * verticalSpacing),
+        },
+      } as Node;
+    });
+  };
+
+  // Helper: Generate edges for arranged nodes
+  const generateEdgesForArrangedNodes = (nodeList: Node[]): Edge[] => {
+    const nodesPerRow = 5;
+    const newEdges: Edge[] = [];
+
+    for (let i = 0; i < nodeList.length - 1; i++) {
+      const sourceIndex = i;
+      const targetIndex = i + 1;
+      const sourceRow = Math.floor(sourceIndex / nodesPerRow);
+      const targetRow = Math.floor(targetIndex / nodesPerRow);
+      const isRowTransition = sourceRow !== targetRow;
+
+      let sourceHandle = 'right';
+      let targetHandle = 'left';
+      if (isRowTransition) {
+        sourceHandle = 'bottom';
+        targetHandle = 'top';
+      }
+
+      newEdges.push({
+        id: `${nodeList[i].id}-${nodeList[i + 1].id}`,
+        source: nodeList[i].id,
+        sourceHandle: sourceHandle,
+        target: nodeList[i + 1].id,
+        targetHandle: targetHandle,
+        type: 'straight',
+        animated: true,
+        style: { stroke: '#00bcd4', strokeWidth: 2 },
+      });
+    }
+
+    return newEdges;
+  };
+
   const loadNodesAndEdgesFromWorkflow = useCallback((foundWorkflow: Workflow) => {
+    console.log(`[WorkflowDesigner.loadNodesAndEdgesFromWorkflow] Loading workflow:`, foundWorkflow.name, `with ${foundWorkflow.nodes?.length || 0} nodes, status: ${foundWorkflow.publicationStatus}`);
+    console.log(`[WorkflowDesigner.loadNodesAndEdgesFromWorkflow] Full workflow object:`, foundWorkflow);
     setWorkflowName(foundWorkflow.name);
     if (foundWorkflow.settings) {
       setWorkflowSettings(foundWorkflow.settings);
     }
     
-    const cached = loadCachedWorkflow(foundWorkflow.id);
-    const mapNode = (node: WorkflowNode) => ({
-      ...node,
-      draggable: false,
-      data: {
-        ...node.data,
-        onEdit: handleEditNode,
-        onDelete: handleDeleteNode,
-      }
-    });
+    // Only use cache for LOCAL workflows, not for PUBLISHED workflows from server
+    // Published workflows should always use fresh nodes/edges from the server
+    const cached = foundWorkflow.publicationStatus === 'LOCAL' ? loadCachedWorkflow(foundWorkflow.id) : null;
     
     if (cached) {
-      setNodes(cached.nodes.map(mapNode));
+      console.log(`[WorkflowDesigner.loadNodesAndEdgesFromWorkflow] Using cached workflow with ${cached.nodes.length} nodes`);
+      setNodes(cached.nodes.map(mapNodeWithHandlers));
       setEdges(cached.edges?.length > 0 ? (cached.edges as Edge[]) : []);
       return;
     }
     
-    const nodes = foundWorkflow.nodes?.length > 0 
-      ? foundWorkflow.nodes.map(mapNode)
+    let nodes: Node[] = foundWorkflow.nodes?.length > 0 
+      ? foundWorkflow.nodes.map(mapNodeWithHandlers)
       : [];
-    const edges = foundWorkflow.edges?.length > 0 ? (foundWorkflow.edges as Edge[]) : [];
+    let edges: Edge[] = foundWorkflow.edges?.length > 0 ? (foundWorkflow.edges as Edge[]) : [];
     
+    // For API-loaded workflows (PUBLISHED status) with linear node positions, apply auto-arrange
+    const isLinearLayout = isNodesInLinearLayout(nodes);
+    
+    if (foundWorkflow.publicationStatus === 'PUBLISHED' && nodes.length > 0 && isLinearLayout) {
+      console.log(`[WorkflowDesigner.loadNodesAndEdgesFromWorkflow] Auto-arranging PUBLISHED workflow with linear layout for better visibility`);
+      nodes = arrangeNodesInSnakePattern(nodes);
+      edges = generateEdgesForArrangedNodes(nodes);
+    }
+    
+    console.log(`[WorkflowDesigner.loadNodesAndEdgesFromWorkflow] About to setNodes with ${nodes.length} nodes`);
+    console.log(`[WorkflowDesigner.loadNodesAndEdgesFromWorkflow] Nodes being set:`, nodes);
+    console.log(`[WorkflowDesigner.loadNodesAndEdgesFromWorkflow] Edges being set:`, edges);
     setNodes(nodes);
     setEdges(edges);
-  }, [handleEditNode, handleDeleteNode, setNodes, setEdges]);
+    
+    // IMPORTANT: Only update the workflow in store if we performed auto-arrange
+    // This avoids unnecessary store updates for already-arranged workflows
+    if (foundWorkflow.publicationStatus === 'PUBLISHED' && nodes.length > 0 && isLinearLayout) {
+      console.log(`[WorkflowDesigner.loadNodesAndEdgesFromWorkflow] Updating workflow in store with newly arranged nodes`);
+      updateWorkflow(foundWorkflow.id, {
+        nodes: nodes as WorkflowNode[],
+        edges: edges as WorkflowEdge[],
+      });
+    }
+    
+    // Trigger fitView for proper canvas visualization of loaded workflows
+    if (nodes.length > 0) {
+      setTimeout(() => {
+        globalThis.dispatchEvent(new CustomEvent('fitView'));
+      }, 100);
+    }
+    
+    // Verify state was updated
+    setTimeout(() => {
+      console.log(`[WorkflowDesigner.loadNodesAndEdgesFromWorkflow] AFTER setNodes - checking nodesRef:`, nodesRef.current);
+    }, 100);
+  }, [mapNodeWithHandlers, setNodes, setEdges, updateWorkflow]);
 
   // Helper function to load published workflow from API
   const loadPublishedWorkflowFromApi = useCallback(async (workflowId: string): Promise<Workflow | null> => {
     try {
-      // Extract workflow name and version from the stored workflow if available
+      console.log(`[WorkflowDesigner.loadPublishedWorkflowFromApi] Loading workflow ID: ${workflowId}`);
+      // First, try to get workflow from local store
       const storedWorkflow = useWorkflowStore.getState().workflows.find((w) => w.id === workflowId);
+      console.log(`[WorkflowDesigner.loadPublishedWorkflowFromApi] Stored workflow found:`, storedWorkflow ? `YES (${storedWorkflow.nodes?.length || 0} nodes)` : 'NO');
       
-      if (!storedWorkflow?.name || !storedWorkflow?.settings?.version) {
-        console.warn('Cannot load published workflow: missing workflow name or version');
-        return storedWorkflow || null;
+      // Extract workflow name and version from ID (format: {name}-v{version})
+      let workflowName = '';
+      let workflowVersion = 1;
+      
+      if (storedWorkflow?.name && storedWorkflow?.settings?.version) {
+        workflowName = storedWorkflow.name;
+        workflowVersion = storedWorkflow.settings.version;
+        console.log(`[WorkflowDesigner.loadPublishedWorkflowFromApi] Using stored workflow: ${workflowName} version ${workflowVersion}`);
+      } else {
+        // Extract name and version from ID when workflow not in local store
+        // ID format is: {name}-v{version}
+        const lastDashV = workflowId.lastIndexOf('-v');
+        if (lastDashV === -1) {
+          console.warn(`[WorkflowDesigner.loadPublishedWorkflowFromApi] Cannot parse workflow ID: ${workflowId}`);
+          return storedWorkflow || null;
+        }
+        workflowName = workflowId.substring(0, lastDashV);
+        workflowVersion = Number.parseInt(workflowId.substring(lastDashV + 2), 10);
+        console.log(`[WorkflowDesigner.loadPublishedWorkflowFromApi] Parsed workflow from ID: ${workflowName} version ${workflowVersion}`);
       }
-
-      console.log(`Fetching published workflow: ${storedWorkflow.name} version ${storedWorkflow.settings.version}`);
       
       // Fetch the published workflow definition from Conductor API
-      const workflowDef = await fetchWorkflowByVersion(storedWorkflow.name, storedWorkflow.settings.version);
+      const workflowDef = await fetchWorkflowByVersion(workflowName, workflowVersion);
+      
+      console.log(`[WorkflowDesigner.loadPublishedWorkflowFromApi] API returned workflowDef:`, workflowDef);
+      console.log(`[WorkflowDesigner.loadPublishedWorkflowFromApi] workflowDef?.tasks:`, workflowDef?.tasks);
       
       if (!workflowDef) {
-        console.warn('Failed to fetch published workflow from API, falling back to cache');
-        return storedWorkflow;
+        console.warn(`[WorkflowDesigner.loadPublishedWorkflowFromApi] Failed to fetch published workflow from API`);
+        if (storedWorkflow) {
+          console.warn(`[WorkflowDesigner.loadPublishedWorkflowFromApi] Falling back to local cache`);
+          return storedWorkflow;
+        }
+        return null;
       }
+
+      console.log(`[WorkflowDesigner.loadPublishedWorkflowFromApi] API returned workflow with ${(workflowDef as ConductorWorkflow).tasks?.length || 0} tasks`);
 
       // Convert to local workflow format
       const localWorkflow = conductorWorkflowToLocal(workflowDef as ConductorWorkflow);
+      console.log(`[WorkflowDesigner.loadPublishedWorkflowFromApi] Converted workflow has ${localWorkflow.nodes?.length || 0} nodes`);
       
-      // Preserve the original ID and other metadata from stored workflow
+      // Preserve the original ID and mark as published
       localWorkflow.id = workflowId;
       localWorkflow.publicationStatus = 'PUBLISHED';
-      localWorkflow.createdAt = storedWorkflow.createdAt || localWorkflow.createdAt;
+      if (storedWorkflow?.createdAt) {
+        localWorkflow.createdAt = storedWorkflow.createdAt;
+      }
       
+      // IMPORTANT: Preserve stored workflow's arranged nodes if they exist
+      // This ensures auto-arranged layouts persist across API refetches
+      if (storedWorkflow?.nodes && storedWorkflow.nodes.length > 0) {
+        // Check if stored nodes are arranged (not in linear positions)
+        const isArranged = storedWorkflow.nodes.some((node, idx) => {
+          if (idx === 0) return false;
+          const firstNodeX = storedWorkflow.nodes[0].position.x;
+          const expectedLinearX = firstNodeX + (idx * 300);
+          return node.position.x !== expectedLinearX || node.position.y !== 0;
+        });
+        
+        if (isArranged) {
+          console.log(`[WorkflowDesigner.loadPublishedWorkflowFromApi] Preserving stored arranged nodes instead of using fresh linear positions`);
+          // Use the stored nodes (which are arranged) but update with fresh task data
+          localWorkflow.nodes = storedWorkflow.nodes;
+          localWorkflow.edges = storedWorkflow.edges;
+        }
+      }
+      
+      console.log(`[WorkflowDesigner.loadPublishedWorkflowFromApi] Returning workflow with ${localWorkflow.nodes?.length || 0} nodes`);
       return localWorkflow;
     } catch (error) {
       console.error('Error loading published workflow from API:', error);
-      return useWorkflowStore.getState().workflows.find((w) => w.id === workflowId) || null;
+      const stored = useWorkflowStore.getState().workflows.find((w) => w.id === workflowId);
+      return stored || null;
     }
   }, [fetchWorkflowByVersion]);
 
@@ -410,31 +605,52 @@ export function WorkflowDesigner() {
   useEffect(() => {
     const loadWorkflow = async () => {
       if (!id) {
+        console.log(`[WorkflowDesigner.loadWorkflow] No ID provided`);
         await handleNoWorkflowId();
         return;
       }
 
+      console.log(`[WorkflowDesigner.loadWorkflow] Starting load for ID: ${id}, activeTab: ${activeTab}`);
+      console.log(`[WorkflowDesigner.loadWorkflow] All workflows in store:`, useWorkflowStore.getState().workflows.map(w => ({ id: w.id, name: w.name, nodes: w.nodes?.length })));
+      
       sessionStorage.setItem('lastActiveWorkflow', id);
       
       await syncWorkflowsFromFileStore();
+      console.log(`[WorkflowDesigner.loadWorkflow] After sync, workflows in store:`, useWorkflowStore.getState().workflows.map(w => ({ id: w.id, name: w.name, nodes: w.nodes?.length })));
       
       let foundWorkflow = useWorkflowStore.getState().workflows.find((w) => w.id === id);
+      console.log(`[WorkflowDesigner.loadWorkflow] Found in store:`, foundWorkflow ? { id: foundWorkflow.id, name: foundWorkflow.name, nodes: foundWorkflow.nodes?.length } : 'NO');
       
       if (foundWorkflow) {
-        // Check if the workflow is published - if so, fetch from API
-        if (foundWorkflow.publicationStatus === 'PUBLISHED') {
-          console.log('Workflow is marked as PUBLISHED, fetching from API...');
+        // Check if the stored workflow has already been auto-arranged (nodes have snake pattern positions)
+        // If it has, use the stored version to preserve the arrangement
+        const hasArrangedNodes = checkIfArranged(foundWorkflow);
+        
+        // If nodes are pre-arranged, use the stored version; otherwise fetch fresh from API
+        if (hasArrangedNodes) {
+          console.log(`[WorkflowDesigner.loadWorkflow] Workflow found with pre-arranged nodes, using stored version`);
+        } else {
+          console.log(`[WorkflowDesigner.loadWorkflow] Workflow found locally but nodes are in linear position, fetching latest from server...`);
           const apiWorkflow = await loadPublishedWorkflowFromApi(foundWorkflow.id);
           if (apiWorkflow) {
             foundWorkflow = apiWorkflow;
+            console.log(`[WorkflowDesigner.loadWorkflow] Successfully fetched latest from server`);
           }
         }
         
         loadNodesAndEdgesFromWorkflow(foundWorkflow);
       } else {
-        console.warn('Workflow not found after fileStore sync:', id);
-        setNodes([]);
-        setEdges([]);
+        // Workflow not in local store - try to load from API by ID
+        console.warn(`[WorkflowDesigner.loadWorkflow] Workflow not found in local store, attempting to load from server by ID: ${id}`);
+        const apiWorkflow = await loadPublishedWorkflowFromApi(id);
+        if (apiWorkflow) {
+          console.log(`[WorkflowDesigner.loadWorkflow] Successfully loaded from server`);
+          loadNodesAndEdgesFromWorkflow(apiWorkflow);
+        } else {
+          console.error(`[WorkflowDesigner.loadWorkflow] Failed to load workflow from server: ${id}`);
+          setNodes([]);
+          setEdges([]);
+        }
       }
     };
 
@@ -641,22 +857,26 @@ export function WorkflowDesigner() {
       updatedBy: workflowSettings.updatedBy,
       ownerEmail: workflowSettings.ownerEmail,
       ownerApp: workflowSettings.ownerApp,
-      tasks: [...nodes]
-        .sort((a, b) => (a.data.sequenceNo || 0) - (b.data.sequenceNo || 0))
-        .map(node => {
-          if (node.data.config) {
-            // Remove sequenceNo from config as it's UI-only, not a Conductor field
-            const { sequenceNo: _sequenceNo, ...cleanConfig } = node.data.config;
-            return cleanConfig;
-          }
-          return {
-            name: node.data.taskName,
-            taskReferenceName: node.id,
-            type: node.data.taskType,
-            inputParameters: {},
-            optional: false,
-          };
-        }),
+      // IMPORTANT: Use original workflow.tasks if available (preserves all fields from API/fileStore)
+      // Otherwise, reconstruct from nodes (for workflows created in designer)
+      tasks: workflow?.tasks && Array.isArray(workflow.tasks) && workflow.tasks.length > 0
+        ? workflow.tasks
+        : [...nodes]
+            .sort((a, b) => (a.data.sequenceNo || 0) - (b.data.sequenceNo || 0))
+            .map(node => {
+              if (node.data.config) {
+                // Remove sequenceNo from config as it's UI-only, not a Conductor field
+                const { sequenceNo: _sequenceNo, ...cleanConfig } = node.data.config;
+                return cleanConfig;
+              }
+              return {
+                name: node.data.taskName,
+                taskReferenceName: node.id,
+                type: node.data.taskType,
+                inputParameters: {},
+                optional: false,
+              };
+            }),
       inputParameters: workflowSettings.inputParameters,
       inputTemplate: workflowSettings.inputTemplate,
       outputParameters: workflowSettings.outputParameters,
@@ -670,7 +890,7 @@ export function WorkflowDesigner() {
       workflowStatusListenerEnabled: workflowSettings.workflowStatusListenerEnabled || false,
     };
     setJsonText(JSON.stringify(workflowJson, null, 2));
-  }, [nodes, workflowSettings, workflowName]);
+  }, [nodes, workflowSettings, workflowName, workflow?.tasks]);
 
   const handleJsonChange = (value: string) => {
     setJsonText(value);
@@ -1196,109 +1416,99 @@ export function WorkflowDesigner() {
     }
   };
 
-  // Improved save logic with offline caching support
-  // Workflow changes are cached even if Conductor publish fails
-  const handleSave = async (): Promise<void> => {
-    try {
-      // First save to local store and cache
-      if (!workflow) {
-        // Create new workflow if accessed from standalone designer
-        const newWorkflow = {
-          id: `workflow-${Date.now()}`,
-          name: workflowName,
-          description: workflowSettings.description,
-          nodes: nodes,
-          edges: edges as WorkflowEdge[],
-          createdAt: new Date().toISOString(),
-          status: workflowSettings.status.toLowerCase() as 'draft' | 'active' | 'paused',
-          settings: workflowSettings,
-        };
-        useWorkflowStore.getState().addWorkflow(newWorkflow);
-        
-        // Save to Zustand cache (for offline support)
-        saveWorkflowToCache({
-          id: newWorkflow.id,
-          name: newWorkflow.name,
-          description: newWorkflow.description,
-          syncStatus: 'local-only',
-          isLocalOnly: true,
-          definition: {
-            name: newWorkflow.name,
-            description: newWorkflow.description,
-            version: newWorkflow.settings.version,
-            settings: newWorkflow.settings,
-            nodes: newWorkflow.nodes,
-            edges: newWorkflow.edges,
-          },
-        });
-        
-        // Persist to local storage
-        // DISABLED: persistWorkflows() was causing infinite loop
-        // await persistWorkflows();
-        
-        // Sync cache to filestore
-        await syncToFileStore().catch(err => {
-          console.warn('Failed to sync to filestore:', err);
-        });
-        
-        // Mark as syncing while attempting to save to Conductor
-        markAsSyncing(newWorkflow.id);
-        
-        // Now save to Conductor via proxy
-        const { localWorkflowToConductor } = await import('@/utils/workflowConverter');
-        const conductorWorkflow = localWorkflowToConductor(newWorkflow);
-        
-        // Save via GraphQL proxy
-        const success = await saveWorkflow(conductorWorkflow);
-        if (!success) {
-          // Conductor save failed, but workflow is cached
-          markAsDraft(newWorkflow.id);
-          toast({
-            title: 'Saved to cache',
-            description: `Workflow "${workflowName}" saved locally. Connection to Conductor server failed. You can publish it later.`,
-            variant: 'default',
-          });
-          navigate(`/workflows/${newWorkflow.id}`);
-          return;
-        }
-        
-        // Successfully saved to Conductor
-        markAsPublished(newWorkflow.id);
-        updateWorkflow(newWorkflow.id, { publicationStatus: 'PUBLISHED' });
-        toast({
-          title: 'Workflow saved',
-          description: `Workflow "${workflowName}" has been created and published to Conductor`,
-        });
-        
-        navigate(`/workflows/${newWorkflow.id}`);
-        return;
-      }
+  // Helper: Create new workflow object from current state
+  const createNewWorkflow = () => ({
+    id: `workflow-${Date.now()}`,
+    name: workflowName,
+    description: workflowSettings.description,
+    nodes: nodes,
+    edges: edges as WorkflowEdge[],
+    createdAt: new Date().toISOString(),
+    status: workflowSettings.status.toLowerCase() as 'draft' | 'active' | 'paused',
+    settings: workflowSettings,
+  });
 
-      // Update existing workflow
-      const updatedWorkflow = {
-        ...workflow,
-        name: workflowName,
-        description: workflowSettings.description,
-        settings: workflowSettings,
-        nodes: nodes,
-        edges: edges,
-      };
-      
-      updateWorkflow(workflow.id, {
+  // Helper: Save workflow to local store and cache
+  const saveToLocalStoreAndCache = (wf: typeof workflow, isNew: boolean) => {
+    if (isNew) {
+      useWorkflowStore.getState().addWorkflow(wf!);
+    } else {
+      updateWorkflow(wf!.id, {
         name: workflowName,
         description: workflowSettings.description,
         settings: workflowSettings,
         nodes: nodes,
         edges: edges as WorkflowEdge[],
       });
-      
-      // Save to Zustand cache
+    }
+
+    saveWorkflowToCache({
+      id: wf!.id,
+      name: workflowName,
+      description: workflowSettings.description,
+      syncStatus: 'local-only',
+      isLocalOnly: isNew,
+      definition: {
+        name: workflowName,
+        description: workflowSettings.description,
+        version: workflowSettings.version,
+        settings: workflowSettings,
+        nodes: nodes,
+        edges: edges,
+      },
+    });
+  };
+
+  // Helper: Sync workflow to filestore and Conductor API
+  const syncWorkflowToConductor = async (wf: typeof workflow): Promise<boolean> => {
+    await syncToFileStore().catch(err => {
+      console.warn('Failed to sync to filestore:', err);
+    });
+
+    markAsSyncing(wf!.id);
+    const { localWorkflowToConductor } = await import('@/utils/workflowConverter');
+    const conductorWorkflow = localWorkflowToConductor(wf!);
+
+    return saveWorkflow(conductorWorkflow);
+  };
+
+  // Helper: Handle successful Conductor publication
+  const handlePublishSuccess = (wf: typeof workflow, isNew: boolean) => {
+    markAsPublished(wf!.id);
+    updateWorkflow(wf!.id, { publicationStatus: 'PUBLISHED' });
+    toast({
+      title: 'Workflow saved',
+      description: `Workflow "${workflowName}" has been ${isNew ? 'created' : 'updated'} and published to Conductor`,
+    });
+
+    if (isNew) {
+      navigate(`/workflows/${wf!.id}`);
+    }
+  };
+
+  // Helper: Handle Conductor publication failure
+  const handlePublishFailure = (wf: typeof workflow, isNew: boolean) => {
+    markAsDraft(wf!.id);
+    toast({
+      title: 'Saved to cache',
+      description: `Workflow "${workflowName}" saved locally. Connection to Conductor server failed. You can publish it later.`,
+      variant: 'default',
+    });
+
+    if (isNew) {
+      navigate(`/workflows/${wf!.id}`);
+    }
+  };
+
+  // Helper: Handle save errors
+  const handleSaveError = (wf: typeof workflow | null) => {
+    if (wf) {
       saveWorkflowToCache({
-        id: workflow.id,
+        id: wf.id,
         name: workflowName,
         description: workflowSettings.description,
         syncStatus: 'local-only',
-        isLocalOnly: false,
+        isLocalOnly: true,
         definition: {
           name: workflowName,
           description: workflowSettings.description,
@@ -1308,71 +1518,34 @@ export function WorkflowDesigner() {
           edges: edges,
         },
       });
-      
-      // Persist to local storage
-      // DISABLED: persistWorkflows() was causing infinite loop
-      // await persistWorkflows();
-      
-      // Sync cache to filestore
-      await syncToFileStore().catch(err => {
-        console.warn('Failed to sync to filestore:', err);
-      });
-      
-      // Mark as syncing while attempting to save to Conductor
-      markAsSyncing(workflow.id);
-      
-      // Now save to Conductor via proxy
-      const { localWorkflowToConductor } = await import('@/utils/workflowConverter');
-      const conductorWorkflow = localWorkflowToConductor(updatedWorkflow);
-      
-      // Save via GraphQL proxy
-      const success = await saveWorkflow(conductorWorkflow);
-      if (!success) {
-        // Conductor save failed, but workflow is cached
-        markAsDraft(workflow.id);
-        toast({
-          title: 'Saved to cache',
-          description: `Workflow "${workflowName}" updated locally. Connection to Conductor server failed. You can publish it later.`,
-          variant: 'default',
-        });
-        return;
+      markAsDraft(wf.id);
+    }
+
+    toast({
+      title: 'Saved to cache',
+      description: 'Workflow saved locally due to an error. You can try publishing later.',
+      variant: 'default',
+    });
+  };
+
+  // Improved save logic with offline caching support
+  // Workflow changes are cached even if Conductor publish fails
+  const handleSave = async (): Promise<void> => {
+    try {
+      const isNew = !workflow;
+      const wf = isNew ? createNewWorkflow() : workflow;
+
+      saveToLocalStoreAndCache(wf, isNew);
+      const success = await syncWorkflowToConductor(wf);
+
+      if (success) {
+        handlePublishSuccess(wf, isNew);
+      } else {
+        handlePublishFailure(wf, isNew);
       }
-      
-      // Successfully saved to Conductor
-      markAsPublished(workflow.id);
-      updateWorkflow(workflow.id, { publicationStatus: 'PUBLISHED' });
-      toast({
-        title: 'Workflow saved',
-        description: `Workflow "${workflowName}" has been updated and published to Conductor successfully`,
-      });
     } catch (error) {
       console.error('Error saving workflow:', error);
-      
-      // Ensure workflow is cached even on error
-      if (workflow) {
-        saveWorkflowToCache({
-          id: workflow.id,
-          name: workflowName,
-          description: workflowSettings.description,
-          syncStatus: 'local-only',
-          isLocalOnly: true,
-          definition: {
-            name: workflowName,
-            description: workflowSettings.description,
-            version: workflowSettings.version,
-            settings: workflowSettings,
-            nodes: nodes,
-            edges: edges,
-          },
-        });
-        markAsDraft(workflow.id);
-      }
-      
-      toast({
-        title: 'Saved to cache',
-        description: 'Workflow saved locally due to an error. You can try publishing later.',
-        variant: 'default',
-      });
+      handleSaveError(workflow);
     }
   };
 
@@ -1644,6 +1817,7 @@ export function WorkflowDesigner() {
                   onDragOver={onDragOver}
                   aria-label="Workflow canvas"
                 >
+                    {(() => { console.log(`[WorkflowDesigner RENDER] nodes.length: ${nodes.length}`); return null; })()}
                     {nodes.length === 0 ? (
                       <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                         <div className="text-center max-w-md">
@@ -1662,7 +1836,13 @@ export function WorkflowDesigner() {
                       <ReactFlow
                         nodes={nodes}
                         edges={edges}
-                        onNodesChange={onNodesChange}
+                        onNodesChange={(changes) => {
+                          // Filter out position changes to prevent users from moving nodes
+                          const filteredChanges = changes.filter((change) => change.type !== 'position');
+                          if (filteredChanges.length > 0) {
+                            onNodesChange(filteredChanges);
+                          }
+                        }}
                         onEdgesChange={onEdgesChange}
                         onConnect={onConnect}
                         nodeTypes={nodeTypes}

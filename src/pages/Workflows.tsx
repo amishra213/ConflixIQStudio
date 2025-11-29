@@ -78,7 +78,7 @@ function savePaginationSettings(settings: PaginationSettings) {
 
 export function Workflows() {
   const navigate = useNavigate();
-  const { workflows: allWorkflows, deleteWorkflow, executeWorkflow, addWorkflow, persistWorkflows } = useWorkflowStore();
+  const { workflows: allWorkflows, deleteWorkflow, executeWorkflow, addWorkflow, persistWorkflows, updateWorkflow } = useWorkflowStore();
   const { getAllWorkflows, markAsPublished, markAsSyncing, syncToFileStore, setServerWorkflows: setCachedServerWorkflows, getServerWorkflows } = useWorkflowCacheStore();
   const { toast } = useToast();
   const { syncWorkflows, loading: syncLoading, fetchWorkflowByVersion, saveWorkflow, deleteWorkflow: deleteWorkflowFromServer } = useConductorApi();
@@ -221,6 +221,60 @@ export function Workflows() {
     }
   };
 
+  // Helper to extract workflow name safely
+  const getWorkflowName = (workflow: unknown): string => {
+    if (typeof workflow === 'object' && workflow !== null) {
+      const name = (workflow as Record<string, unknown>).name;
+      if (typeof name === 'string') return name;
+    }
+    return 'Unknown';
+  };
+
+  // Helper to convert and import workflows with error handling
+  const importWorkflowsFromServer = async (
+    conductorWorkflows: unknown[],
+    onImported: (count: number) => void
+  ): Promise<string[]> => {
+    const conversionErrors: string[] = [];
+    let importedCount = 0;
+
+    for (const conductorWorkflow of conductorWorkflows) {
+      try {
+        const localWorkflow = conductorWorkflowToLocal(conductorWorkflow as ConductorWorkflow);
+        addWorkflow(localWorkflow);
+        importedCount += 1;
+      } catch (conversionError) {
+        const workflowName = getWorkflowName(conductorWorkflow);
+        const errorMsg = conversionError instanceof Error ? conversionError.message : 'Unknown error';
+        console.error(`[Workflows] Error converting workflow ${workflowName}:`, conversionError);
+        conversionErrors.push(`${workflowName}: ${errorMsg}`);
+      }
+    }
+
+    onImported(importedCount);
+    return conversionErrors;
+  };
+
+  // Helper to handle workflow fetch results
+  const handleWorkflowFetchResult = (
+    count: number,
+    errors: string[]
+  ) => {
+    if (errors.length > 0) {
+      console.warn(`[Workflows] Conversion errors for ${errors.length} workflows:`, errors);
+      toast({
+        title: 'Workflows loaded with warnings',
+        description: `${count} workflow(s) loaded successfully. ${errors.length} had conversion issues but were skipped.`,
+        variant: 'default',
+      });
+    } else {
+      toast({
+        title: 'Workflows loaded successfully',
+        description: `${count} workflow(s) have been loaded from the Conductor server and added to this page.`,
+      });
+    }
+  };
+
   const handleGetWorkflowList = async () => {
     setListLoading(true);
     try {
@@ -236,30 +290,17 @@ export function Workflows() {
         return;
       }
 
-      // Clear old cache completely to ensure old incomplete data is overwritten
-      // This ensures we use the freshly retrieved complete workflow data
       console.log('[Workflows] Clearing old cache before storing new complete workflows');
-      
-      // Cache the workflows for persistence across page navigation
-      // This replaces any old incomplete workflows with new complete data
       setCachedServerWorkflows(conductorWorkflows as Parameters<typeof setCachedServerWorkflows>[0]);
 
-      // Import all workflows directly into the page
-      // addWorkflow will replace existing workflows with same name or add if new
-      let importedCount = 0;
-      for (const conductorWorkflow of conductorWorkflows) {
-        const localWorkflow = conductorWorkflowToLocal(conductorWorkflow as ConductorWorkflow);
-        addWorkflow(localWorkflow);
-        importedCount += 1;
-      }
+      // Import workflows and collect any conversion errors
+      const conversionErrors = await importWorkflowsFromServer(
+        conductorWorkflows,
+        (count) => console.log(`[Workflows] Imported ${count} workflows`)
+      );
 
-      // Persist after importing workflows
       await persistWorkflows();
-
-      toast({
-        title: 'Workflows loaded successfully',
-        description: `${importedCount} workflow(s) have been loaded from the Conductor server and added to this page.`,
-      });
+      handleWorkflowFetchResult(conductorWorkflows.length - conversionErrors.length, conversionErrors);
     } catch (error) {
       toast({
         title: 'Failed to fetch workflow list',
@@ -303,13 +344,16 @@ export function Workflows() {
         return;
       }
 
-      console.log(`Fetching workflow: ${workflowNameInput.trim()} version ${version}`);
+      console.log(`[Workflows] Loading workflow: ${workflowNameInput.trim()} v${version}`);
       
       // Use the GraphQL proxy-aware hook
       const workflowDef = await fetchWorkflowByVersion(workflowNameInput.trim(), version);
       
+      console.log(`[Workflows] API returned:`, workflowDef);
+      console.log(`[Workflows] Tasks from API:`, workflowDef?.tasks?.length || 0);
+      
       if (!workflowDef?.name) {
-        console.error('Invalid workflow definition:', workflowDef);
+        console.error(`[Workflows] Failed to load workflow - null result`);
         toast({
           title: 'Workflow not found',
           description: `No workflow found with name "${workflowNameInput}" and version ${version}`,
@@ -319,14 +363,19 @@ export function Workflows() {
         return;
       }
 
-      console.log('Workflow definition loaded:', workflowDef);
+      console.log(`[Workflows] Workflow loaded successfully: ${workflowDef.name} v${workflowDef.version}`);
 
       // Convert to local workflow format
-      const localWorkflow = conductorWorkflowToLocal(workflowDef);
-      console.log('Converted to local workflow:', localWorkflow);
+      // Type assertion needed because WorkflowDefinition.tasks is strictly typed
+      // while ConductorWorkflow.tasks accepts flexible task objects
+      const localWorkflow = conductorWorkflowToLocal(workflowDef as unknown as ConductorWorkflow);
+      console.log(`[Workflows] Converted workflow:`, localWorkflow);
+      console.log(`[Workflows] Local workflow nodes:`, localWorkflow.nodes?.length || 0);
+      console.log(`[Workflows] Local workflow ID:`, localWorkflow.id);
 
       // Add to store
       addWorkflow(localWorkflow);
+      console.log(`[Workflows] Added to store. Current store workflows:`, useWorkflowStore.getState().workflows);
       
       // Persist to storage
       await persistWorkflows();
@@ -337,7 +386,10 @@ export function Workflows() {
       });
 
       // Navigate to workflow designer
+      console.log(`[Workflows] Navigating to workflow designer with ID: ${localWorkflow.id}`);
+      console.log(`[Workflows] Store state before navigation:`, useWorkflowStore.getState());
       setTimeout(() => {
+        console.log(`[Workflows] About to navigate, store state:`, useWorkflowStore.getState());
         navigate(`/workflow-designer/${localWorkflow.id}`);
       }, 500);
 
@@ -449,8 +501,15 @@ export function Workflows() {
       const success = await saveWorkflow(conductorWorkflow);
 
       if (success) {
+        // Update the workflow store with published status
+        updateWorkflow(workflowId, { publicationStatus: 'PUBLISHED' });
+        
+        // Mark as published in cache store
         markAsPublished(workflowId);
+        
+        // Sync to filestore
         await syncToFileStore();
+        
         toast({
           title: 'Workflow published',
           description: `Workflow "${workflow.name}" has been successfully published to Conductor`,

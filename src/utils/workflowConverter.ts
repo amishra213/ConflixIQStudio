@@ -186,16 +186,16 @@ function buildCleanConfig(
 
 /**
  * Clean and prepare defaultCase tasks
+ * Note: Despite GraphQL schema showing [String], Conductor backend expects task objects
  */
-function cleanDefaultCase(defaultCase: unknown, excludedFields: Set<string>): unknown {
+function cleanDefaultCase(defaultCase: unknown, excludedFields: Set<string>): unknown[] | undefined {
   if (!defaultCase) return undefined;
-  if (Array.isArray(defaultCase)) {
-    return defaultCase.map(task => cleanTaskObject(task, excludedFields));
-  }
-  if (typeof defaultCase === 'object') {
-    return [cleanTaskObject(defaultCase, excludedFields)];
-  }
-  return undefined;
+  
+  const tasks: unknown[] = Array.isArray(defaultCase) ? defaultCase : [defaultCase];
+  const cleanedTasks = tasks.map(task => cleanTaskObject(task, excludedFields));
+  
+  // Return cleaned task objects (not strings) - Conductor backend expects objects
+  return cleanedTasks;
 }
 
 /**
@@ -219,24 +219,30 @@ function cleanDecisionCases(decisionCases: unknown, excludedFields: Set<string>)
  * Process and clean operator-specific task structures
  */
 function processOperatorFields(cleanConfig: Record<string, unknown>, excludedFields: Set<string>): Record<string, unknown> {
-  // loopOver should contain full task objects, not just references
+  // loopOver should contain full task objects in an array, not just references
   if (cleanConfig.loopOver && !Array.isArray(cleanConfig.loopOver)) {
     cleanConfig.loopOver = [];
+  } else if (cleanConfig.loopOver && Array.isArray(cleanConfig.loopOver)) {
+    // Clean each task in loopOver array
+    cleanConfig.loopOver = (cleanConfig.loopOver as unknown[]).map(task => cleanTaskObject(task, excludedFields));
   }
 
-  // forkTasks should contain full task objects in each branch
+  // forkTasks should contain full task objects in each branch (array of arrays)
   if (cleanConfig.forkTasks && Array.isArray(cleanConfig.forkTasks)) {
     cleanConfig.forkTasks = (cleanConfig.forkTasks as unknown[]).map((branch) => {
-      return Array.isArray(branch) ? branch : [];
+      if (Array.isArray(branch)) {
+        return branch.map(task => cleanTaskObject(task, excludedFields));
+      }
+      return [];
     });
   }
 
-  // Clean defaultCase - recursively clean nested tasks
+  // Clean defaultCase - recursively clean nested tasks (returns array of objects, not strings)
   if (cleanConfig.defaultCase) {
     cleanConfig.defaultCase = cleanDefaultCase(cleanConfig.defaultCase, excludedFields);
   }
 
-  // Clean decisionCases - recursively clean nested tasks in each case
+  // Clean decisionCases - recursively clean nested tasks in each case (returns object with arrays of objects)
   if (cleanConfig.decisionCases) {
     cleanConfig.decisionCases = cleanDecisionCases(cleanConfig.decisionCases, excludedFields);
   }

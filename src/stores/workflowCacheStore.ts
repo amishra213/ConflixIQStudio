@@ -201,7 +201,9 @@ export const useWorkflowCacheStore = create<WorkflowCacheStoreState>()(
       },
 
       clearCache: () => {
-        set({ cachedWorkflows: new Map() });
+        // Clear the persist storage first
+        localStorage.removeItem('workflow-cache-store');
+        set({ cachedWorkflows: new Map(), cachedServerWorkflows: [] });
       },
 
       getSyncSummary: () => {
@@ -229,6 +231,8 @@ export const useWorkflowCacheStore = create<WorkflowCacheStoreState>()(
       },
 
       clearServerWorkflows: () => {
+        // Clear the persist storage to ensure it doesn't re-hydrate
+        localStorage.removeItem('workflow-cache-store');
         set({ cachedServerWorkflows: [] });
         console.log('[WorkflowCacheStore] Cleared server workflows cache');
       },
@@ -354,11 +358,24 @@ export const useWorkflowCacheStore = create<WorkflowCacheStoreState>()(
       clearFileStore: async () => {
         set({ isFileStoreSyncing: true, fileStoreSyncError: null });
         try {
-          // Note: FileStore doesn't have a dedicated clearWorkflows, but we'll clear the cache locally
-          set({ cachedWorkflows: new Map(), lastFileStoreSyncTime: Date.now(), isFileStoreSyncing: false });
+          // Load all workflows to get their IDs for deletion
+          const cachedData = await fileStoreClient.loadAllWorkflows();
+          
+          // Delete each workflow file from filestore
+          if (Array.isArray(cachedData)) {
+            for (const workflow of cachedData) {
+              await fileStoreClient.deleteWorkflow(workflow.id);
+            }
+            console.log('[WorkflowCacheStore] Deleted', cachedData.length, 'workflow files from filestore');
+          }
+          
+          // Clear local caches
+          set({ cachedWorkflows: new Map(), cachedServerWorkflows: [], lastFileStoreSyncTime: Date.now(), isFileStoreSyncing: false });
+          console.log('[WorkflowCacheStore] Cleared filestore and local caches');
           return true;
         } catch (error) {
           const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+          console.error('[WorkflowCacheStore] Error clearing filestore:', errorMsg);
           set({ fileStoreSyncError: errorMsg, isFileStoreSyncing: false });
           return false;
         }

@@ -5,25 +5,71 @@ import { useWorkflowCacheStore } from '@/stores/workflowCacheStore';
 import { useTaskStore } from '@/stores/taskStore';
 import { ActivityIcon, CheckCircle2Icon, XCircleIcon, ClockIcon, TrendingUpIcon, TrashIcon } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { useEffect, useState } from 'react';
+import { fileStoreClient } from '@/utils/fileStore';
 
 export function Dashboard() {
-  const { workflows, executions } = useWorkflowStore();
-  const { clearCache, getServerWorkflows, clearServerWorkflows } = useWorkflowCacheStore();
-  const { getTaskDefinitions, clearTaskDefinitions } = useTaskStore();
+  const { workflows, executions, clearWorkflows } = useWorkflowStore();
+  const { clearCache, getServerWorkflows, clearServerWorkflows, clearFileStore: clearWorkflowFileStore } = useWorkflowCacheStore();
+  const { getTaskDefinitions, clearTaskDefinitions, clearFileStore: clearTaskFileStore } = useTaskStore();
+  
+  // State for tracking cached files
+  const [workflowFileCount, setWorkflowFileCount] = useState(0);
+  const [taskFileCount, setTaskFileCount] = useState(0);
+
+  // Load file counts on component mount
+  useEffect(() => {
+    const loadFileCounts = async () => {
+      try {
+        // Load workflows to count them
+        const workflows = await fileStoreClient.loadAllWorkflows();
+        setWorkflowFileCount(workflows.length);
+        
+        // Load tasks to count them
+        const cacheInfo = await fileStoreClient.getCacheInfo();
+        if (cacheInfo) {
+          // Approximate task file count based on cache info
+          // For now, we'll show task definitions count as proxy
+          setTaskFileCount(getTaskDefinitions().length);
+        }
+      } catch (err) {
+        console.warn('Failed to load file counts:', err);
+      }
+    };
+    
+    loadFileCounts();
+  }, [getTaskDefinitions]);
 
   // Get cached data
   const cachedWorkflows = getServerWorkflows();
   const cachedTasks = getTaskDefinitions();
 
   // Handler to clear all caches
-  const handleClearAllCaches = () => {
-    clearCache();
-    clearServerWorkflows();
-    clearTaskDefinitions();
-    localStorage.removeItem('workflow-cache-store');
-    localStorage.removeItem('task-store');
-    
-    console.log('[Dashboard] All caches cleared successfully');
+  const handleClearAllCaches = async () => {
+    try {
+      // Clear workflow filestore (deletes workflow files and clears local cache + localStorage)
+      await clearWorkflowFileStore();
+      
+      // Clear task filestore (deletes task cache files and clears local cache + localStorage)
+      await clearTaskFileStore();
+      
+      // Clear in-memory caches (also clears their localStorage)
+      clearCache();
+      clearServerWorkflows();
+      clearTaskDefinitions();
+      clearWorkflows(); // Clear the workflow store data
+      
+      // Reset file counts
+      setWorkflowFileCount(0);
+      setTaskFileCount(0);
+      
+      console.log('[Dashboard] All caches cleared successfully (filestore + localStorage + memory)');
+      
+      // Reload page to ensure no stale data
+      globalThis.location.reload();
+    } catch (error) {
+      console.error('[Dashboard] Error clearing caches:', error);
+    }
   };
 
   const activeWorkflows = workflows.filter((w) => w.status === 'active').length;
@@ -110,14 +156,14 @@ export function Dashboard() {
           <p className="text-sm text-gray-400">Monitor and manage cached workflows and task definitions</p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-          {/* Cached Workflows Card */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
+          {/* Cached Workflows in Memory Card */}
           <Card className="p-6 bg-[#1a1f2e] border-[#2a3142] shadow-sm hover:shadow-md transition-shadow duration-200">
             <div className="flex items-start justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-400 mb-2">Cached Workflows</p>
                 <p className="text-3xl font-bold text-white">{cachedWorkflows.length}</p>
-                <p className="text-xs text-gray-500 mt-2">Server workflows in cache</p>
+                <p className="text-xs text-gray-500 mt-2">In memory cache</p>
               </div>
               <div className="p-3 bg-blue-500/10 rounded-xl">
                 <ActivityIcon className="w-6 h-6 text-blue-500" />
@@ -125,13 +171,27 @@ export function Dashboard() {
             </div>
           </Card>
 
-          {/* Cached Tasks Card */}
+          {/* Workflow Files in FileStore Card */}
+          <Card className="p-6 bg-[#1a1f2e] border-[#2a3142] shadow-sm hover:shadow-md transition-shadow duration-200">
+            <div className="flex items-start justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-400 mb-2">Workflow Files</p>
+                <p className="text-3xl font-bold text-white">{workflowFileCount}</p>
+                <p className="text-xs text-gray-500 mt-2">Persisted to disk</p>
+              </div>
+              <div className="p-3 bg-cyan-500/10 rounded-xl">
+                <ActivityIcon className="w-6 h-6 text-cyan-500" />
+              </div>
+            </div>
+          </Card>
+
+          {/* Cached Tasks in Memory Card */}
           <Card className="p-6 bg-[#1a1f2e] border-[#2a3142] shadow-sm hover:shadow-md transition-shadow duration-200">
             <div className="flex items-start justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-400 mb-2">Cached Tasks</p>
                 <p className="text-3xl font-bold text-white">{cachedTasks.length}</p>
-                <p className="text-xs text-gray-500 mt-2">Task definitions in cache</p>
+                <p className="text-xs text-gray-500 mt-2">In memory cache</p>
               </div>
               <div className="p-3 bg-purple-500/10 rounded-xl">
                 <ActivityIcon className="w-6 h-6 text-purple-500" />
@@ -139,13 +199,13 @@ export function Dashboard() {
             </div>
           </Card>
 
-          {/* Cache Status Card */}
+          {/* Total Cache Status Card */}
           <Card className="p-6 bg-[#1a1f2e] border-[#2a3142] shadow-sm hover:shadow-md transition-shadow duration-200">
             <div className="flex items-start justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-400 mb-2">Cache Status</p>
-                <p className="text-3xl font-bold text-white">{cachedWorkflows.length + cachedTasks.length}</p>
-                <p className="text-xs text-gray-500 mt-2">Total cached items</p>
+                <p className="text-sm font-medium text-gray-400 mb-2">Total Files</p>
+                <p className="text-3xl font-bold text-white">{workflowFileCount + taskFileCount}</p>
+                <p className="text-xs text-gray-500 mt-2">On disk cache</p>
               </div>
               <div className="p-3 bg-green-500/10 rounded-xl">
                 <CheckCircle2Icon className="w-6 h-6 text-green-500" />
