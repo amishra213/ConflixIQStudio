@@ -1,10 +1,11 @@
 @echo off
-REM Conductor Designer - Production Build Launcher for Windows
-REM This batch file builds the application for production
+REM Conductor Designer - Windows Electron Build Launcher
+REM Builds the Windows EXE executable using Electron Builder
+REM Uses local temp directory to avoid AppData path issues
 
 echo.
 echo ====================================
-echo Conductor Designer - Production Build
+echo Conductor Designer - Electron Build
 echo ====================================
 echo.
 
@@ -28,6 +29,15 @@ if not exist "node_modules" (
     )
 )
 
+REM Build the web application first
+echo Building web application...
+call npm run build
+if %errorlevel% neq 0 (
+    echo ERROR: Web build failed
+    pause
+    exit /b 1
+)
+
 REM Create local temp directory to avoid AppData path issues
 setlocal enabledelayedexpansion
 set "LOCAL_TEMP_DIR=%cd%\.build-temp"
@@ -47,24 +57,30 @@ REM Disable code signing to avoid symbolic link privilege errors
 set "CSC_LINK="
 set "WIN_CSC_LINK="
 
-echo Building Conductor Designer for production...
+echo.
+echo Building Windows executable with Electron Builder...
 echo Using local temp directory: %LOCAL_TEMP_DIR%
 echo.
 
-call npm run build
+call npm run electron-build
 
 if %errorlevel% equ 0 (
     echo.
     echo ====================================
-    echo Build completed successfully!
+    echo Windows build completed successfully!
     echo ====================================
     echo.
     echo Output directory: dist\
     echo.
+    echo Artifacts:
+    for /f %%f in ('dir /b dist\*.exe 2^>nul') do (
+        echo   - %%f
+    )
+    echo.
 ) else (
     echo.
     echo ====================================
-    echo Build failed!
+    echo Windows build failed!
     echo ====================================
     echo.
 )
