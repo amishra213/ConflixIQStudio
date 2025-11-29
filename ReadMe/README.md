@@ -29,3 +29,11 @@ If you are satisfied with the result, you can finally build the project for rele
 ```
 npm run build
 ```
+
+## Distribution
+
+See `ReadMe/DISTRIBUTION.md` for instructions on building and packaging releases (web, Windows EXE via Electron, and Docker images). To create all artifacts locally run:
+
+```
+npm run dist:build-all
+```

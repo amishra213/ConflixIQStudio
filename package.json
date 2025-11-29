@@ -4,6 +4,7 @@
   "type": "module",
   "name": "netflix-conductor-hub",
   "description": "Netflix Conductor Hub - A comprehensive visual workflow designer for Netflix Conductor",
+  "main": "electron-main.js",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
@@ -14,7 +15,18 @@
     "lint:fix": "eslint . --ext .js,.jsx,.ts,.tsx --fix",
     "format": "prettier --write \"**/*.{js,jsx,ts,tsx,json,css,md}\"",
     "format:check": "prettier --check \"**/*.{js,jsx,ts,tsx,json,css,md}\"",
-    "type-check": "tsc --noEmit"
+    "type-check": "tsc --noEmit",
+    "electron-dev": "concurrently \"npm run dev\" \"wait-on http://localhost:5173 && electron .\"",
+    "electron-build": "npm run build && electron-builder --win",
+    "electron-build:publish": "npm run build && electron-builder --win --publish always",
+    "docker-build": "docker build -t conductor-designer:latest .",
+    "docker-export": "docker save -o conductor-designer.tar conductor-designer:latest",
+    "docker-export:gz": "docker save conductor-designer:latest | gzip > conductor-designer.tar.gz",
+    "docker-compose": "docker-compose up -d",
+    "docker-compose:down": "docker-compose down",
+    "docker-compose:logs": "docker-compose logs -f",
+    "dist:build-all": "tsx scripts/build-all-distributions.ts",
+    "dist:build-id": "tsx scripts/build-id-manager.ts"
   },
   "dependencies": {
     "@apollo/client": "^4.0.9",
@@ -81,6 +93,9 @@
     "@typescript-eslint/parser": "^6.21.0",
     "@vitejs/plugin-react": "4.3.4",
     "concurrently": "^8.2.2",
+    "electron": "^31.0.0",
+    "electron-builder": "^25.0.5",
+    "electron-is-dev": "^2.0.0",
     "esbuild": "0.25.5",
     "eslint": "^8.57.0",
     "eslint-plugin-react": "^7.33.2",
@@ -90,12 +105,61 @@
     "tailwindcss": "3.4.16",
     "tailwindcss-animate": "1.0.7",
     "typescript": "^5.9.3",
-    "vite": "^6.4.1"
+    "vite": "^6.4.1",
+    "wait-on": "^7.2.0"
   },
   "overrides": {
     "glob": "12.0.0"
   },
   "alias": {
     "@/*": "./src/components/ui/$1"
+  },
+  "build": {
+    "appId": "com.conductor.designer",
+    "productName": "Conductor Designer",
+    "directories": {
+      "buildResources": "assets",
+      "output": "dist"
+    },
+    "files": [
+      "dist/**/*",
+      "index.js",
+      "fileStoreServer.js",
+      "resolvers.js",
+      "schema.js",
+      "node_modules/**/*",
+      "package.json"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "certificateFile": null,
+      "certificatePassword": null,
+      "signingHashAlgorithms": [
+        "sha256"
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Conductor Designer"
+    },
+    "portable": {
+      "artifactName": "${productName}-${version}-portable.${ext}"
+    }
   }
 }
