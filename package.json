@@ -155,7 +155,7 @@
       "shortcutName": "Conductor Designer"
     },
     "portable": {
-      "artifactName": "${productName}-${version}-portable.${ext}"
+      "artifactName": "ConductorDesigner-${version}-portable.${ext}"
     }
   }
 }
