@@ -119,87 +119,53 @@ function cleanTaskObject(obj: unknown, excludedFields: Set<string>): unknown {
 /**
  * Add default values for required fields in operator tasks
  */
+/**
+ * Set a field to null if it's undefined
+ */
+function ensureNullableField(obj: Record<string, unknown>, fieldName: string): void {
+  if (obj[fieldName] === undefined) {
+    obj[fieldName] = null;
+  }
+}
+
+/**
+ * Add default values for required fields in operator tasks
+ */
 function ensureRequiredOperatorFields(task: Record<string, unknown>): Record<string, unknown> {
   const result = { ...task };
   
   // CRITICAL: Ensure 'type' field is always set and valid - Conductor will fail to deserialize if type is null
   if (!result.type || result.type === '') {
-    throw new Error(`Task "${String(task.name || 'unknown')}" is missing a required 'type' field. All tasks must have a valid Conductor task type.`);
+    const taskName = typeof task.name === 'string' ? task.name : 'unknown';
+    throw new Error(`Task "${taskName}" is missing a required 'type' field. All tasks must have a valid Conductor task type.`);
   }
   
   // Remove workflowTaskType field - Conductor backend only uses 'type', not 'workflowTaskType'
   delete result.workflowTaskType;
   
   // Ensure ALL tasks have these base required fields with proper defaults
-  if (result.optional === undefined || result.optional === null) {
-    result.optional = false;
-  }
-  if (result.asyncComplete === undefined || result.asyncComplete === null) {
-    result.asyncComplete = false;
-  }
+  result.optional ??= false;
+  result.asyncComplete ??= false;
   if (!result.inputParameters) {
     result.inputParameters = {};
   }
+  
   // Set explicit null for fields that should be nullable (not undefined)
-  if (result.description === undefined) {
-    result.description = null;
+  const nullableFields = [
+    'description', 'retryCount', 'rateLimited', 'evaluatorType', 'expression',
+    'scriptExpression', 'decisionCases', 'defaultCase', 'forkTasks', 'joinOn',
+    'loopCondition', 'loopOver', 'dynamicTaskNameParam', 'sink', 'subWorkflowParam',
+    'outputParameters', 'defaultExclusiveJoinTask', 'dynamicForkTasksParam',
+    'dynamicForkTasksInputParamName'
+  ];
+  
+  for (const field of nullableFields) {
+    ensureNullableField(result, field);
   }
-  if (result.retryCount === undefined) {
-    result.retryCount = null;
-  }
+  
+  // startDelay defaults to 0, not null
   if (result.startDelay === undefined) {
     result.startDelay = 0;
-  }
-  if (result.rateLimited === undefined) {
-    result.rateLimited = null;
-  }
-  if (result.evaluatorType === undefined) {
-    result.evaluatorType = null;
-  }
-  if (result.expression === undefined) {
-    result.expression = null;
-  }
-  if (result.scriptExpression === undefined) {
-    result.scriptExpression = null;
-  }
-  if (result.decisionCases === undefined) {
-    result.decisionCases = null;
-  }
-  if (result.defaultCase === undefined) {
-    result.defaultCase = null;
-  }
-  if (result.forkTasks === undefined) {
-    result.forkTasks = null;
-  }
-  if (result.joinOn === undefined) {
-    result.joinOn = null;
-  }
-  if (result.loopCondition === undefined) {
-    result.loopCondition = null;
-  }
-  if (result.loopOver === undefined) {
-    result.loopOver = null;
-  }
-  if (result.dynamicTaskNameParam === undefined) {
-    result.dynamicTaskNameParam = null;
-  }
-  if (result.sink === undefined) {
-    result.sink = null;
-  }
-  if (result.subWorkflowParam === undefined) {
-    result.subWorkflowParam = null;
-  }
-  if (result.outputParameters === undefined) {
-    result.outputParameters = null;
-  }
-  if (result.defaultExclusiveJoinTask === undefined) {
-    result.defaultExclusiveJoinTask = null;
-  }
-  if (result.dynamicForkTasksParam === undefined) {
-    result.dynamicForkTasksParam = null;
-  }
-  if (result.dynamicForkTasksInputParamName === undefined) {
-    result.dynamicForkTasksInputParamName = null;
   }
   
   // Ensure required fields for specific operator types
@@ -207,39 +173,18 @@ function ensureRequiredOperatorFields(task: Record<string, unknown>): Record<str
   
   switch (taskType) {
     case 'DO_WHILE':
-      // DO_WHILE requires loopCondition and loopOver
-      // loopCondition should be a string expression that evaluates to boolean
-      if (!result.loopCondition) {
-        result.loopCondition = 'True'; // Default condition matching Conductor's expected format
-      }
-      // loopOver should contain full task objects, not strings
-      if (!result.loopOver) {
-        result.loopOver = []; // Can be empty, will be filled at runtime
-      }
+      result.loopCondition ??= 'True';
+      result.loopOver ??= [];
       break;
-      
     case 'FORK_JOIN':
-      // FORK_JOIN requires forkTasks
-      if (!result.forkTasks) {
-        result.forkTasks = [[]];
-      }
+      result.forkTasks ??= [[]];
       break;
-      
     case 'SWITCH':
-      // SWITCH requires expression and decisionCases
-      if (!result.expression) {
-        result.expression = '${workflow.input}';
-      }
-      if (!result.decisionCases) {
-        result.decisionCases = {};
-      }
+      result.expression ??= '${workflow.input}';
+      result.decisionCases ??= {};
       break;
-      
     case 'DYNAMIC':
-      // DYNAMIC requires dynamicTaskNameParam
-      if (!result.dynamicTaskNameParam) {
-        result.dynamicTaskNameParam = 'taskName';
-      }
+      result.dynamicTaskNameParam ??= 'taskName';
       break;
   }
   
@@ -365,7 +310,8 @@ function createTaskObject(
   
   // Ensure we have a valid type - Conductor requires this field
   if (!taskType) {
-    const taskLabel = typeof node.data?.label === 'string' ? node.data.label : (typeof node.id === 'string' ? node.id : 'unknown');
+    const nodeId = typeof node.id === 'string' ? node.id : 'unknown';
+    const taskLabel = typeof node.data?.label === 'string' ? node.data.label : nodeId;
     throw new Error(`Task "${taskLabel}" is missing a required 'type' field. All tasks must have a valid type (e.g., HTTP, SIMPLE, EVENT, WAIT, etc.)`);
   }
   

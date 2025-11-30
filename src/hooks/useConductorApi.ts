@@ -737,256 +737,200 @@ export function useConductorApi(options: UseConductorApiOptions = {}) {
     }
   }, [proxyServer, createTaskDefinitionViaGraphQL, createTaskDefinitionViaRest, convertToTaskDef]);
 
+  const updateTaskDefinitionViaGraphQL = useCallback(async (taskDef: unknown): Promise<boolean> => {
+    const { APILogger } = await import('@/utils/apiLogger');
+    const headers: HeadersInit = { 'Content-Type': 'application/json' };
+    if (apiKey) {
+      headers['X-Conductor-API-Key'] = apiKey;
+    }
+
+    const mutation = `
+      mutation UpdateTask($task: TaskDefinitionInput!) {
+        updateTask(task: $task) {
+          name
+        }
+      }
+    `;
+
+    APILogger.logGraphQLRequest(mutation, { task: taskDef as Record<string, unknown> }, proxyServer.proxyEndpoint);
+    const startTime = performance.now();
+    
+    const response = await fetch(proxyServer.proxyEndpoint, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ query: mutation, variables: { task: taskDef } }),
+    });
+
+    const responseData = await response.json();
+    const duration = Math.round(performance.now() - startTime);
+    
+    if (!response.ok) {
+      const errorMessage = responseData?.message || responseData?.errors?.[0]?.message || `Failed to update task (${response.status})`;
+      APILogger.logGraphQLError(mutation, { message: errorMessage, errors: responseData?.errors }, duration, response.status, proxyServer.proxyEndpoint);
+      throw new Error(errorMessage);
+    }
+    
+    if (responseData.errors) {
+      const errorMessage = responseData.errors[0]?.message || 'Failed to update task';
+      APILogger.logGraphQLError(mutation, { message: errorMessage, errors: responseData.errors }, duration, 200, proxyServer.proxyEndpoint);
+      throw new Error(errorMessage);
+    }
+
+    APILogger.logGraphQLResponse(mutation, responseData, duration, response.status, proxyServer.proxyEndpoint);
+
+    if (!responseData.data?.updateTask?.name) {
+      throw new Error('Failed to update task definition - No data returned');
+    }
+
+    return true;
+  }, [apiKey, proxyServer.proxyEndpoint]);
+
+  const updateTaskDefinitionViaRest = useCallback(async (taskDef: unknown): Promise<boolean> => {
+    const headers: HeadersInit = { 'Content-Type': 'application/json' };
+    if (apiKey) {
+      headers['X-Conductor-API-Key'] = apiKey;
+    }
+    
+    console.log('Updating task via REST PUT:', JSON.stringify(taskDef, null, 2));
+    const response = await fetch(`${baseUrl}/api/metadata/taskdefs`, {
+      method: 'PUT',
+      headers,
+      body: JSON.stringify(taskDef),
+    });
+    
+    let responseData: unknown = {};
+    try {
+      const contentType = response.headers.get('content-type');
+      if (contentType?.includes('application/json')) {
+        responseData = await response.clone().json();
+      } else {
+        const text = await response.clone().text();
+        console.log('PUT response text:', text);
+      }
+    } catch (parseError) {
+      console.debug('Failed to parse PUT response:', parseError);
+    }
+    
+    if (!response.ok) {
+      let errorMessage = `Failed to update task definition (${response.status}): ${response.statusText}`;
+      if (typeof responseData === 'object' && responseData !== null) {
+        const data = responseData as Record<string, unknown>;
+        errorMessage = (data.message as string) || (data.error as string) || errorMessage;
+      } else if (typeof responseData === 'string') {
+        errorMessage = responseData;
+      }
+      throw new Error(errorMessage);
+    }
+    
+    console.log('Task definition updated successfully');
+    return true;
+  }, [baseUrl, apiKey]);
+
   const updateTaskDefinition = useCallback(async (taskDef: unknown): Promise<boolean> => {
     setLoading(true);
     setError(null);
     try {
-      const { APILogger } = await import('@/utils/apiLogger');
       const formattedTaskDef = convertToTaskDef(taskDef);
-      
       if (proxyServer.enabled && proxyServer.proxyEndpoint) {
-        // Use GraphQL proxy with updateTask mutation
-        const headers: HeadersInit = {
-          'Content-Type': 'application/json',
-        };
-        if (apiKey) {
-          headers['X-Conductor-API-Key'] = apiKey;
-        }
-
-        const mutation = `
-          mutation UpdateTask($task: TaskDefinitionInput!) {
-            updateTask(task: $task) {
-              name
-            }
-          }
-        `;
-
-        // Log the GraphQL request manually since we're using direct fetch
-        APILogger.logGraphQLRequest(mutation, { task: formattedTaskDef as Record<string, unknown> }, proxyServer.proxyEndpoint);
-
-        const startTime = performance.now();
-        
-        const response = await fetch(proxyServer.proxyEndpoint, {
-          method: 'POST',
-          headers,
-          body: JSON.stringify({
-            query: mutation,
-            variables: { task: formattedTaskDef },
-          }),
-        });
-
-        const responseData = await response.json();
-        const duration = Math.round(performance.now() - startTime);
-        
-        // Handle HTTP-level errors
-        if (!response.ok) {
-          let errorMessage = `Failed to update task (${response.status}): ${response.statusText}`;
-          if (responseData?.message) {
-            errorMessage = responseData.message;
-          } else if (responseData?.errors && Array.isArray(responseData.errors)) {
-            errorMessage = responseData.errors[0]?.message || errorMessage;
-          }
-          
-          // Log the error response
-          APILogger.logGraphQLError(mutation, { message: errorMessage, errors: responseData?.errors }, duration, response.status, proxyServer.proxyEndpoint);
-          
-          const error = new Error(errorMessage);
-          console.error('Failed to update task - Full error:', responseData);
-          throw error;
-        }
-        
-        // Handle GraphQL errors
-        if (responseData.errors) {
-          const errorMessage = responseData.errors[0]?.message || 'Failed to update task';
-          
-          // Log the GraphQL error response
-          APILogger.logGraphQLError(mutation, { message: errorMessage, errors: responseData.errors }, duration, 200, proxyServer.proxyEndpoint);
-          
-          const error = new Error(errorMessage);
-          console.error('Failed to update task - GraphQL errors:', responseData.errors);
-          throw error;
-        }
-
-        // Log successful response
-        APILogger.logGraphQLResponse(mutation, responseData, duration, response.status, proxyServer.proxyEndpoint);
-
-        if (!responseData.data?.updateTask?.name) {
-          const error = new Error('Failed to update task definition - No data returned');
-          console.error('Failed to update task - No data:', responseData);
-          throw error;
-        }
-
-        return true;
-      } else {
-        // Direct REST call: PUT /api/metadata/taskdefs
-        const headers: HeadersInit = {
-          'Content-Type': 'application/json',
-        };
-        if (apiKey) {
-          headers['X-Conductor-API-Key'] = apiKey;
-        }
-        
-        console.log('Updating task via REST PUT:', JSON.stringify(formattedTaskDef, null, 2));
-        // Fetch interceptor will handle logging automatically
-        const response = await fetch(`${baseUrl}/api/metadata/taskdefs`, {
-          method: 'PUT',
-          headers,
-          body: JSON.stringify(formattedTaskDef),
-        });
-        
-        // Try to parse response body
-        let responseData: unknown = {};
-        try {
-          const contentType = response.headers.get('content-type');
-          if (contentType && contentType.includes('application/json')) {
-            responseData = await response.clone().json();
-          } else {
-            const text = await response.clone().text();
-            console.log('PUT response text:', text);
-          }
-        } catch (parseError) {
-          console.debug('Failed to parse PUT response:', parseError);
-        }
-        
-        if (!response.ok) {
-          let errorMessage = `Failed to update task definition (${response.status}): ${response.statusText}`;
-          if (typeof responseData === 'object' && responseData !== null) {
-            const data = responseData as Record<string, unknown>;
-            if (data.message) {
-              errorMessage = data.message as string;
-            } else if (data.error) {
-              errorMessage = data.error as string;
-            }
-          } else if (typeof responseData === 'string') {
-            errorMessage = responseData;
-          }
-          const error = new Error(errorMessage);
-          console.error('Failed to update task - Full error:', responseData);
-          throw error;
-        }
-        
-        console.log('Task definition updated successfully');
-        return true;
+        return await updateTaskDefinitionViaGraphQL(formattedTaskDef);
       }
+      return await updateTaskDefinitionViaRest(formattedTaskDef);
     } catch (err) {
       console.error('Failed to update task definition:', err);
       setError(err as Error);
-      throw err; // Re-throw to allow caller to handle
+      throw err;
     } finally {
       setLoading(false);
     }
-  }, [baseUrl, apiKey, proxyServer, convertToTaskDef]);
+  }, [proxyServer, convertToTaskDef, updateTaskDefinitionViaGraphQL, updateTaskDefinitionViaRest]);
+
+  const deleteTaskDefinitionViaGraphQL = useCallback(async (taskName: string): Promise<boolean> => {
+    const { APILogger } = await import('@/utils/apiLogger');
+    const headers: HeadersInit = { 'Content-Type': 'application/json' };
+    if (apiKey) {
+      headers['X-Conductor-API-Key'] = apiKey;
+    }
+
+    const mutation = `
+      mutation DeleteTask($taskName: String!) {
+        deleteTask(taskName: $taskName) {
+          success
+        }
+      }
+    `;
+
+    APILogger.logGraphQLRequest(mutation, { taskName }, proxyServer.proxyEndpoint);
+    const startTime = performance.now();
+
+    const response = await fetch(proxyServer.proxyEndpoint, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ query: mutation, variables: { taskName } }),
+    });
+
+    const data = await response.json();
+    const duration = Math.round(performance.now() - startTime);
+    
+    if (!response.ok) {
+      const errorMessage = data?.message || data?.errors?.[0]?.message || `Failed to delete task (${response.status})`;
+      APILogger.logGraphQLError(mutation, { message: errorMessage, errors: data?.errors }, duration, response.status, proxyServer.proxyEndpoint);
+      throw new Error(errorMessage);
+    }
+    
+    if (data.errors) {
+      const errorMessage = data.errors[0]?.message || 'Failed to delete task';
+      APILogger.logGraphQLError(mutation, { message: errorMessage, errors: data.errors }, duration, 200, proxyServer.proxyEndpoint);
+      throw new Error(errorMessage);
+    }
+
+    APILogger.logGraphQLResponse(mutation, data, duration, response.status, proxyServer.proxyEndpoint);
+
+    if (!data.data?.deleteTask?.success) {
+      throw new Error('Failed to delete task definition');
+    }
+
+    return true;
+  }, [apiKey, proxyServer.proxyEndpoint]);
+
+  const deleteTaskDefinitionViaRest = useCallback(async (taskName: string): Promise<boolean> => {
+    const headers: HeadersInit = {};
+    if (apiKey) {
+      headers['X-Conductor-API-Key'] = apiKey;
+    }
+    
+    const response = await fetch(`${baseUrl}/api/metadata/taskdefs/${encodeURIComponent(taskName)}`, {
+      method: 'DELETE',
+      headers,
+    });
+    
+    if (response.status === 404) {
+      console.log(`Task ${taskName} not found on server (already deleted or never published)`);
+      return true;
+    }
+    
+    if (!response.ok) {
+      let errorMessage = `Failed to delete task definition: ${response.statusText}`;
+      try {
+        const errorBody = await response.json();
+        errorMessage = (errorBody?.message as string) || (typeof errorBody === 'string' ? errorBody : errorMessage);
+      } catch (parseError) {
+        console.debug('Failed to parse error response:', parseError);
+      }
+      throw new Error(errorMessage);
+    }
+    
+    console.log(`Successfully deleted task ${taskName} from Conductor server`);
+    return true;
+  }, [baseUrl, apiKey]);
 
   const deleteTaskDefinition = useCallback(async (taskName: string): Promise<boolean> => {
     setLoading(true);
     setError(null);
     try {
       if (proxyServer.enabled && proxyServer.proxyEndpoint) {
-        // Use GraphQL proxy with deleteTask mutation
-        const { APILogger } = await import('@/utils/apiLogger');
-        
-        const headers: HeadersInit = {
-          'Content-Type': 'application/json',
-        };
-        if (apiKey) {
-          headers['X-Conductor-API-Key'] = apiKey;
-        }
-
-        const mutation = `
-          mutation DeleteTask($taskName: String!) {
-            deleteTask(taskName: $taskName) {
-              success
-            }
-          }
-        `;
-
-        // Log the GraphQL request manually since we're using direct fetch
-        APILogger.logGraphQLRequest(mutation, { taskName }, proxyServer.proxyEndpoint);
-
-        const startTime = performance.now();
-
-        const response = await fetch(proxyServer.proxyEndpoint, {
-          method: 'POST',
-          headers,
-          body: JSON.stringify({
-            query: mutation,
-            variables: { taskName },
-          }),
-        });
-
-        const data = await response.json();
-        const duration = Math.round(performance.now() - startTime);
-        
-        // Handle HTTP-level errors
-        if (!response.ok) {
-          let errorMessage = `Failed to delete task (${response.status}): ${response.statusText}`;
-          if (data?.message) {
-            errorMessage = data.message;
-          } else if (data?.errors && Array.isArray(data.errors)) {
-            errorMessage = data.errors[0]?.message || errorMessage;
-          }
-          
-          // Log the error response
-          APILogger.logGraphQLError(mutation, { message: errorMessage, errors: data?.errors }, duration, response.status, proxyServer.proxyEndpoint);
-          
-          throw new Error(errorMessage);
-        }
-        
-        // Handle GraphQL errors
-        if (data.errors) {
-          const errorMessage = data.errors[0]?.message || 'Failed to delete task';
-          
-          // Log the GraphQL error response
-          APILogger.logGraphQLError(mutation, { message: errorMessage, errors: data.errors }, duration, 200, proxyServer.proxyEndpoint);
-          
-          throw new Error(errorMessage);
-        }
-
-        // Log successful response
-        APILogger.logGraphQLResponse(mutation, data, duration, response.status, proxyServer.proxyEndpoint);
-
-        if (!data.data?.deleteTask?.success) {
-          throw new Error('Failed to delete task definition');
-        }
-
-        return true;
-      } else {
-        // Direct REST call: DELETE /api/metadata/taskdefs/{tasktype}
-        const headers: HeadersInit = {};
-        if (apiKey) {
-          headers['X-Conductor-API-Key'] = apiKey;
-        }
-        
-        const response = await fetch(`${baseUrl}/api/metadata/taskdefs/${encodeURIComponent(taskName)}`, {
-          method: 'DELETE',
-          headers,
-        });
-        
-        // Treat 404 as success - task already doesn't exist on server
-        if (response.status === 404) {
-          console.log(`Task ${taskName} not found on server (already deleted or never published)`);
-          return true;
-        }
-        
-        if (!response.ok) {
-          let errorMessage = `Failed to delete task definition: ${response.statusText}`;
-          try {
-            const errorBody = await response.json();
-            if (errorBody?.message) {
-              errorMessage = errorBody.message;
-            } else if (typeof errorBody === 'string') {
-              errorMessage = errorBody;
-            }
-          } catch (parseError) {
-            console.debug('Failed to parse error response:', parseError);
-          }
-          
-          throw new Error(errorMessage);
-        }
-        
-        console.log(`Successfully deleted task ${taskName} from Conductor server`);
-        return true;
+        return await deleteTaskDefinitionViaGraphQL(taskName);
       }
+      return await deleteTaskDefinitionViaRest(taskName);
     } catch (err) {
       console.error('Failed to delete task definition:', err);
       setError(err as Error);
@@ -994,7 +938,7 @@ export function useConductorApi(options: UseConductorApiOptions = {}) {
     } finally {
       setLoading(false);
     }
-  }, [baseUrl, apiKey, proxyServer]);
+  }, [proxyServer, deleteTaskDefinitionViaGraphQL, deleteTaskDefinitionViaRest]);
 
   const saveWorkflow = useCallback(async (workflowDef: unknown, isNew: boolean = false): Promise<boolean> => {
     // Use GraphQL proxy endpoint if enabled
