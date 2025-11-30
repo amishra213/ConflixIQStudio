@@ -21,6 +21,8 @@ const typeDefs = gql`
     pauseWorkflow(workflowId: String!): SuccessResponse
     resumeWorkflow(workflowId: String!): SuccessResponse
     registerTask(task: TaskDefinitionInput!): TaskDefinitionResponse
+    updateTask(task: TaskDefinitionInput!): TaskDefinitionResponse
+    deleteTask(taskName: String!): SuccessResponse
   }
 
   type Workflow {

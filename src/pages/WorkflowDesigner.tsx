@@ -1471,7 +1471,7 @@ export function WorkflowDesigner() {
   };
 
   // Helper: Sync workflow to filestore and Conductor API
-  const syncWorkflowToConductor = async (wf: typeof workflow, isNew: boolean): Promise<boolean> => {
+  const syncWorkflowToConductor = async (wf: typeof workflow): Promise<boolean> => {
     await syncToFileStore().catch(err => {
       console.warn('Failed to sync to filestore:', err);
     });
@@ -1481,7 +1481,7 @@ export function WorkflowDesigner() {
     const conductorWorkflow = localWorkflowToConductor(wf!);
 
     try {
-      const success = await saveWorkflow(conductorWorkflow, isNew);
+      const success = await saveWorkflow(conductorWorkflow);
       return success;
     } catch (error) {
       console.error('Failed to sync workflow to Conductor:', error);
@@ -1554,7 +1554,7 @@ export function WorkflowDesigner() {
       const wf = isNew ? createNewWorkflow() : workflow;
 
       saveToLocalStoreAndCache(wf, isNew);
-      const success = await syncWorkflowToConductor(wf, isNew);
+      const success = await syncWorkflowToConductor(wf);
 
       if (success) {
         handlePublishSuccess(wf, isNew);

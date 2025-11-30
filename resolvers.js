@@ -194,27 +194,29 @@ const resolvers = {
       return response.data?.data?.workflowExecutions || [];
     },
     async taskDefinitions() {
-      const client = createConductorClient();
-      const query = `
-        query GetTaskDefinitions {
-          taskDefinitions {
-            name
-            description
-            retryCount
-            timeoutSeconds
-            inputKeys
-            outputKeys
-            responseTimeoutSeconds
-            ownerEmail
-            createdBy
-            updatedBy
-            createTime
-            updateTime
-          }
+      // Fetch task definitions from REST API: GET /api/metadata/taskdefs
+      try {
+        const client = axios.create({
+          baseURL: conductorConfig.serverUrl,
+          headers: {
+            'Content-Type': 'application/json',
+            ...(conductorConfig.apiKey && { 'X-API-Key': conductorConfig.apiKey }),
+          },
+          validateStatus: () => true,
+        });
+
+        const response = await client.get('/api/metadata/taskdefs');
+        
+        if (response.status >= 400) {
+          console.error('Failed to fetch task definitions:', response.status, response.data);
+          throw new Error(`Failed to fetch task definitions: ${response.statusText}`);
         }
-      `;
-      const response = await client.post('/', { query });
-      return response.data?.data?.taskDefinitions || [];
+
+        return Array.isArray(response.data) ? response.data : [];
+      } catch (error) {
+        console.error('Error fetching task definitions:', error);
+        throw error;
+      }
     },
     async searchWorkflows(_, { query, limit }) {
       const client = createConductorClient();
@@ -400,6 +402,66 @@ const resolvers = {
         name: task.name,
         ...response.data,
       };
+    },
+    async updateTask(_, { task }) {
+      // Use REST PUT endpoint: /api/metadata/taskdefs
+      const client = axios.create({
+        baseURL: conductorConfig.serverUrl,
+        headers: {
+          'Content-Type': 'application/json',
+          ...(conductorConfig.apiKey && { 'X-API-Key': conductorConfig.apiKey }),
+        },
+        validateStatus: () => true,
+      });
+
+      try {
+        console.log('Updating task definition (PUT):', JSON.stringify(task, null, 2));
+        const response = await client.put('/api/metadata/taskdefs', task);
+
+        if (response.status >= 200 && response.status < 300) {
+          return {
+            name: task.name,
+          };
+        } else {
+          console.error('Failed to update task:', response.status, response.data);
+          throw new Error(response.data?.message || `HTTP ${response.status}: ${response.statusText}`);
+        }
+      } catch (error) {
+        console.error('Error updating task:', error);
+        throw error;
+      }
+    },
+    async deleteTask(_, { taskName }) {
+      // Use REST DELETE endpoint: /api/metadata/taskdefs/{tasktype}
+      const client = axios.create({
+        baseURL: conductorConfig.serverUrl,
+        headers: {
+          'Content-Type': 'application/json',
+          ...(conductorConfig.apiKey && { 'X-API-Key': conductorConfig.apiKey }),
+        },
+        validateStatus: () => true,
+      });
+
+      try {
+        console.log('Deleting task definition (DELETE):', taskName);
+        const response = await client.delete(`/api/metadata/taskdefs/${encodeURIComponent(taskName)}`);
+
+        // Treat 404 as success - task doesn't exist
+        if (response.status === 404) {
+          console.log(`Task ${taskName} not found on server (already deleted)`);
+          return { success: true };
+        }
+
+        if (response.status >= 200 && response.status < 300) {
+          return { success: true };
+        } else {
+          console.error('Failed to delete task:', response.status, response.data);
+          throw new Error(response.data?.message || `HTTP ${response.status}: ${response.statusText}`);
+        }
+      } catch (error) {
+        console.error('Error deleting task:', error);
+        throw error;
+      }
     },
   },
 };

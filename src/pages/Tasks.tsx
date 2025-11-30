@@ -1,15 +1,18 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
 import { useWorkflowStore } from '@/stores/workflowStore';
-import { PlusIcon, Trash2Icon, RefreshCw, CheckCircle2, Clock } from 'lucide-react';
+import { PlusIcon, Trash2Icon, RefreshCw, CheckCircle2, Search, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useConductorApi } from '@/hooks/useConductorApi';
 import { useTaskStore } from '@/stores/taskStore';
 import { SimpleTaskCreateModal } from '@/components/modals/SimpleTaskDefinitionModal';
 import type { TaskDefinition } from '@/types/taskDefinition';
 import type { SimpleTaskDefinitionConfig } from '@/components/modals/SimpleTaskDefinitionModal';
+
+const ITEMS_PER_PAGE = 10;
 
 export function Tasks() {
   const { tasks, addTask, deleteTask } = useWorkflowStore();
@@ -18,12 +21,11 @@ export function Tasks() {
     markAllAsPublished, 
     syncToFileStore, 
     loadFromFileStore, 
-    getTaskStatus,
     setTaskDefinitions,
     getTaskDefinitions,
   } = useTaskStore();
   const { toast } = useToast();
-  const { fetchAllTaskDefinitions, createTaskDefinition } = useConductorApi({ enableFallback: false });
+  const { fetchAllTaskDefinitions, createTaskDefinition, updateTaskDefinition, deleteTaskDefinition } = useConductorApi({ enableFallback: false });
 
   // Simple Task Definition Modal state
   const [isSimpleTaskModalOpen, setIsSimpleTaskModalOpen] = useState(false);
@@ -32,6 +34,12 @@ export function Tasks() {
   // All Task Definitions state
   const [allTasks, setAllTasks] = useState<TaskDefinition[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+
+  // Filter and search state
+  const [searchQuery, setSearchQuery] = useState('');
+  const [timeoutPolicyFilter, setTimeoutPolicyFilter] = useState<string>('all');
+  const [retryLogicFilter, setRetryLogicFilter] = useState<string>('all');
+  const [currentPage, setCurrentPage] = useState(1);
 
   // Load cache from filestore on component mount
   useEffect(() => {
@@ -105,17 +113,35 @@ export function Tasks() {
 
   const handleSaveSimpleTask = async (config: SimpleTaskDefinitionConfig) => {
     try {
-      const success = await createTaskDefinition(config);
+      const isEditing = !!editingTask;
+      
+      // Call the appropriate function based on edit/create mode
+      const success = isEditing 
+        ? await updateTaskDefinition(config).catch((err: Error) => {
+            console.error('Update task error:', err);
+            throw err;
+          })
+        : await createTaskDefinition(config).catch((err: Error) => {
+            console.error('Create task error:', err);
+            throw err;
+          });
+        
       if (success) {
         const taskName = config.name;
         
-        if (editingTask) {
-          // Update existing task
+        if (isEditing) {
+          // Update existing task - reload from server
+          console.log('Task updated successfully, reloading task list');
           toast({ title: 'Success', description: `Task definition "${taskName}" updated successfully.` });
-          // Mark as published since it was successfully saved to Conductor server
+          // Mark as published
           markAsPublished(taskName);
-          // Reload the task list to get updated data
-          await loadAllTasks();
+          // Reload the full task list to get updated data
+          try {
+            await loadAllTasks();
+          } catch (loadError) {
+            console.error('Failed to reload task list after update:', loadError);
+            // Still consider it a success even if reload fails
+          }
         } else {
           // Create new task
           addTask({
@@ -124,18 +150,26 @@ export function Tasks() {
             type: 'SIMPLE',
             description: config.description || 'Simple task definition',
           });
-          // Mark as published since it was successfully saved to Conductor server
+          // Mark as published
           markAsPublished(taskName);
           toast({ title: 'Success', description: `Task definition "${taskName}" created and published successfully.` });
         }
         
         setEditingTask(null);
-      } else {
-        toast({ title: 'Error', description: 'Failed to create task definition. Please check your Conductor API settings.' });
       }
     } catch (error) {
       console.error('Error saving task definition:', error);
-      toast({ title: 'Error', description: error instanceof Error ? error.message : 'Failed to create task definition.' });
+      const isEditing = !!editingTask;
+      const actionType = isEditing ? 'update' : 'create';
+      const errorMessage = error instanceof Error 
+        ? error.message 
+        : `Failed to ${actionType} task definition.`;
+      console.error(`${actionType} failed - Error message:`, errorMessage);
+      toast({ 
+        title: 'Error', 
+        description: errorMessage,
+        variant: 'destructive'
+      });
     }
   };
 
@@ -144,10 +178,82 @@ export function Tasks() {
     setIsSimpleTaskModalOpen(true);
   };
 
-  const handleDelete = (id: string, name: string) => {
-    deleteTask(id);
-    toast({ title: 'Task deleted', description: `${name} deleted successfully.` });
+  const handleDelete = async (id: string, name: string, isPublished: boolean = false) => {
+    try {
+      if (isPublished) {
+        // Delete from server first
+        const success = await deleteTaskDefinition(name);
+        if (success) {
+          // Remove from local state
+          deleteTask(id);
+          // Remove from cache
+          const cachedDefs = getTaskDefinitions();
+          const updatedDefs = cachedDefs.filter((t) => t.name !== name);
+          setTaskDefinitions(updatedDefs);
+          // Update allTasks state
+          setAllTasks(prev => prev.filter(t => t.name !== name));
+          // Sync to filestore
+          await syncToFileStore();
+          toast({ title: 'Success', description: `Task "${name}" deleted from server and cache.` });
+        } else {
+          toast({ title: 'Error', description: `Failed to delete task "${name}" from server.` });
+        }
+      } else {
+        // Unpublished task - remove from cache only
+        deleteTask(id);
+        toast({ title: 'Task deleted', description: `${name} removed from cache.` });
+      }
+    } catch (error) {
+      console.error('Error deleting task:', error);
+      toast({ 
+        title: 'Error', 
+        description: error instanceof Error ? error.message : `Failed to delete task "${name}".`,
+        variant: 'destructive'
+      });
+    }
   };
+
+  // Filter and search logic (using only API tasks which have filtering fields)
+  const filteredTasks = useMemo(() => {
+    return allTasks.filter((task) => {
+      // Search filter
+      if (searchQuery && !task.name.toLowerCase().includes(searchQuery.toLowerCase()) &&
+          !task.description?.toLowerCase().includes(searchQuery.toLowerCase())) {
+        return false;
+      }
+      
+      // Timeout policy filter
+      if (timeoutPolicyFilter !== 'all' && task.timeoutPolicy !== timeoutPolicyFilter) {
+        return false;
+      }
+      
+      // Retry logic filter
+      if (retryLogicFilter !== 'all' && task.retryLogic !== retryLogicFilter) {
+        return false;
+      }
+      
+      return true;
+    });
+  }, [allTasks, searchQuery, timeoutPolicyFilter, retryLogicFilter]);
+
+  // Pagination logic
+  const totalPages = Math.ceil(filteredTasks.length / ITEMS_PER_PAGE);
+  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+  const endIndex = startIndex + ITEMS_PER_PAGE;
+  const paginatedTasks = filteredTasks.slice(startIndex, endIndex);
+
+  // Get unique values for filters
+  const uniqueTimeoutPolicies = [...new Set(allTasks
+    .map(t => t.timeoutPolicy)
+    .filter(Boolean) as ('RETRY' | 'ALERT' | 'SKIP')[])].sort((a, b) => a.localeCompare(b));
+  const uniqueRetryLogics = [...new Set(allTasks
+    .map(t => t.retryLogic)
+    .filter(Boolean) as ('FIXED' | 'EXPONENTIAL_BACKOFF' | 'LINEAR_BACKOFF')[])].sort((a, b) => a.localeCompare(b));
+
+  // Reset pagination when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, timeoutPolicyFilter, retryLogicFilter]);
 
   return (
     <div className="p-8 space-y-8 bg-[#0f1419]">
@@ -190,6 +296,77 @@ export function Tasks() {
           </div>
         </div>
 
+        {/* Filter and Search Controls */}
+        <div className="bg-[#1a1f2e] border border-[#2a3142] rounded-lg p-4 space-y-4">
+          <div className="flex flex-col gap-4 md:flex-row md:items-end">
+            {/* Search Input */}
+            <div className="flex-1">
+              <label htmlFor="search-tasks" className="text-sm font-medium text-gray-300 block mb-2">Search by name or description</label>
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-500" />
+                <Input
+                  id="search-tasks"
+                  placeholder="Search tasks..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-10 bg-[#0f1419] border-[#2a3142] text-white placeholder-gray-500"
+                />
+              </div>
+            </div>
+
+            {/* Timeout Policy Filter */}
+            <div className="min-w-40">
+              <label htmlFor="timeout-policy-filter" className="text-sm font-medium text-gray-300 block mb-2">Timeout Policy</label>
+              <select
+                id="timeout-policy-filter"
+                value={timeoutPolicyFilter}
+                onChange={(e) => setTimeoutPolicyFilter(e.target.value)}
+                className="w-full bg-[#0f1419] border border-[#2a3142] rounded text-white p-2 text-sm"
+              >
+                <option value="all">All Policies</option>
+                {uniqueTimeoutPolicies.map(policy => (
+                  <option key={policy} value={policy}>{policy}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Retry Logic Filter */}
+            <div className="min-w-40">
+              <label htmlFor="retry-logic-filter" className="text-sm font-medium text-gray-300 block mb-2">Retry Logic</label>
+              <select
+                id="retry-logic-filter"
+                value={retryLogicFilter}
+                onChange={(e) => setRetryLogicFilter(e.target.value)}
+                className="w-full bg-[#0f1419] border border-[#2a3142] rounded text-white p-2 text-sm"
+              >
+                <option value="all">All Logics</option>
+                {uniqueRetryLogics.map(logic => (
+                  <option key={logic} value={logic}>{logic}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Clear Filters Button */}
+            <Button
+              onClick={() => {
+                setSearchQuery('');
+                setTimeoutPolicyFilter('all');
+                setRetryLogicFilter('all');
+              }}
+              variant="outline"
+              className="border-[#2a3142] text-gray-400 hover:bg-[#2a3142]"
+            >
+              Clear Filters
+            </Button>
+          </div>
+
+          {/* Results count */}
+          <div className="text-sm text-gray-400">
+            Showing {paginatedTasks.length} of {filteredTasks.length} tasks
+            {filteredTasks.length < allTasks.length && ` (${allTasks.length - filteredTasks.length} filtered)`}
+          </div>
+        </div>
+
         {/* Unified Task List Table */}
         {tasks.length === 0 && allTasks.length === 0 ? (
           <Card className="p-16 bg-[#1a1f2e] border-[#2a3142] text-center shadow-sm">
@@ -220,79 +397,8 @@ export function Tasks() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#2a3142]">
-                  {/* Local Worker Tasks */}
-                  {tasks.map((task) => {
-                    const taskStatus = getTaskStatus(task.name);
-                    const isPublished = taskStatus?.status === 'published';
-                    return (
-                    <tr 
-                      key={task.id} 
-                      className="hover:bg-[#2a3142]/30 transition-colors duration-150"
-                    >
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 bg-cyan-500/10 rounded flex items-center justify-center flex-shrink-0">
-                            <svg className="w-4 h-4 text-cyan-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                            </svg>
-                          </div>
-                          <span className="text-sm font-medium text-white">{task.name}</span>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <span className="text-sm text-gray-400">{task.description || '-'}</span>
-                      </td>
-                      <td className="px-6 py-4">
-                        <span className="text-sm text-gray-400">-</span>
-                      </td>
-                      <td className="px-6 py-4 text-center">
-                        <span className="text-sm text-gray-400">-</span>
-                      </td>
-                      <td className="px-6 py-4 text-center">
-                        <span className="text-gray-500 text-sm">-</span>
-                      </td>
-                      <td className="px-6 py-4 text-center">
-                        <span className="text-gray-500 text-sm">-</span>
-                      </td>
-                      <td className="px-6 py-4 text-center">
-                        <div className="flex items-center justify-center" title={isPublished ? "Published" : "Draft"}>
-                          {isPublished ? (
-                            <CheckCircle2 className="w-5 h-5 text-green-400" />
-                          ) : (
-                            <Clock className="w-5 h-5 text-yellow-400" />
-                          )}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 text-center">
-                        <div className="flex items-center justify-center gap-2">
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => handleEditTask(task)}
-                            className="text-blue-500 hover:bg-blue-500/10 hover:text-blue-400"
-                            title="Edit Task"
-                          >
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                            </svg>
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => handleDelete(task.id, task.name)}
-                            className="text-red-500 hover:bg-red-500/10 hover:text-red-400"
-                            title="Delete Task"
-                          >
-                            <Trash2Icon className="w-4 h-4" />
-                          </Button>
-                        </div>
-                      </td>
-                    </tr>
-                    );
-                  })}
-                  
-                  {/* API Task Definitions */}
-                  {allTasks.map((task) => (
+                  {/* Paginated Filtered Tasks */}
+                  {paginatedTasks.map((task) => (
                     <tr 
                       key={task.name} 
                       className="hover:bg-[#2a3142]/30 transition-colors duration-150 cursor-pointer"
@@ -355,6 +461,7 @@ export function Tasks() {
                           <Button
                             size="sm"
                             variant="ghost"
+                            onClick={() => handleDelete(`api-${task.name}`, task.name, true)}
                             className="text-red-500 hover:bg-red-500/10 hover:text-red-400"
                             title="Delete Task"
                           >
@@ -367,6 +474,37 @@ export function Tasks() {
                 </tbody>
               </table>
             </div>
+
+            {/* Pagination Controls */}
+            {filteredTasks.length > ITEMS_PER_PAGE && (
+              <div className="flex items-center justify-between p-4 border-t border-[#2a3142] bg-[#0f1419]">
+                <div className="text-sm text-gray-400">
+                  Page {currentPage} of {totalPages}
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                    disabled={currentPage === 1}
+                    variant="outline"
+                    size="sm"
+                    className="border-[#2a3142] text-gray-400 hover:bg-[#2a3142] disabled:opacity-50"
+                  >
+                    <ChevronLeft className="w-4 h-4 mr-1" />
+                    Previous
+                  </Button>
+                  <Button
+                    onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                    disabled={currentPage === totalPages}
+                    variant="outline"
+                    size="sm"
+                    className="border-[#2a3142] text-gray-400 hover:bg-[#2a3142] disabled:opacity-50"
+                  >
+                    Next
+                    <ChevronRight className="w-4 h-4 ml-1" />
+                  </Button>
+                </div>
+              </div>
+            )}
           </Card>
         )}
       </div>
