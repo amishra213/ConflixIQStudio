@@ -28,7 +28,31 @@ if not exist "node_modules" (
     )
 )
 
+REM Create local temp directory to avoid AppData path issues
+setlocal enabledelayedexpansion
+set "LOCAL_TEMP_DIR=%cd%\.build-temp"
+if not exist "%LOCAL_TEMP_DIR%" (
+    mkdir "%LOCAL_TEMP_DIR%"
+    echo Created local temp directory: %LOCAL_TEMP_DIR%
+)
+
+REM Set environment variables to use local temp instead of AppData
+set "TEMP=%LOCAL_TEMP_DIR%"
+set "TMP=%LOCAL_TEMP_DIR%"
+set "USERPROFILE=%LOCAL_TEMP_DIR%"
+set "ELECTRON_CACHE=%LOCAL_TEMP_DIR%\electron-cache"
+set "ELECTRON_BUILDER_CACHE=%LOCAL_TEMP_DIR%\electron-builder-cache"
+set "npm_config_cache=%LOCAL_TEMP_DIR%\npm-cache"
+REM Disable all code signing to avoid symbolic link privilege errors and winCodeSign downloads
+set "CSC_LINK="
+set "WIN_CSC_LINK="
+set "SKIP_NOTARIZATION=true"
+set "ELECTRON_BUILDER_ALLOW_UNRESOLVED_DEPENDENCIES=true"
+set "DISABLE_CODE_SIGNING=true"
+set "NO_CODE_SIGNING=true"
+
 echo Building Conductor Designer for production...
+echo Using local temp directory: %LOCAL_TEMP_DIR%
 echo.
 
 call npm run build
@@ -49,4 +73,11 @@ if %errorlevel% equ 0 (
     echo.
 )
 
+REM Cleanup temp directory
+if exist "%LOCAL_TEMP_DIR%" (
+    echo Cleaning up local temp directory...
+    rmdir /s /q "%LOCAL_TEMP_DIR%"
+)
+
+endlocal
 pause

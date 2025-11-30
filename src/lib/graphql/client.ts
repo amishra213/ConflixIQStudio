@@ -89,14 +89,16 @@ export const createApolloClient = (conductorUrl?: string, apiKey?: string) => {
     });
   });
 
-  const errorLink = new ErrorLink(({ error, operation }) => {
+  const errorLink = new ErrorLink(({ error, operation, response }) => {
     try {
       const { addLog } = useLoggingStore.getState();
+      const statusCode = response?.status || error?.statusCode || 500;
 
       if (CombinedGraphQLErrors.is(error)) {
-        error.errors.forEach(({ message, locations, path }) => {
+        for (const { message, locations, path } of error.errors) {
+          const locStr = JSON.stringify(locations);
           console.error(
-            `[GraphQL error]: Message: ${message}, Location: ${locations}, Path: ${path}`
+            `[GraphQL error]: Message: ${message}, Location: ${locStr}, Path: ${JSON.stringify(path)}`
           );
 
           addLog({
@@ -104,30 +106,34 @@ export const createApolloClient = (conductorUrl?: string, apiKey?: string) => {
             operation: operation.operationName || 'unknown',
             method: 'POST',
             url: finalConductorUrl,
-            error: `GraphQL Error: ${message}`,
-            responseBody: { locations, path },
+            status: statusCode,
+            duration: Date.now() - Date.parse(''),
+            error: `[${statusCode}] GraphQL Error: ${message}`,
+            responseBody: { locations, path, errors: error.errors },
           });
-        });
+        }
       } else {
-        console.error(`[Network error]: ${error}`);
+        console.error(`[Network error]: ${JSON.stringify(error)}`);
 
         addLog({
           type: 'error',
           operation: operation.operationName || 'unknown',
           method: 'POST',
           url: finalConductorUrl,
-          error: `Network Error: ${error.message}`,
+          status: statusCode,
+          error: `[${statusCode}] Network Error: ${error.message}`,
         });
       }
     } catch (logError) {
       console.warn('Failed to log error:', logError);
       // Still log the original errors to console
       if (CombinedGraphQLErrors.is(error)) {
-        error.errors.forEach(({ message, locations, path }) => {
-          console.error(`[GraphQL error]: Message: ${message}, Location: ${locations}, Path: ${path}`);
-        });
+        for (const { message, locations, path } of error.errors) {
+          const locStr = JSON.stringify(locations);
+          console.error(`[GraphQL error]: Message: ${message}, Location: ${locStr}, Path: ${JSON.stringify(path)}`);
+        }
       } else {
-        console.error(`[Network error]: ${error}`);
+        console.error(`[Network error]: ${JSON.stringify(error)}`);
       }
     }
   });

@@ -30,13 +30,18 @@ export function JsonJqTransformTaskModal({
 
   useEffect(() => {
     if (open) {
+      const timestamp = Date.now();
       if (initialConfig) {
-        setConfig({ ...initialConfig });
+        setConfig({
+          ...initialConfig,
+          name: initialConfig.name || `json_jq_transform_${timestamp}`,
+          taskReferenceName: initialConfig.taskReferenceName || `json_jq_transform_ref_${timestamp}`,
+        });
       } else {
         setConfig({
           type: 'JSON_JQ_TRANSFORM',
-          name: '',
-          taskReferenceName: '',
+          name: `json_jq_transform_${timestamp}`,
+          taskReferenceName: `json_jq_transform_ref_${timestamp}`,
           queryExpression: '.',
         });
       }

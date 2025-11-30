@@ -7,9 +7,21 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 node_modules
+# cache files
+.filestore/*
+.filestore
+# Build temp directory (local electron-builder cache)
+.build-temp
+.build-temp/*
+# Distribution files
+distribution
+distribution/*
 dist
 dist-ssr
 *.local
+# Electron build output
+/out
+/release
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
@@ -22,3 +34,5 @@ dist-ssr
 *.sw?
 *.ps1
 QUICK-START.ps1
+.build-metadata.json
+.build-metadata.json

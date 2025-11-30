@@ -30,13 +30,18 @@ export function EventSystemTaskModal({ open, onOpenChange, onSave, initialConfig
 
   useEffect(() => {
     if (open) {
+      const timestamp = Date.now();
       if (initialConfig) {
-        setConfig({ ...initialConfig });
+        setConfig({
+          ...initialConfig,
+          name: initialConfig.name || `event_${timestamp}`,
+          taskReferenceName: initialConfig.taskReferenceName || `event_ref_${timestamp}`,
+        });
       } else {
         setConfig({
           type: 'EVENT',
-          name: '',
-          taskReferenceName: '',
+          name: `event_${timestamp}`,
+          taskReferenceName: `event_ref_${timestamp}`,
           sink: 'conductor',
           asyncComplete: false,
         });

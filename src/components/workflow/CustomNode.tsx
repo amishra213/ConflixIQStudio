@@ -28,20 +28,39 @@ export const CustomNode = memo(({ data, selected, id }: NodeProps) => {
   };
 
   return (
-    <div
-      className={`px-2 py-1.5 rounded-md border-2 bg-[#1a1f2e] transition-all group relative ${
+    // NOSONAR S6819 - We use role="button" with div because we need nested button elements (edit/delete)
+    // which is not possible with native button element. The div is fully keyboard accessible with tabIndex, onKeyDown, and aria-label.
+    <div // NOSONAR
+      onClick={(e) => {
+        e.stopPropagation();
+        if (data.onEdit) {
+          data.onEdit(id);
+        }
+      }}
+      role="button"
+      tabIndex={0}
+      className={`px-2 py-1.5 rounded-md border-2 bg-[#1a1f2e] transition-all group relative cursor-pointer ${
         selected ? 'border-cyan-500 shadow-lg shadow-cyan-500/20' : 'border-[#2a3142]'
       }`}
       style={{
         borderColor: selected ? '#00bcd4' : data.color || '#2a3142',
-        width: '140px',
-        height: '80px',
+        width: '125px',
+        height: '50px',
         display: 'flex',
         flexDirection: 'column',
         justifyContent: 'center',
         pointerEvents: 'auto',
       }}
-      title={`Task: ${data.label}\nRef: ${data.taskReferenceName || 'N/A'}`}
+      title={`Task: ${data.label}\nRef: ${data.taskReferenceName || 'N/A'}\n\nClick to edit or use the blue Edit button for more options`}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          if (data.onEdit) {
+            data.onEdit(id);
+          }
+        }
+      }}
+      aria-label={`Task node: ${data.label}. ${data.taskType} task.`}
     >
       {/* Top Handle */}
       <Handle 

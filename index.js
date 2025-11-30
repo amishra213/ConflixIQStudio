@@ -48,6 +48,68 @@ app.get('/api/health', (req, res) => {
   });
 });
 
+// REST proxy endpoints for Conductor API
+// Proxy GET /api/metadata/taskdefs to Conductor server
+app.get('/api/metadata/taskdefs', async (req, res) => {
+  try {
+    const axios = await import('axios').then(m => m.default);
+    
+    // Get Conductor config from environment or stored config
+    const conductorServerUrl = process.env.VITE_CONDUCTOR_SERVER_URL || 'http://localhost:8080';
+    const conductorApiKey = process.env.VITE_CONDUCTOR_API_KEY || '';
+    
+    const headers = {
+      'Content-Type': 'application/json',
+    };
+    
+    if (conductorApiKey) {
+      headers['X-Conductor-API-Key'] = conductorApiKey;
+    }
+    
+    // Forward request to Conductor server
+    const response = await axios.get(`${conductorServerUrl}/api/metadata/taskdefs`, { headers });
+    
+    res.json(response.data);
+  } catch (error) {
+    console.error('Error fetching task definitions from Conductor:', error.message);
+    res.status(error.response?.status || 500).json({
+      error: 'Failed to fetch task definitions',
+      message: error.message,
+    });
+  }
+});
+
+// Proxy GET /api/metadata/workflow to Conductor server
+app.get('/api/metadata/workflow', async (req, res) => {
+  try {
+    const axios = await import('axios').then(m => m.default);
+    
+    // Get Conductor config from environment or stored config
+    const conductorServerUrl = process.env.VITE_CONDUCTOR_SERVER_URL || 'http://localhost:8080';
+    const conductorApiKey = process.env.VITE_CONDUCTOR_API_KEY || '';
+    
+    const headers = {
+      'Content-Type': 'application/json',
+    };
+    
+    if (conductorApiKey) {
+      headers['X-Conductor-API-Key'] = conductorApiKey;
+    }
+    
+    // Forward request to Conductor server (with query parameters if any)
+    const queryString = Object.keys(req.query).length > 0 ? `?${new URLSearchParams(req.query).toString()}` : '';
+    const response = await axios.get(`${conductorServerUrl}/api/metadata/workflow${queryString}`, { headers });
+    
+    res.json(response.data);
+  } catch (error) {
+    console.error('Error fetching workflows from Conductor:', error.message);
+    res.status(error.response?.status || 500).json({
+      error: 'Failed to fetch workflows',
+      message: error.message,
+    });
+  }
+});
+
 // Register filestore routes
 fileStoreRoutes(app);
 

@@ -5,6 +5,7 @@
 
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import { serverLogger } from './server-logger.js';
 
 // Default cache directory in project root
 const CACHE_DIR = process.env.FILESTORE_CACHE_DIR || path.join(process.cwd(), '.filestore');
@@ -16,7 +17,7 @@ async function ensureCacheDir() {
   try {
     await fs.mkdir(CACHE_DIR, { recursive: true });
   } catch (error) {
-    console.error('Error creating cache directory:', error);
+    serverLogger.error('Error creating cache directory:', error);
   }
 }
 
@@ -37,10 +38,10 @@ async function loadCacheFromFile(filename) {
     return JSON.parse(data);
   } catch (error) {
     if (error.code === 'ENOENT') {
-      console.log(`Cache file not found: ${filename}`);
+      serverLogger.info(`Cache file not found: ${filename}`);
       return null;
     }
-    console.error('Error reading cache file:', error);
+    serverLogger.error('Error reading cache file:', error);
     throw error;
   }
 }
@@ -53,10 +54,10 @@ async function saveCacheToFile(filename, data) {
     await ensureCacheDir();
     const filePath = getCachePath(filename);
     await fs.writeFile(filePath, JSON.stringify(data, null, 2), 'utf8');
-    console.log(`Cache saved to: ${filePath}`);
+    serverLogger.info(`Cache saved to: ${filePath}`);
     return true;
   } catch (error) {
-    console.error('Error writing cache file:', error);
+    serverLogger.error('Error writing cache file:', error);
     throw error;
   }
 }
@@ -68,14 +69,14 @@ async function deleteCacheFile(filename) {
   try {
     const filePath = getCachePath(filename);
     await fs.unlink(filePath);
-    console.log(`Cache file deleted: ${filePath}`);
+    serverLogger.info(`Cache file deleted: ${filePath}`);
     return true;
   } catch (error) {
     if (error.code === 'ENOENT') {
-      console.log(`Cache file not found for deletion: ${filename}`);
+      serverLogger.info(`Cache file not found for deletion: ${filename}`);
       return true;
     }
-    console.error('Error deleting cache file:', error);
+    serverLogger.error('Error deleting cache file:', error);
     throw error;
   }
 }
@@ -96,7 +97,7 @@ async function getCacheFileInfo(filename) {
     if (error.code === 'ENOENT') {
       return null;
     }
-    console.error('Error getting file info:', error);
+    serverLogger.error('Error getting file info:', error);
     throw error;
   }
 }
@@ -120,9 +121,33 @@ const fileStoreRoutes = (app) => {
         res.json({ success: true, data: [] });
       }
     } catch (error) {
+      serverLogger.error('Error in /api/filestore/load:', error);
       res.status(500).json({ 
         success: false, 
         error: error instanceof Error ? error.message : 'Unknown error loading cache' 
+      });
+    }
+  });
+
+  /**
+   * GET /api/filestore/load-workflows - Load workflows from filestore
+   */
+  app.get('/api/filestore/load-workflows', async (req, res) => {
+    try {
+      const data = await loadCacheFromFile('workflows-cache.json');
+      if (data && data.workflows && Array.isArray(data.workflows)) {
+        res.json({ success: true, data: data.workflows });
+      } else if (data && Array.isArray(data)) {
+        // Handle legacy format
+        res.json({ success: true, data });
+      } else {
+        res.json({ success: true, data: [] });
+      }
+    } catch (error) {
+      serverLogger.error('Error in /api/filestore/load-workflows:', error);
+      res.status(500).json({ 
+        success: false, 
+        error: error instanceof Error ? error.message : 'Unknown error loading workflows' 
       });
     }
   });
@@ -150,9 +175,41 @@ const fileStoreRoutes = (app) => {
       await saveCacheToFile(key, cacheData);
       res.json({ success: true });
     } catch (error) {
+      serverLogger.error('Error in /api/filestore/save:', error);
       res.status(500).json({ 
         success: false, 
         error: error instanceof Error ? error.message : 'Unknown error saving cache' 
+      });
+    }
+  });
+
+  /**
+   * POST /api/filestore/save-workflows - Save workflows to filestore
+   */
+  app.post('/api/filestore/save-workflows', async (req, res) => {
+    try {
+      const { workflows, timestamp } = req.body;
+
+      if (!Array.isArray(workflows)) {
+        res.status(400).json({ 
+          success: false, 
+          error: 'Missing required field: workflows (array)' 
+        });
+        return;
+      }
+
+      const workflowData = {
+        timestamp: timestamp || Date.now(),
+        workflows,
+      };
+
+      await saveCacheToFile('workflows-cache.json', workflowData);
+      res.json({ success: true });
+    } catch (error) {
+      serverLogger.error('Error in /api/filestore/save-workflows:', error);
+      res.status(500).json({ 
+        success: false, 
+        error: error instanceof Error ? error.message : 'Unknown error saving workflows' 
       });
     }
   });
@@ -175,6 +232,7 @@ const fileStoreRoutes = (app) => {
       await deleteCacheFile(key);
       res.json({ success: true });
     } catch (error) {
+      serverLogger.error('Error in /api/filestore/clear:', error);
       res.status(500).json({ 
         success: false, 
         error: error instanceof Error ? error.message : 'Unknown error clearing cache' 
@@ -194,9 +252,118 @@ const fileStoreRoutes = (app) => {
         res.json({ success: true, data: { size: 0, lastUpdate: null, created: null } });
       }
     } catch (error) {
+      serverLogger.error('Error in /api/filestore/info:', error);
       res.status(500).json({ 
         success: false, 
         error: error instanceof Error ? error.message : 'Unknown error getting cache info' 
+      });
+    }
+  });
+
+  /**
+   * POST /api/filestore/save-workflow - Save individual workflow file
+   * Creates file in workflows/ subdirectory if it doesn't exist
+   */
+  app.post('/api/filestore/save-workflow', async (req, res) => {
+    try {
+      const { filename, data, timestamp } = req.body;
+
+      if (!filename || !data) {
+        res.status(400).json({ 
+          success: false, 
+          error: 'Missing required fields: filename (string), data (object)' 
+        });
+        return;
+      }
+
+      // Ensure workflows directory exists
+      const workflowsDir = path.join(CACHE_DIR, 'workflows');
+      await fs.mkdir(workflowsDir, { recursive: true });
+
+      // Save workflow file
+      const filePath = path.join(CACHE_DIR, filename);
+      const cacheData = {
+        timestamp: timestamp || Date.now(),
+        ...data,
+      };
+      await fs.writeFile(filePath, JSON.stringify(cacheData, null, 2), 'utf8');
+      serverLogger.info(`Workflow saved to: ${filePath}`);
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ 
+        success: false, 
+        error: error instanceof Error ? error.message : 'Unknown error saving workflow' 
+      });
+    }
+  });
+
+  /**
+   * GET /api/filestore/load-workflows-batch - Load all workflows from workflows/ directory
+   */
+  app.get('/api/filestore/load-workflows-batch', async (req, res) => {
+    try {
+      const workflowsDir = path.join(CACHE_DIR, 'workflows');
+      const workflows = [];
+
+      try {
+        // Read all files in workflows directory
+        const files = await fs.readdir(workflowsDir);
+        
+        for (const file of files) {
+          if (file.endsWith('.json')) {
+            const filePath = path.join(workflowsDir, file);
+            const data = await fs.readFile(filePath, 'utf8');
+            const workflow = JSON.parse(data);
+            workflows.push(workflow);
+          }
+        }
+      } catch (err) {
+        // Directory doesn't exist yet - return empty array
+        if (err.code !== 'ENOENT') {
+          throw err;
+        }
+      }
+
+      res.json({ success: true, data: workflows });
+    } catch (error) {
+      res.status(500).json({ 
+        success: false, 
+        error: error instanceof Error ? error.message : 'Unknown error loading workflows' 
+      });
+    }
+  });
+
+  /**
+   * POST /api/filestore/delete-workflow - Delete individual workflow file
+   */
+  app.post('/api/filestore/delete-workflow', async (req, res) => {
+    try {
+      const { filename } = req.body;
+
+      if (!filename) {
+        res.status(400).json({ 
+          success: false, 
+          error: 'Missing required field: filename' 
+        });
+        return;
+      }
+
+      const filePath = path.join(CACHE_DIR, filename);
+      try {
+        await fs.unlink(filePath);
+        serverLogger.info(`Workflow deleted: ${filePath}`);
+      } catch (err) {
+        // File doesn't exist - treat as success
+        if (err.code !== 'ENOENT') {
+          throw err;
+        }
+      }
+
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ 
+        success: false, 
+        error: error instanceof Error ? error.message : 'Unknown error deleting workflow' 
       });
     }
   });

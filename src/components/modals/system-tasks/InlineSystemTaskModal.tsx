@@ -30,13 +30,18 @@ export function InlineSystemTaskModal({ open, onOpenChange, onSave, initialConfi
 
   useEffect(() => {
     if (open) {
+      const timestamp = Date.now();
       if (initialConfig) {
-        setConfig({ ...initialConfig });
+        setConfig({
+          ...initialConfig,
+          name: initialConfig.name || `inline_${timestamp}`,
+          taskReferenceName: initialConfig.taskReferenceName || `inline_ref_${timestamp}`,
+        });
       } else {
         setConfig({
           type: 'INLINE',
-          name: '',
-          taskReferenceName: '',
+          name: `inline_${timestamp}`,
+          taskReferenceName: `inline_ref_${timestamp}`,
           evaluatorType: 'javascript',
           expression: 'function() { return { result: true }; }',
         });

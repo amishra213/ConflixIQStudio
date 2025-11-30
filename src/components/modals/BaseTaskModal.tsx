@@ -1,4 +1,4 @@
-import { ReactNode, useState, useEffect, useRef } from 'react';
+import { ReactNode, useState, useEffect } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -19,10 +19,9 @@ export interface BaseTaskConfig {
   name?: string;
   taskReferenceName?: string;
   description?: string;
-  taskRefId?: string;
   taskType?: string;
   type?: string;
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 export interface BaseTaskModalProps<T extends BaseTaskConfig> {
@@ -63,37 +62,30 @@ export function BaseTaskModal<T extends BaseTaskConfig>({
   const [jsonError, setJsonError] = useState('');
   const [isEditingJson, setIsEditingJson] = useState(false);
 
-  const isFirstOpen = useRef(true);
-
   useEffect(() => {
     if (open) {
-      if (isFirstOpen.current) {
-        // First time modal opens - initialize with initialConfig
-        if (initialConfig) {
-          setConfig(initialConfig);
-          setCompleteConfigJson(JSON.stringify(initialConfig, null, 2));
-        } else {
-          setConfig({} as T);
-          setCompleteConfigJson(JSON.stringify({}, null, 2));
-        }
-        setJsonError('');
-        setIsEditingJson(false);
-        isFirstOpen.current = false;
-      } else if (initialConfig) {
-        // Modal already open - merge initialConfig into existing config
-        // This preserves user-edited fields while updating custom fields
-        setConfig((prev) => ({
+      console.log('[BaseTaskModal] Modal open, initialConfig:', initialConfig);
+      
+      // Whenever modal opens or initialConfig changes, update the form with the new config
+      if (initialConfig) {
+        console.log('[BaseTaskModal] Initializing with initialConfig');
+        // Ensure taskReferenceName is set
+        const configWithRef = {
           ...initialConfig,
-          // Preserve base fields that user may have edited
-          name: prev.name || initialConfig.name,
-          taskReferenceName: prev.taskReferenceName || initialConfig.taskReferenceName,
-          description: prev.description || initialConfig.description,
-          taskRefId: prev.taskRefId || initialConfig.taskRefId,
-        }));
+        };
+        if (!configWithRef.taskReferenceName || configWithRef.taskReferenceName.trim() === '') {
+          configWithRef.taskReferenceName = `task_ref_${Date.now()}`;
+          console.log('[BaseTaskModal] Generated default taskReferenceName:', configWithRef.taskReferenceName);
+        }
+        setConfig(configWithRef);
+        setCompleteConfigJson(JSON.stringify(configWithRef, null, 2));
+      } else {
+        console.log('[BaseTaskModal] No initialConfig, using empty');
+        setConfig({} as T);
+        setCompleteConfigJson(JSON.stringify({}, null, 2));
       }
-    } else {
-      // Reset the flag when modal closes
-      isFirstOpen.current = true;
+      setJsonError('');
+      setIsEditingJson(false);
     }
   }, [open, initialConfig]);
 
@@ -125,6 +117,25 @@ export function BaseTaskModal<T extends BaseTaskConfig>({
     validateJson(value);
   };
 
+  const validateAndGenerateDefaults = (cfg: T): string | null => {
+    // Ensure taskReferenceName is generated if needed
+    if (cfg.taskReferenceName !== undefined && (!cfg.taskReferenceName || cfg.taskReferenceName.trim() === '')) {
+      cfg.taskReferenceName = `task_ref_${Date.now()}`;
+    }
+
+    // Validate name
+    if (cfg.name !== undefined && (!cfg.name || cfg.name.trim() === '')) {
+      return 'Name is required';
+    }
+
+    // Validate taskReferenceName
+    if (cfg.taskReferenceName !== undefined && (!cfg.taskReferenceName || cfg.taskReferenceName.trim() === '')) {
+      return 'Task Reference Name is required and cannot be empty';
+    }
+
+    return null;
+  };
+
   const handleSave = () => {
     try {
       let finalConfig: T;
@@ -137,6 +148,13 @@ export function BaseTaskModal<T extends BaseTaskConfig>({
         finalConfig = config;
       }
 
+      // Validate and generate defaults
+      const validationError = validateAndGenerateDefaults(finalConfig);
+      if (validationError) {
+        setJsonError(validationError);
+        return;
+      }
+
       // Run custom validation if provided
       if (validateConfig) {
         const error = validateConfig(finalConfig);
@@ -144,23 +162,6 @@ export function BaseTaskModal<T extends BaseTaskConfig>({
           setJsonError(error);
           return;
         }
-      }
-
-      // Default validation for common fields
-      if (finalConfig.name !== undefined && (!finalConfig.name || finalConfig.name.trim() === '')) {
-        setJsonError('Name is required');
-        return;
-      }
-      if (
-        finalConfig.taskReferenceName !== undefined &&
-        (!finalConfig.taskReferenceName || finalConfig.taskReferenceName.trim() === '')
-      ) {
-        setJsonError('Task Reference Name is required');
-        return;
-      }
-      if (finalConfig.taskRefId !== undefined && (!finalConfig.taskRefId || finalConfig.taskRefId.trim() === '')) {
-        setJsonError('Task Ref ID is required');
-        return;
       }
 
       onSave(finalConfig);
@@ -200,19 +201,6 @@ export function BaseTaskModal<T extends BaseTaskConfig>({
               <Card className="p-6 bg-[#0f1419] border-[#2a3142]">
                 <h3 className="text-lg font-semibold text-white mb-4">Task Information</h3>
                 <div className="space-y-4">
-                  {/* Task Ref ID (for operators) */}
-                  {config.taskRefId !== undefined && (
-                    <div>
-                      <Label className="text-white">Task Ref ID *</Label>
-                      <Input
-                        value={config.taskRefId || ''}
-                        onChange={(e) => updateConfig({ taskRefId: e.target.value } as Partial<T>)}
-                        placeholder="e.g., task-1"
-                        className="mt-2 bg-[#1a1f2e] text-white border-[#2a3142]"
-                      />
-                    </div>
-                  )}
-
                   {/* Name field */}
                   {config.name !== undefined && (
                     <div>

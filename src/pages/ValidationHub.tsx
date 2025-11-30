@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { useWorkflowStore } from '@/stores/workflowStore';
-import { CheckCircleIcon, SearchIcon, FilterIcon, FlaskConicalIcon, ListIcon } from 'lucide-react';
+import { CheckCircleIcon, SearchIcon, FilterIcon, FlaskConicalIcon, ListIcon, ArrowLeftIcon } from 'lucide-react';
 import {
   Table,
   TableBody,
@@ -32,11 +32,22 @@ export function ValidationHub() {
   return (
     <div className="p-8 space-y-8 bg-[#0f1419]">
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-4xl font-bold text-white mb-2">Workflow Validation Hub</h1>
-          <p className="text-base text-gray-400">
-            AI-powered test scenario generation and workflow validation
-          </p>
+        <div className="flex items-center gap-4">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => navigate('/')}
+            className="text-gray-400 hover:text-white hover:bg-[#2a3142]"
+            title="Back to dashboard"
+          >
+            <ArrowLeftIcon className="w-5 h-5" />
+          </Button>
+          <div>
+            <h1 className="text-4xl font-bold text-white mb-2">Workflow Validation Hub</h1>
+            <p className="text-base text-gray-400">
+              AI-powered test scenario generation and workflow validation
+            </p>
+          </div>
         </div>
         <div className="flex items-center gap-3">
           <Badge className="bg-purple-500/20 text-purple-400 border border-purple-500/50 px-4 py-2">

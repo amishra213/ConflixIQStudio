@@ -1,4 +1,4 @@
-import { useCallback, useState, useEffect } from 'react';
+import { useCallback, useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import ReactFlow, {
   Background,
@@ -6,6 +6,7 @@ import ReactFlow, {
   addEdge,
   useNodesState,
   useEdgesState,
+  useReactFlow,
   Connection,
   Edge,
   Node,
@@ -15,8 +16,9 @@ import 'reactflow/dist/style.css';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
-import { useWorkflowStore, WorkflowSettings } from '@/stores/workflowStore';
-import { SaveIcon, PlayIcon, EyeIcon, LayoutGridIcon } from 'lucide-react';
+import { useWorkflowStore, WorkflowSettings, WorkflowEdge, WorkflowNode, Workflow } from '@/stores/workflowStore';
+import { useWorkflowCacheStore } from '@/stores/workflowCacheStore';
+import { SaveIcon, PlayIcon, EyeIcon, LayoutGridIcon, ArrowLeftIcon } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
@@ -25,6 +27,7 @@ import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
+import { useConductorApi } from '@/hooks/useConductorApi';
 import { ExecuteWorkflowModal } from '@/components/modals/ExecuteWorkflowModal';
 import { HttpTaskModal } from '@/components/modals/system-tasks/HttpSystemTaskModal';
 import { KafkaPublishTaskModal, KafkaPublishTaskConfig } from '@/components/modals/system-tasks/KafkaPublishSystemTaskModal';
@@ -36,6 +39,7 @@ import { TerminateSystemTaskModal, TerminateSystemTaskConfig } from '@/component
 import { InlineSystemTaskModal, InlineSystemTaskConfig } from '@/components/modals/system-tasks/InlineSystemTaskModal';
 import { HumanSystemTaskModal, HumanTaskConfig } from '@/components/modals/system-tasks/HumanSystemTaskModal';
 import { SimpleTaskModal, WorkflowTaskConfig } from '@/components/modals/SimpleTaskModal';
+import { generateUniqueWorkflowName } from '@/utils/nameGenerator';
 
 // Operator Modals
 import { ForkJoinModal, ForkJoinConfig } from '@/components/modals/operators/ForkJoinModal';
@@ -54,6 +58,7 @@ import { TaskLibrarySidebar } from '@/components/workflow/TaskLibrarySidebar';
 import { workerTasks, operators, systemTasks } from '@/constants/taskDefinitions';
 import { formatDate, formatDateForInput, formatDateFromInput } from '@/utils/dateFormatters';
 import { useTaskModals } from '@/hooks/useTaskModals';
+import { conductorWorkflowToLocal, type ConductorWorkflow } from '@/lib/utils';
 
 import logo from '../../resources/logo.svg';
 
@@ -61,11 +66,47 @@ const nodeTypes = {
   custom: CustomNode,
 };
 
+// Helper component to handle auto-fit view when fitView event is triggered
+function FitViewListener() {
+  const { fitView } = useReactFlow();
+
+  useEffect(() => {
+    const handleFitView = () => {
+      try {
+        fitView({ padding: 0.2, duration: 300, maxZoom: 1, minZoom: 1 });
+      } catch (error_) {
+        // fitView may not be available in all contexts
+        console.debug('fitView not available:', error_);
+      }
+    };
+
+    globalThis.addEventListener('fitView', handleFitView as EventListener);
+    return () => globalThis.removeEventListener('fitView', handleFitView as EventListener);
+  }, [fitView]);
+
+  return null;
+}
+
 export function WorkflowDesigner() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { workflows, updateWorkflow, executeWorkflow } = useWorkflowStore();
+  const { saveWorkflowToCache, markAsDraft, markAsSyncing, markAsPublished, syncToFileStore, clearCache } = useWorkflowCacheStore();
   const { toast } = useToast();
+  const { saveWorkflow, fetchWorkflowByVersion } = useConductorApi({ enableFallback: false });
+
+  // Clear workflow cache for Internet Explorer users
+  useEffect(() => {
+    const isIE = /MSIE|Trident/.exec(globalThis.navigator?.userAgent || '');
+    if (isIE) {
+      // Clear Zustand workflow cache
+      clearCache();
+      // Remove persisted cache from localStorage
+      localStorage.removeItem('workflow-cache-store');
+      // Optionally, show a toast or log
+      if (toast) toast({ title: 'Workflow cache cleared for IE', description: 'IE detected, cache cleared.' });
+    }
+  }, [clearCache, toast]);
 
   const workflow = id ? workflows.find((w) => w.id === id) : null;
   const [workflowName, setWorkflowName] = useState('New Workflow');
@@ -73,6 +114,7 @@ export function WorkflowDesigner() {
     description: 'A new workflow definition',
     version: 1,
     timeoutSeconds: 3600,
+    timeoutPolicy: 'TIME_OUT_WF',
     restartable: true,
     schemaVersion: 2,
     effectiveDate: formatDate(new Date()),
@@ -80,6 +122,15 @@ export function WorkflowDesigner() {
     status: 'DRAFT',
     inputParameters: [],
     outputParameters: {},
+    inputTemplate: {},
+    createdBy: 'Netflix Conductor Hub',
+    updatedBy: 'Netflix Conductor Hub',
+    ownerEmail: '',
+    ownerApp: '',
+    accessPolicy: {},
+    variables: {},
+    failureWorkflow: '',
+    workflowStatusListenerEnabled: false,
   });
   const [activeTab, setActiveTab] = useState('design');
   const [searchQuery, setSearchQuery] = useState('');
@@ -89,6 +140,24 @@ export function WorkflowDesigner() {
   // Declare nodes and edges state before useEffect hooks that depend on them
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
+
+  // Refs to track latest state for cleanup on unmount
+  const workflowRef = useRef(workflow);
+  const workflowNameRef = useRef(workflowName);
+  const workflowSettingsRef = useRef(workflowSettings);
+  const nodesRef = useRef(nodes);
+  const edgesRef = useRef(edges);
+  const nodesStateRef = useRef(nodes); // Keep track of nodes for handleEditNode
+
+  // Update refs when state changes
+  useEffect(() => {
+    workflowRef.current = workflow;
+    workflowNameRef.current = workflowName;
+    workflowSettingsRef.current = workflowSettings;
+    nodesRef.current = nodes;
+    edgesRef.current = edges;
+    nodesStateRef.current = nodes; // Update nodes state ref
+  }, [workflow, workflowName, workflowSettings, nodes, edges]);
 
   // Use the task modals hook
   const {
@@ -102,29 +171,36 @@ export function WorkflowDesigner() {
     setPendingTaskDrop,
   } = useTaskModals();
 
+  // Ref to track pending modal open action
+  const pendingModalOpenRef = useRef<string | null>(null);
+
   // Define edit and delete handlers BEFORE useEffects that use them
   const handleEditNode = useCallback((nodeId: string) => {
-    console.log('handleEditNode called with nodeId:', nodeId);
-    const node = nodes.find(n => n.id === nodeId);
-    console.log('Found node:', node);
+    console.log('handleEditNode called for:', nodeId);
+    const node = nodesStateRef.current.find(n => n.id === nodeId);
     if (node) {
-      console.log('Setting selectedNodeForConfig to:', node);
-      setSelectedNodeForConfig(node);
-      // Open the correct modal based on task type
-      console.log('Opening modal for task type:', node.data.taskType);
-      modalActions.openModalForTaskType(node.data.taskType);
+      console.log('Found node, opening modal for taskType:', node.data.taskType, 'config:', node.data.config);
       
-      // Check if no modal was opened (unknown task type)
-      if (!node.data.taskType) {
-        toast({
-          title: 'Configuration not available',
-          description: `No specific configuration modal for task type: ${node.data.taskType}`,
-          variant: 'destructive',
-        });
-        setSelectedNodeForConfig(null);
-      }
+      // Store the taskType we want to open
+      pendingModalOpenRef.current = node.data.taskType;
+      
+      // Set the selected node - this will trigger the effect below
+      setSelectedNodeForConfig(node);
+    } else {
+      console.warn('Node not found:', nodeId);
     }
-  }, [nodes, toast, modalActions, setSelectedNodeForConfig]);
+  }, [setSelectedNodeForConfig]);
+
+  // When selectedNodeForConfig is set (from handleEditNode), open the modal for that node's taskType
+  useEffect(() => {
+    if (selectedNodeForConfig && pendingModalOpenRef.current) {
+      const taskTypeToOpen = pendingModalOpenRef.current;
+      pendingModalOpenRef.current = null;
+      
+      console.log('Effect: Opening modal for taskType:', taskTypeToOpen, 'with config:', selectedNodeForConfig.data.config);
+      modalActions.openModalForTaskType(taskTypeToOpen);
+    }
+  }, [selectedNodeForConfig, modalActions]);
 
   const handleDeleteNode = useCallback((nodeId: string) => {
     setNodes((nds) => {
@@ -155,37 +231,538 @@ export function WorkflowDesigner() {
     setEdges((eds) => eds.filter((e) => e.source !== nodeId && e.target !== nodeId));
   }, [setNodes, setEdges, workflow, updateWorkflow]);
 
-  // Load workflow data on mount or when workflow changes
-  // NOTE: Workflows are automatically persisted to localStorage via Zustand persist middleware
-  // This ensures WIP workflows survive page refreshes and browser restarts
-  useEffect(() => {
-    if (workflow) {
-      setWorkflowName(workflow.name);
-      if (workflow.settings) {
-        setWorkflowSettings(workflow.settings);
+  // Helper function to handle loading workflow without an ID
+  const handleNoWorkflowId = useCallback(async () => {
+    const lastActiveWorkflowId = sessionStorage.getItem('lastActiveWorkflow');
+    
+    if (lastActiveWorkflowId) {
+      navigate(`/workflows/${lastActiveWorkflowId}`, { replace: true });
+      return;
+    }
+    
+    // No last active workflow - create a new workflow and redirect to it
+    const uniqueName = generateUniqueWorkflowName();
+    
+    const newWorkflow: Workflow = {
+      id: `workflow-${Date.now()}`,
+      name: uniqueName,
+      description: 'A new workflow definition',
+      nodes: [],
+      edges: [],
+      createdAt: new Date().toISOString(),
+      status: 'draft',
+      syncStatus: 'local-only',
+      publicationStatus: 'LOCAL',
+    };
+    
+    useWorkflowStore.getState().addWorkflow(newWorkflow);
+    
+    // DISABLED: persistWorkflows() was causing infinite loop
+    // await persistWorkflows().catch(err => {
+    //   console.warn('Failed to persist new workflow:', err);
+    // });
+    
+    sessionStorage.setItem('lastActiveWorkflow', newWorkflow.id);
+    navigate(`/workflows/${newWorkflow.id}`, { replace: true });
+  }, [navigate]);
+
+  // Helper function to load workflows from localStorage as fallback
+  const loadWorkflowsFromLocalStorage = useCallback((): Workflow[] | null => {
+    try {
+      const localStorageData = localStorage.getItem('workflows');
+      if (localStorageData) {
+        const localWorkflows = JSON.parse(localStorageData) as Workflow[];
+        if (localWorkflows && localWorkflows.length > 0) {
+          console.log(`Loaded ${localWorkflows.length} workflows from localStorage`);
+          return localWorkflows;
+        }
       }
-      // Load nodes and edges from the workflow (restored from localStorage if available)
-      if (workflow.nodes && workflow.nodes.length > 0) {
-        setNodes(workflow.nodes.map(node => ({ 
-          ...node, 
-          draggable: false,
-          data: {
-            ...node.data,
-            onEdit: handleEditNode,
-            onDelete: handleDeleteNode,
-          }
-        })));
-      } else {
-        setNodes([]); // Clear nodes if workflow has none
+      return null;
+    } catch (error_) {
+      console.warn('Failed to load workflows from localStorage:', error_);
+      return null;
+    }
+  }, []);
+
+  // Helper function to sync workflows from fileStore and fallback to localStorage
+  const syncWorkflowsFromFileStore = useCallback(async () => {
+    try {
+      const { fileStoreClient } = await import('@/utils/fileStore');
+      const storedWorkflows = await fileStoreClient.loadWorkflows();
+      
+      if (storedWorkflows && storedWorkflows.length > 0) {
+        console.log(`[syncWorkflowsFromFileStore] Found ${storedWorkflows.length} workflows in fileStore`);
+        
+        // Get current workflows to check for existing PUBLISHED status
+        const currentWorkflows = useWorkflowStore.getState().workflows;
+        const publishedWorkflowIds = new Set(
+          currentWorkflows
+            .filter(w => w.publicationStatus === 'PUBLISHED')
+            .map(w => w.id)
+        );
+        
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const workflowsToLoad: Workflow[] = storedWorkflows.map((w: any) => {
+          const existingPublished = publishedWorkflowIds.has(w.id);
+          return {
+            id: w.id,
+            name: w.name || 'Unnamed',
+            description: w.description,
+            nodes: (w.nodes as WorkflowNode[]) || [],
+            edges: (w.edges as WorkflowEdge[]) || [],
+            createdAt: w.createdAt || new Date().toISOString(),
+            status: (w.status as 'draft' | 'active' | 'paused') || 'draft',
+            syncStatus: (w.syncStatus as 'local-only' | 'synced' | 'syncing') || 'local-only',
+            // IMPORTANT: If this workflow was previously marked as PUBLISHED, keep it as PUBLISHED
+            // This prevents fileStore from overwriting API workflows with wrong publication status
+            publicationStatus: existingPublished ? 'PUBLISHED' : ((w.publicationStatus as 'LOCAL' | 'PUBLISHED') || 'LOCAL'),
+            settings: w.settings,
+            tasks: w.tasks, // Preserve original Conductor task definitions
+          };
+        });
+        
+        // MERGE with existing workflows instead of replacing, to preserve workflows just added from API
+        const workflowIds = new Set(workflowsToLoad.map(w => w.id));
+        const existingWorkflowsNotInFileStore = currentWorkflows.filter(w => !workflowIds.has(w.id));
+        const mergedWorkflows = [...workflowsToLoad, ...existingWorkflowsNotInFileStore];
+        
+        console.log(`[syncWorkflowsFromFileStore] Merging: ${workflowsToLoad.length} from fileStore + ${existingWorkflowsNotInFileStore.length} existing = ${mergedWorkflows.length} total`);
+        useWorkflowStore.getState().loadWorkflows(mergedWorkflows);
+        return;
       }
-      if (workflow.edges && workflow.edges.length > 0) {
-        setEdges(workflow.edges);
-      } else {
-        setEdges([]); // Clear edges if workflow has none
+      
+      // Fallback to localStorage if fileStore is empty
+      console.log('No workflows found in fileStore, checking localStorage...');
+      const localWorkflows = loadWorkflowsFromLocalStorage();
+      if (localWorkflows) {
+        useWorkflowStore.getState().loadWorkflows(localWorkflows);
+      }
+    } catch (error_) {
+      console.warn('Error syncing workflows from fileStore:', error_);
+      // Try localStorage as final fallback
+      const localWorkflows = loadWorkflowsFromLocalStorage();
+      if (localWorkflows) {
+        useWorkflowStore.getState().loadWorkflows(localWorkflows);
       }
     }
+  }, [loadWorkflowsFromLocalStorage]);
+
+  // Helper function to load nodes and edges from workflow
+  // Helper function to load cached workflow from localStorage
+  const loadCachedWorkflow = (workflowId: string) => {
+    try {
+      const cachedData = localStorage.getItem(`workflow-cache-${workflowId}`);
+      if (!cachedData) return null;
+      
+      const cache = JSON.parse(cachedData);
+      return cache.nodes?.length > 0 ? cache : null;
+    } catch {
+      return null;
+    }
+  };
+
+  // Helper to check if workflow nodes are already arranged in snake pattern
+  const _checkIfArranged = (wf: Workflow): boolean => wf.nodes?.length && wf.nodes.length > 1
+    ? wf.nodes.some((node, idx) => idx > 0 && (node.position.x !== wf.nodes[0].position.x + (idx * 300) || node.position.y !== 0))
+    : false;
+
+  const checkIfArranged = _checkIfArranged;
+
+  // Helper: Map a node with event handlers
+  const mapNodeWithHandlers = useCallback((node: WorkflowNode) => ({
+    ...node,
+    draggable: false,
+    data: {
+      ...node.data,
+      onEdit: handleEditNode,
+      onDelete: handleDeleteNode,
+    }
+  }), [handleEditNode, handleDeleteNode]);
+
+  // Helper: Check if nodes are in linear layout
+  const isNodesInLinearLayout = (nodeList: Node[]): boolean => {
+    if (nodeList.length <= 1) return false;
+    return nodeList.every((node, idx) => {
+      if (idx === 0) return true;
+      const firstNodeX = nodeList[0].position.x;
+      const expectedLinearX = firstNodeX + (idx * 300);
+      return node.position.x === expectedLinearX && node.position.y === 0;
+    });
+  };
+
+  // Helper: Arrange nodes in snake pattern
+  const arrangeNodesInSnakePattern = (nodeList: Node[]): Node[] => {
+    const sortedNodes = [...nodeList].sort((a, b) => {
+      const seqA = a.data.sequenceNo || 0;
+      const seqB = b.data.sequenceNo || 0;
+      return seqA - seqB;
+    });
+
+    const nodesPerRow = 5;
+    const horizontalSpacing = 200;
+    const verticalSpacing = 120;
+    const startX = 50;
+    const startY = 50;
+
+    return sortedNodes.map((node, index) => {
+      const rowIndex = Math.floor(index / nodesPerRow);
+      const colIndex = index % nodesPerRow;
+      const isOddRow = rowIndex % 2 === 1;
+      const actualColIndex = isOddRow ? (nodesPerRow - 1 - colIndex) : colIndex;
+
+      return {
+        ...node,
+        position: {
+          x: startX + (actualColIndex * horizontalSpacing),
+          y: startY + (rowIndex * verticalSpacing),
+        },
+      } as Node;
+    });
+  };
+
+  // Helper: Generate edges for arranged nodes
+  const generateEdgesForArrangedNodes = (nodeList: Node[]): Edge[] => {
+    const nodesPerRow = 5;
+    const newEdges: Edge[] = [];
+
+    for (let i = 0; i < nodeList.length - 1; i++) {
+      const sourceIndex = i;
+      const targetIndex = i + 1;
+      const sourceRow = Math.floor(sourceIndex / nodesPerRow);
+      const targetRow = Math.floor(targetIndex / nodesPerRow);
+      const isRowTransition = sourceRow !== targetRow;
+
+      let sourceHandle = 'right';
+      let targetHandle = 'left';
+      if (isRowTransition) {
+        sourceHandle = 'bottom';
+        targetHandle = 'top';
+      }
+
+      newEdges.push({
+        id: `${nodeList[i].id}-${nodeList[i + 1].id}`,
+        source: nodeList[i].id,
+        sourceHandle: sourceHandle,
+        target: nodeList[i + 1].id,
+        targetHandle: targetHandle,
+        type: 'straight',
+        animated: true,
+        style: { stroke: '#00bcd4', strokeWidth: 2 },
+      });
+    }
+
+    return newEdges;
+  };
+
+  const loadNodesAndEdgesFromWorkflow = useCallback((foundWorkflow: Workflow) => {
+    console.log(`[WorkflowDesigner.loadNodesAndEdgesFromWorkflow] Loading workflow:`, foundWorkflow.name, `with ${foundWorkflow.nodes?.length || 0} nodes, status: ${foundWorkflow.publicationStatus}`);
+    console.log(`[WorkflowDesigner.loadNodesAndEdgesFromWorkflow] Full workflow object:`, foundWorkflow);
+    setWorkflowName(foundWorkflow.name);
+    if (foundWorkflow.settings) {
+      setWorkflowSettings(foundWorkflow.settings);
+    }
+    
+    // Only use cache for LOCAL workflows, not for PUBLISHED workflows from server
+    // Published workflows should always use fresh nodes/edges from the server
+    const cached = foundWorkflow.publicationStatus === 'LOCAL' ? loadCachedWorkflow(foundWorkflow.id) : null;
+    
+    if (cached) {
+      console.log(`[WorkflowDesigner.loadNodesAndEdgesFromWorkflow] Using cached workflow with ${cached.nodes.length} nodes`);
+      setNodes(cached.nodes.map(mapNodeWithHandlers));
+      setEdges(cached.edges?.length > 0 ? (cached.edges as Edge[]) : []);
+      return;
+    }
+    
+    let nodes: Node[] = foundWorkflow.nodes?.length > 0 
+      ? foundWorkflow.nodes.map(mapNodeWithHandlers)
+      : [];
+    let edges: Edge[] = foundWorkflow.edges?.length > 0 ? (foundWorkflow.edges as Edge[]) : [];
+    
+    // For API-loaded workflows (PUBLISHED status) with linear node positions, apply auto-arrange
+    const isLinearLayout = isNodesInLinearLayout(nodes);
+    
+    if (foundWorkflow.publicationStatus === 'PUBLISHED' && nodes.length > 0 && isLinearLayout) {
+      console.log(`[WorkflowDesigner.loadNodesAndEdgesFromWorkflow] Auto-arranging PUBLISHED workflow with linear layout for better visibility`);
+      nodes = arrangeNodesInSnakePattern(nodes);
+      edges = generateEdgesForArrangedNodes(nodes);
+    }
+    
+    console.log(`[WorkflowDesigner.loadNodesAndEdgesFromWorkflow] About to setNodes with ${nodes.length} nodes`);
+    console.log(`[WorkflowDesigner.loadNodesAndEdgesFromWorkflow] Nodes being set:`, nodes);
+    console.log(`[WorkflowDesigner.loadNodesAndEdgesFromWorkflow] Edges being set:`, edges);
+    setNodes(nodes);
+    setEdges(edges);
+    
+    // IMPORTANT: Only update the workflow in store if we performed auto-arrange
+    // This avoids unnecessary store updates for already-arranged workflows
+    if (foundWorkflow.publicationStatus === 'PUBLISHED' && nodes.length > 0 && isLinearLayout) {
+      console.log(`[WorkflowDesigner.loadNodesAndEdgesFromWorkflow] Updating workflow in store with newly arranged nodes`);
+      updateWorkflow(foundWorkflow.id, {
+        nodes: nodes as WorkflowNode[],
+        edges: edges as WorkflowEdge[],
+      });
+    }
+    
+    // Trigger fitView for proper canvas visualization of loaded workflows
+    if (nodes.length > 0) {
+      setTimeout(() => {
+        globalThis.dispatchEvent(new CustomEvent('fitView'));
+      }, 100);
+    }
+    
+    // Verify state was updated
+    setTimeout(() => {
+      console.log(`[WorkflowDesigner.loadNodesAndEdgesFromWorkflow] AFTER setNodes - checking nodesRef:`, nodesRef.current);
+    }, 100);
+  }, [mapNodeWithHandlers, setNodes, setEdges, updateWorkflow]);
+
+  // Helper function to load published workflow from API
+  const loadPublishedWorkflowFromApi = useCallback(async (workflowId: string): Promise<Workflow | null> => {
+    try {
+      console.log(`[WorkflowDesigner.loadPublishedWorkflowFromApi] Loading workflow ID: ${workflowId}`);
+      // First, try to get workflow from local store
+      const storedWorkflow = useWorkflowStore.getState().workflows.find((w) => w.id === workflowId);
+      console.log(`[WorkflowDesigner.loadPublishedWorkflowFromApi] Stored workflow found:`, storedWorkflow ? `YES (${storedWorkflow.nodes?.length || 0} nodes)` : 'NO');
+      
+      // Extract workflow name and version from ID (format: {name}-v{version})
+      let workflowName = '';
+      let workflowVersion = 1;
+      
+      if (storedWorkflow?.name && storedWorkflow?.settings?.version) {
+        workflowName = storedWorkflow.name;
+        workflowVersion = storedWorkflow.settings.version;
+        console.log(`[WorkflowDesigner.loadPublishedWorkflowFromApi] Using stored workflow: ${workflowName} version ${workflowVersion}`);
+      } else {
+        // Extract name and version from ID when workflow not in local store
+        // ID format is: {name}-v{version}
+        const lastDashV = workflowId.lastIndexOf('-v');
+        if (lastDashV === -1) {
+          console.warn(`[WorkflowDesigner.loadPublishedWorkflowFromApi] Cannot parse workflow ID: ${workflowId}`);
+          return storedWorkflow || null;
+        }
+        workflowName = workflowId.substring(0, lastDashV);
+        workflowVersion = Number.parseInt(workflowId.substring(lastDashV + 2), 10);
+        console.log(`[WorkflowDesigner.loadPublishedWorkflowFromApi] Parsed workflow from ID: ${workflowName} version ${workflowVersion}`);
+      }
+      
+      // Fetch the published workflow definition from Conductor API
+      const workflowDef = await fetchWorkflowByVersion(workflowName, workflowVersion);
+      
+      console.log(`[WorkflowDesigner.loadPublishedWorkflowFromApi] API returned workflowDef:`, workflowDef);
+      console.log(`[WorkflowDesigner.loadPublishedWorkflowFromApi] workflowDef?.tasks:`, workflowDef?.tasks);
+      
+      if (!workflowDef) {
+        console.warn(`[WorkflowDesigner.loadPublishedWorkflowFromApi] Failed to fetch published workflow from API`);
+        if (storedWorkflow) {
+          console.warn(`[WorkflowDesigner.loadPublishedWorkflowFromApi] Falling back to local cache`);
+          return storedWorkflow;
+        }
+        return null;
+      }
+
+      console.log(`[WorkflowDesigner.loadPublishedWorkflowFromApi] API returned workflow with ${(workflowDef as ConductorWorkflow).tasks?.length || 0} tasks`);
+
+      // Convert to local workflow format
+      const localWorkflow = conductorWorkflowToLocal(workflowDef as ConductorWorkflow);
+      console.log(`[WorkflowDesigner.loadPublishedWorkflowFromApi] Converted workflow has ${localWorkflow.nodes?.length || 0} nodes`);
+      
+      // Preserve the original ID and mark as published
+      localWorkflow.id = workflowId;
+      localWorkflow.publicationStatus = 'PUBLISHED';
+      if (storedWorkflow?.createdAt) {
+        localWorkflow.createdAt = storedWorkflow.createdAt;
+      }
+      
+      // IMPORTANT: Preserve stored workflow's arranged nodes if they exist
+      // This ensures auto-arranged layouts persist across API refetches
+      if (storedWorkflow?.nodes && storedWorkflow.nodes.length > 0) {
+        // Check if stored nodes are arranged (not in linear positions)
+        const isArranged = storedWorkflow.nodes.some((node, idx) => {
+          if (idx === 0) return false;
+          const firstNodeX = storedWorkflow.nodes[0].position.x;
+          const expectedLinearX = firstNodeX + (idx * 300);
+          return node.position.x !== expectedLinearX || node.position.y !== 0;
+        });
+        
+        if (isArranged) {
+          console.log(`[WorkflowDesigner.loadPublishedWorkflowFromApi] Preserving stored arranged nodes instead of using fresh linear positions`);
+          // Use the stored nodes (which are arranged) but update with fresh task data
+          localWorkflow.nodes = storedWorkflow.nodes;
+          localWorkflow.edges = storedWorkflow.edges;
+        }
+      }
+      
+      console.log(`[WorkflowDesigner.loadPublishedWorkflowFromApi] Returning workflow with ${localWorkflow.nodes?.length || 0} nodes`);
+      return localWorkflow;
+    } catch (error) {
+      console.error('Error loading published workflow from API:', error);
+      const stored = useWorkflowStore.getState().workflows.find((w) => w.id === workflowId);
+      return stored || null;
+    }
+  }, [fetchWorkflowByVersion]);
+
+  // Initialize/Load workflow on component mount or when ID changes
+  useEffect(() => {
+    const loadWorkflow = async () => {
+      if (!id) {
+        console.log(`[WorkflowDesigner.loadWorkflow] No ID provided`);
+        await handleNoWorkflowId();
+        return;
+      }
+
+      console.log(`[WorkflowDesigner.loadWorkflow] Starting load for ID: ${id}, activeTab: ${activeTab}`);
+      console.log(`[WorkflowDesigner.loadWorkflow] All workflows in store:`, useWorkflowStore.getState().workflows.map(w => ({ id: w.id, name: w.name, nodes: w.nodes?.length })));
+      
+      sessionStorage.setItem('lastActiveWorkflow', id);
+      
+      await syncWorkflowsFromFileStore();
+      console.log(`[WorkflowDesigner.loadWorkflow] After sync, workflows in store:`, useWorkflowStore.getState().workflows.map(w => ({ id: w.id, name: w.name, nodes: w.nodes?.length })));
+      
+      let foundWorkflow = useWorkflowStore.getState().workflows.find((w) => w.id === id);
+      console.log(`[WorkflowDesigner.loadWorkflow] Found in store:`, foundWorkflow ? { id: foundWorkflow.id, name: foundWorkflow.name, nodes: foundWorkflow.nodes?.length } : 'NO');
+      
+      if (foundWorkflow) {
+        // Check if the stored workflow has already been auto-arranged (nodes have snake pattern positions)
+        // If it has, use the stored version to preserve the arrangement
+        const hasArrangedNodes = checkIfArranged(foundWorkflow);
+        
+        // If nodes are pre-arranged, use the stored version; otherwise fetch fresh from API
+        if (hasArrangedNodes) {
+          console.log(`[WorkflowDesigner.loadWorkflow] Workflow found with pre-arranged nodes, using stored version`);
+        } else {
+          console.log(`[WorkflowDesigner.loadWorkflow] Workflow found locally but nodes are in linear position, fetching latest from server...`);
+          const apiWorkflow = await loadPublishedWorkflowFromApi(foundWorkflow.id);
+          if (apiWorkflow) {
+            foundWorkflow = apiWorkflow;
+            console.log(`[WorkflowDesigner.loadWorkflow] Successfully fetched latest from server`);
+          }
+        }
+        
+        loadNodesAndEdgesFromWorkflow(foundWorkflow);
+      } else {
+        // Workflow not in local store - try to load from API by ID
+        console.warn(`[WorkflowDesigner.loadWorkflow] Workflow not found in local store, attempting to load from server by ID: ${id}`);
+        const apiWorkflow = await loadPublishedWorkflowFromApi(id);
+        if (apiWorkflow) {
+          console.log(`[WorkflowDesigner.loadWorkflow] Successfully loaded from server`);
+          loadNodesAndEdgesFromWorkflow(apiWorkflow);
+        } else {
+          console.error(`[WorkflowDesigner.loadWorkflow] Failed to load workflow from server: ${id}`);
+          setNodes([]);
+          setEdges([]);
+        }
+      }
+    };
+
+    loadWorkflow();
+
+    // Cleanup: Reset when component unmounts
+    return () => {
+      // Cleanup logic
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id]); // Only run when the workflow ID changes
+  }, [id]); // Only depend on id, NOT on loadPublishedWorkflowFromApi
+
+  // Persist workflow state when component unmounts (user navigates away)
+  useEffect(() => {
+    return () => {
+      // Save current workflow state before unmounting using refs to get latest values
+      // Use the ID from URL params, not the workflow ref which might be null
+      if (id && nodesRef.current.length > 0) {
+        // Check if workflow exists in store
+        const existingWorkflow = useWorkflowStore.getState().workflows.find((w) => w.id === id);
+        
+        if (existingWorkflow) {
+          // Update the workflow in store
+          updateWorkflow(id, {
+            name: workflowNameRef.current,
+            settings: workflowSettingsRef.current,
+            nodes: nodesRef.current,
+            edges: edgesRef.current as WorkflowEdge[],
+          });
+        } else {
+          // Workflow doesn't exist in store, add it
+          const newWorkflow: Workflow = {
+            id: id,
+            name: workflowNameRef.current,
+            description: workflowSettingsRef.current.description,
+            nodes: nodesRef.current,
+            edges: edgesRef.current as WorkflowEdge[],
+            createdAt: new Date().toISOString(),
+            status: 'draft',
+            syncStatus: 'local-only',
+            publicationStatus: 'LOCAL',
+            settings: workflowSettingsRef.current,
+          };
+          useWorkflowStore.getState().addWorkflow(newWorkflow);
+        }
+        
+        // Get all workflows from store and persist IMMEDIATELY
+        const workflows = useWorkflowStore.getState().workflows;
+        
+        // Save to localStorage for immediate persistence
+        try {
+          localStorage.setItem('workflows', JSON.stringify(workflows));
+          console.log('Workflows persisted to localStorage on unmount');
+        } catch (err) {
+          console.warn('Failed to save to localStorage on unmount:', err);
+        }
+        
+        // Also persist to fileStore asynchronously (non-blocking)
+        // This ensures workflows are saved even if only localStorage is available initially
+        (async () => {
+          try {
+            const { fileStoreClient } = await import('@/utils/fileStore');
+            let savedCount = 0;
+            for (const wf of workflows) {
+              const workflowToSave = {
+                id: wf.id,
+                name: wf.name,
+                description: wf.description,
+                version: wf.version,
+                schemaVersion: wf.schemaVersion,
+                ownerEmail: wf.ownerEmail,
+                ownerApp: wf.ownerApp,
+                createdBy: wf.createdBy,
+                updatedBy: wf.updatedBy,
+                createTime: wf.createTime,
+                updateTime: wf.updateTime,
+                nodes: wf.nodes,
+                edges: wf.edges,
+                createdAt: wf.createdAt,
+                status: wf.status,
+                syncStatus: wf.syncStatus,
+                restartable: wf.restartable,
+                timeoutSeconds: wf.timeoutSeconds,
+                timeoutPolicy: wf.timeoutPolicy,
+                workflowStatusListenerEnabled: wf.workflowStatusListenerEnabled,
+                failureWorkflow: wf.failureWorkflow,
+                inputParameters: wf.inputParameters,
+                outputParameters: wf.outputParameters,
+                inputTemplate: wf.inputTemplate,
+                accessPolicy: wf.accessPolicy,
+                variables: wf.variables,
+                tasks: wf.tasks,
+                settings: wf.settings,
+                publicationStatus: wf.publicationStatus,
+              };
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              const result = await fileStoreClient.saveWorkflow(workflowToSave as any);
+              if (result) {
+                savedCount++;
+              }
+            }
+            if (savedCount > 0) {
+              console.log(`Persisted ${savedCount}/${workflows.length} workflows to fileStore on unmount`);
+            }
+          } catch (err) {
+            console.warn('Failed to persist workflows to fileStore on unmount:', err);
+          }
+        })();
+      }
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Empty deps - only run on unmount, uses refs for latest values
 
   // Update node handlers after they're loaded or when nodes change
   useEffect(() => {
@@ -209,118 +786,111 @@ export function WorkflowDesigner() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [nodes.length]); // Only check when nodes count changes
 
-  // Auto-arrange nodes whenever they change (but not on initial load)
-  useEffect(() => {
-    if (nodes.length > 0) {
-      // Auto-arrange nodes in snake pattern whenever a new node is added
-      const sortedNodes = [...nodes].sort((a, b) => {
-        const seqA = a.data.sequenceNo || 0;
-        const seqB = b.data.sequenceNo || 0;
-        return seqA - seqB;
-      });
+  // DISABLED: Auto-arrange was causing nodes to disappear when dragging/dropping
+  // The auto-arrange logic now only runs when user explicitly clicks "Auto Arrange" button
+  // This prevents unwanted repositioning that was causing visual glitches
+  // See handleAutoArrange() function for the actual implementation
+  // useEffect(() => {
+  //   // This effect has been disabled to fix drag-drop disappearing nodes issue
+  // }, [nodes.length]);
 
-      // Configuration for snake layout
-      const nodesPerRow = 6;
-      const horizontalSpacing = 200;
-      const verticalSpacing = 120;
-      const startX = 50;
-      const startY = 50;
-
-      // Arrange nodes in a snake pattern
-      const arrangedNodes = sortedNodes.map((node, index) => {
-        const rowIndex = Math.floor(index / nodesPerRow);
-        const colIndex = index % nodesPerRow;
-        const isOddRow = rowIndex % 2 === 1;
-        const actualColIndex = isOddRow ? (nodesPerRow - 1 - colIndex) : colIndex;
-
-        return {
-          ...node,
-          draggable: false,
-          position: {
-            x: startX + (actualColIndex * horizontalSpacing),
-            y: startY + (rowIndex * verticalSpacing),
-          },
-          data: {
-            ...node.data,
-            onEdit: handleEditNode,
-            onDelete: handleDeleteNode,
-          },
-        };
-      });
-
-      setNodes(arrangedNodes);
-
-      // Auto-connect all nodes in sequence
-      const newEdges: Edge[] = [];
-      for (let i = 0; i < sortedNodes.length - 1; i++) {
-        const sourceNode = sortedNodes[i];
-        const targetNode = sortedNodes[i + 1];
-        
-        const sourceIndex = i;
-        const targetIndex = i + 1;
-        const sourceRow = Math.floor(sourceIndex / nodesPerRow);
-        const targetRow = Math.floor(targetIndex / nodesPerRow);
-        const isRowTransition = sourceRow !== targetRow;
-        
-        let sourceHandle = 'right';
-        let targetHandle = 'left';
-        
-        if (isRowTransition) {
-          sourceHandle = 'bottom';
-          targetHandle = 'top';
-        }
-        
-        newEdges.push({
-          id: `${sourceNode.id}-${targetNode.id}`,
-          source: sourceNode.id,
-          sourceHandle: sourceHandle,
-          target: targetNode.id,
-          targetHandle: targetHandle,
-          type: 'straight',
-          animated: true,
-          style: { stroke: '#00bcd4', strokeWidth: 2 },
-        });
-      }
-      setEdges(newEdges);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [nodes.length]); // Only run when node count changes
-
-  // Auto-save nodes and edges whenever they change (real-time, no debounce)
-  // NOTE: This triggers Zustand persist middleware which saves to localStorage automatically
-  // WIP workflows are cached in browser and survive page refreshes
-  // Removed debounce to ensure real-time updates to workflow JSON and cache
+  // Auto-save nodes and edges whenever they change
   useEffect(() => {
     if (workflow && (nodes.length > 0 || edges.length > 0)) {
-      // Extract and save the tasks array along with nodes and edges
-      // No debounce - save immediately for real-time persistence
-      const workflowTasks = extractWorkflowTasks(nodes);
-      updateWorkflow(workflow.id, {
-        nodes: nodes,
-        edges: edges,
-        tasks: workflowTasks, // Real-time auto-save tasks JSON
-      });
+      // Debounce the save to avoid too frequent updates
+      const timeoutId = setTimeout(() => {
+        updateWorkflow(workflow.id, {
+          nodes: nodes,
+          edges: edges as WorkflowEdge[],
+        });
+        
+        // Also save to localStorage for local cache persistence
+        try {
+          const cacheData = {
+            workflowId: workflow.id,
+            workflowName: workflowName,
+            nodes: nodes,
+            edges: edges,
+            timestamp: new Date().toISOString(),
+          };
+          localStorage.setItem(`workflow-cache-${workflow.id}`, JSON.stringify(cacheData));
+        } catch (err) {
+          console.warn('Failed to save workflow to localStorage:', err);
+        }
+        
+        // DISABLED: persistWorkflows() was causing performance issues by saving all 90+ workflows
+        // This will be called manually on unmount instead
+        // persistWorkflows().catch(err => {
+        //   console.warn('Failed to persist workflows during auto-save:', err);
+        // });
+      }, 500);
+
+      return () => clearTimeout(timeoutId);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [nodes, edges, workflow?.id]); // Only depend on workflow.id, not the entire workflow object
+  }, [nodes, edges, workflow?.id, workflowName]); // Include workflowName for cache
 
-  // Sync JSON text when workflow tasks, settings, or workflowName change
+  // Auto-fit view when nodes are added or removed (via drag/drop)
+  // Store previous node count to detect when nodes are added/removed
+  const prevNodeCountRef = useRef(nodes.length);
+  useEffect(() => {
+    // Trigger fit-view if nodes were added or removed
+    if (nodes.length !== prevNodeCountRef.current && nodes.length > 0) {
+      prevNodeCountRef.current = nodes.length;
+      // Dispatch custom event that can be caught by ReactFlow component
+      // We'll use a small delay to allow the DOM to update
+      const fitTimer = setTimeout(() => {
+        globalThis.dispatchEvent(new CustomEvent('fitView'));
+      }, 50);
+      return () => clearTimeout(fitTimer);
+    }
+    prevNodeCountRef.current = nodes.length;
+  }, [nodes.length]);
+
+  // Sync JSON text when nodes, settings, or workflowName change
   useEffect(() => {
     const workflowJson = {
       name: workflowName,
       description: workflowSettings.description,
       version: workflowSettings.version,
-      // Read tasks from workflow.tasks (auto-saved) instead of extracting from nodes
-      // This ensures the JSON always reflects the saved state
-      tasks: workflow?.tasks || [],
+      createdBy: workflowSettings.createdBy,
+      updatedBy: workflowSettings.updatedBy,
+      ownerEmail: workflowSettings.ownerEmail,
+      ownerApp: workflowSettings.ownerApp,
+      // IMPORTANT: Use original workflow.tasks if available (preserves all fields from API/fileStore)
+      // Otherwise, reconstruct from nodes (for workflows created in designer)
+      tasks: workflow?.tasks && Array.isArray(workflow.tasks) && workflow.tasks.length > 0
+        ? workflow.tasks
+        : [...nodes]
+            .sort((a, b) => (a.data.sequenceNo || 0) - (b.data.sequenceNo || 0))
+            .map(node => {
+              if (node.data.config) {
+                // Remove sequenceNo from config as it's UI-only, not a Conductor field
+                const { sequenceNo: _sequenceNo, ...cleanConfig } = node.data.config;
+                return cleanConfig;
+              }
+              return {
+                name: node.data.taskName,
+                taskReferenceName: node.id,
+                type: node.data.taskType,
+                inputParameters: {},
+                optional: false,
+              };
+            }),
       inputParameters: workflowSettings.inputParameters,
+      inputTemplate: workflowSettings.inputTemplate,
       outputParameters: workflowSettings.outputParameters,
       timeoutSeconds: workflowSettings.timeoutSeconds,
+      timeoutPolicy: workflowSettings.timeoutPolicy || 'TIME_OUT_WF',
       restartable: workflowSettings.restartable,
       schemaVersion: workflowSettings.schemaVersion,
+      accessPolicy: workflowSettings.accessPolicy,
+      failureWorkflow: workflowSettings.failureWorkflow,
+      variables: workflowSettings.variables,
+      workflowStatusListenerEnabled: workflowSettings.workflowStatusListenerEnabled || false,
     };
     setJsonText(JSON.stringify(workflowJson, null, 2));
-  }, [workflow?.tasks, workflowSettings, workflowName]);
+  }, [nodes, workflowSettings, workflowName, workflow?.tasks]);
 
   const handleJsonChange = (value: string) => {
     setJsonText(value);
@@ -336,26 +906,102 @@ export function WorkflowDesigner() {
     try {
       const parsedJson = JSON.parse(jsonText);
       
-      // Update workflow name and settings
+      // Update workflow name and settings from JSON
       setWorkflowName(parsedJson.name || workflowName);
-      setWorkflowSettings({
-        description: parsedJson.description || '',
-        version: parsedJson.version || 1,
-        timeoutSeconds: parsedJson.timeoutSeconds || 3600,
-        restartable: parsedJson.restartable ?? true,
-        schemaVersion: parsedJson.schemaVersion || 2,
+      
+      // Parse and update all workflow settings fields
+      const updatedSettings: WorkflowSettings = {
+        description: parsedJson.description || workflowSettings.description,
+        version: parsedJson.version || workflowSettings.version,
+        timeoutSeconds: parsedJson.timeoutSeconds || workflowSettings.timeoutSeconds,
+        timeoutPolicy: parsedJson.timeoutPolicy || workflowSettings.timeoutPolicy,
+        restartable: parsedJson.restartable === undefined ? workflowSettings.restartable : parsedJson.restartable,
+        schemaVersion: parsedJson.schemaVersion || workflowSettings.schemaVersion,
         effectiveDate: workflowSettings.effectiveDate,
         endDate: workflowSettings.endDate,
         status: workflowSettings.status,
-        inputParameters: parsedJson.inputParameters || [],
-        outputParameters: parsedJson.outputParameters || {},
-      });
+        inputParameters: parsedJson.inputParameters || workflowSettings.inputParameters,
+        outputParameters: parsedJson.outputParameters || workflowSettings.outputParameters,
+        inputTemplate: parsedJson.inputTemplate || workflowSettings.inputTemplate,
+        createdBy: parsedJson.createdBy || workflowSettings.createdBy,
+        updatedBy: parsedJson.updatedBy || workflowSettings.updatedBy,
+        ownerEmail: parsedJson.ownerEmail || workflowSettings.ownerEmail,
+        ownerApp: parsedJson.ownerApp || workflowSettings.ownerApp,
+        accessPolicy: parsedJson.accessPolicy || workflowSettings.accessPolicy,
+        variables: parsedJson.variables || workflowSettings.variables,
+        failureWorkflow: parsedJson.failureWorkflow || workflowSettings.failureWorkflow,
+        workflowStatusListenerEnabled: parsedJson.workflowStatusListenerEnabled || workflowSettings.workflowStatusListenerEnabled,
+      };
+      
+      setWorkflowSettings(updatedSettings);
 
-      toast({
-        title: 'JSON Saved',
-        description: 'Workflow definition has been updated from JSON.',
-      });
-      setJsonError('');
+      // If the JSON contains tasks, create visual nodes from them
+      if (parsedJson.tasks && Array.isArray(parsedJson.tasks) && parsedJson.tasks.length > 0) {
+        // Helper function to get task color based on type
+        const getTaskColor = (taskType: string): string => {
+          // System tasks
+          const systemTask = systemTasks.find(t => t.type === taskType);
+          if (systemTask) return systemTask.color;
+          
+          // Operators
+          const operator = operators.find(t => t.type === taskType);
+          if (operator) return operator.color;
+          
+          // Worker tasks or default
+          return '#10b981'; // Default green for worker tasks
+        };
+
+        // Convert tasks from JSON to visual nodes
+        const newNodes: Node[] = parsedJson.tasks.map((task: unknown, index: number) => {
+          const taskConfig = task as Record<string, unknown>;
+          const taskType = (taskConfig.type as string) || 'SIMPLE';
+          const taskRefName = (taskConfig.taskReferenceName as string) || `task_${index + 1}`;
+          const taskName = (taskConfig.name as string) || taskRefName;
+
+          return {
+            id: taskRefName,
+            type: 'custom',
+            position: { x: 0, y: 0 }, // Will be auto-arranged
+            draggable: false,
+            data: {
+              label: taskRefName,
+              taskType: taskType,
+              taskName: taskName,
+              color: getTaskColor(taskType),
+              sequenceNo: index + 1,
+              config: taskConfig, // Store the full task config
+              onEdit: handleEditNode,
+              onDelete: handleDeleteNode,
+            },
+          };
+        });
+
+        setNodes(newNodes);
+        
+        // Update workflow with tasks if we have an active workflow
+        if (workflow) {
+          updateWorkflow(workflow.id, {
+            name: parsedJson.name || workflowName,
+            settings: updatedSettings,
+            tasks: parsedJson.tasks,
+          });
+        }
+
+        toast({
+          title: 'JSON Saved & Imported',
+          description: `Workflow updated with ${newNodes.length} tasks. Click "Auto Arrange" to organize them on the canvas.`,
+        });
+        setJsonError('');
+        setActiveTab('design');
+      } else {
+        // No tasks in JSON, just update settings
+        toast({
+          title: 'JSON Saved',
+          description: 'Workflow settings updated from JSON.',
+        });
+        setJsonError('');
+        setActiveTab('settings');
+      }
     } catch (error) {
       toast({
         title: 'Invalid JSON',
@@ -403,45 +1049,127 @@ export function WorkflowDesigner() {
   // Modal state declarations moved to top before handleEditNode
 
   // Helper to update a single node with new config
-  const updateNodeWithConfig = (node: any, targetNodeId: string, config: any) => {
+  const updateNodeWithConfig = useCallback((node: Node, targetNodeId: string, config: unknown) => {
     if (node.id === targetNodeId) {
+      const cfg = config as Record<string, unknown>;
       return {
         ...node,
         data: {
           ...node.data,
           config: config,
-          label: config.taskReferenceName || config.name,
+          label: (cfg.taskReferenceName as string) || (cfg.name as string),
           onEdit: handleEditNode,
           onDelete: handleDeleteNode,
         },
       };
     }
     return node;
-  };
+  }, [handleEditNode, handleDeleteNode]);
 
   // Helper to extract workflow tasks from nodes
-  const extractWorkflowTasks = (nodes: any[]) => {
+  const extractWorkflowTasks = (nodes: Node[]) => {
     const sortedNodes = [...nodes];
     sortedNodes.sort((a, b) => (a.data.sequenceNo || 0) - (b.data.sequenceNo || 0));
     return sortedNodes
       .map(node => {
         if (!node.data.config) return null;
         // Remove sequenceNo from config as it's UI-only, not a Conductor field
-        const { sequenceNo, ...cleanConfig } = node.data.config;
+        const { sequenceNo: _sequenceNo, ...cleanConfig } = node.data.config;
         return cleanConfig;
       })
       .filter(Boolean); // Remove nodes without config
   };
 
-  // Helper to handle the config save logic
-  const saveTaskConfigLogic = (
-    config: any,
+  // Helper function to perform auto-arrange logic (extracted for reuse)
+  const performAutoArrange = useCallback((nodesToArrange: Node[]) => {
+    if (nodesToArrange.length === 0) return nodesToArrange;
+
+    // Sort nodes by their sequence number to maintain logical order
+    const sortedNodes = [...nodesToArrange].sort((a, b) => {
+      const seqA = a.data.sequenceNo || 0;
+      const seqB = b.data.sequenceNo || 0;
+      return seqA - seqB;
+    });
+
+    // Configuration for snake layout
+    const nodesPerRow = 5; // Number of nodes in each row
+    const horizontalSpacing = 200; // Space between nodes horizontally
+    const verticalSpacing = 120; // Space between rows
+    const startX = 50; // Starting X position
+    const startY = 50; // Starting Y position
+
+    // Arrange nodes in a snake pattern
+    const arrangedNodes = sortedNodes.map((node, index) => {
+      const rowIndex = Math.floor(index / nodesPerRow);
+      const colIndex = index % nodesPerRow;
+
+      // Snake pattern: reverse direction on odd rows
+      const isOddRow = rowIndex % 2 === 1;
+      const actualColIndex = isOddRow ? (nodesPerRow - 1 - colIndex) : colIndex;
+
+      return {
+        ...node,
+        draggable: false,
+        position: {
+          x: startX + (actualColIndex * horizontalSpacing),
+          y: startY + (rowIndex * verticalSpacing),
+        },
+      };
+    });
+
+    // Auto-connect all nodes in sequence with proper row transitions
+    const newEdges: Edge[] = [];
+    for (let i = 0; i < sortedNodes.length - 1; i++) {
+      const sourceNode = sortedNodes[i];
+      const targetNode = sortedNodes[i + 1];
+      
+      const sourceIndex = i;
+      const targetIndex = i + 1;
+      
+      // Determine if we're transitioning to the next row
+      const sourceRow = Math.floor(sourceIndex / nodesPerRow);
+      const targetRow = Math.floor(targetIndex / nodesPerRow);
+      const isRowTransition = sourceRow !== targetRow;
+      
+      // Determine handle positions based on layout
+      let sourceHandle = 'right'; // Default: connect from right
+      let targetHandle = 'left';  // Default: connect to left
+      
+      // If it's a row transition (moving to next row)
+      if (isRowTransition) {
+        // Connect from bottom of last task in row to top of first task in next row
+        sourceHandle = 'bottom';
+        targetHandle = 'top';
+      }
+      
+      newEdges.push({
+        id: `${sourceNode.id}-${targetNode.id}`,
+        source: sourceNode.id,
+        sourceHandle: sourceHandle,
+        target: targetNode.id,
+        targetHandle: targetHandle,
+        type: 'straight',
+        animated: true,
+        style: { stroke: '#00bcd4', strokeWidth: 2 },
+      });
+    }
+    
+    setNodes(arrangedNodes);
+    setEdges(newEdges);
+    
+    return arrangedNodes;
+  }, [setNodes, setEdges]);
+
+  // Helper to handle the config save logic - wrapped in useCallback to fix hook dependencies
+  const saveTaskConfigLogic = useCallback((
+    config: unknown,
     setModalOpen: (open: boolean) => void
   ) => {
+    const cfg = config as Record<string, unknown>;
     // Check if this is a new drop (pendingTaskDrop exists) or editing existing node
     if (pendingTaskDrop) {
       // Creating a new node from drag & drop
-      const taskRefId = config.taskReferenceName || `${pendingTaskDrop.taskType.toLowerCase()}_${Date.now()}`;
+      const taskRefId = (cfg.taskReferenceName as string) || `${pendingTaskDrop.taskType.toLowerCase()}_${Date.now()}`;
       
       setNodes((nds) => {
         const sequenceNo = nds.length + 1;
@@ -452,10 +1180,10 @@ export function WorkflowDesigner() {
         const newNode: Node = {
           id: taskRefId,
           type: 'custom',
-          position: { x: 0, y: 0 }, // Temporary position - will be arranged automatically
+          position: pendingTaskDrop.position, // Use the actual drop position where user dragged the task
           draggable: false,
           data: {
-            label: config.taskReferenceName || config.name,
+            label: (cfg.taskReferenceName as string) || (cfg.name as string),
             taskType: pendingTaskDrop.taskType,
             taskName: pendingTaskDrop.taskName,
             color: pendingTaskDrop.color,
@@ -474,11 +1202,11 @@ export function WorkflowDesigner() {
           updateWorkflow(workflow.id, { tasks: workflowTasks });
         }
 
-        return updatedNodes;
+        // Auto-arrange nodes immediately after adding a new one
+        return performAutoArrange(updatedNodes);
       });
 
       setPendingTaskDrop(null);
-      // Auto-arrange will be triggered by nodes state change via useEffect
     } else {
       // Editing existing node
       const targetNode = selectedNodeForConfig || pendingNodeForAutoConfig;
@@ -508,18 +1236,18 @@ export function WorkflowDesigner() {
     }
 
     setModalOpen(false);
-  };
+  }, [selectedNodeForConfig, pendingNodeForAutoConfig, pendingTaskDrop, setNodes, workflow, updateWorkflow, handleEditNode, handleDeleteNode, setPendingNodeForAutoConfig, setPendingTaskDrop, setSelectedNodeForConfig, updateNodeWithConfig, performAutoArrange]);
 
   // Generic save handler for task configs
   const createTaskConfigHandler = useCallback((
     setModalOpen: (open: boolean) => void
   ) => {
-    return (config: any) => {
+    return (config: unknown) => {
       saveTaskConfigLogic(config, setModalOpen);
     };
-  }, [selectedNodeForConfig, pendingNodeForAutoConfig, pendingTaskDrop, setNodes, setEdges, workflow, updateWorkflow, handleEditNode, handleDeleteNode]);
+  }, [saveTaskConfigLogic]);
 
-  const handleSaveHttpTaskConfig = useCallback((config: any) =>
+  const handleSaveHttpTaskConfig = useCallback((config: unknown) =>
     createTaskConfigHandler(modalActions.setIsHttpConfigModalOpen)(config),
     [createTaskConfigHandler, modalActions]
   );
@@ -631,8 +1359,8 @@ export function WorkflowDesigner() {
 
       const reactFlowBounds = event.currentTarget.getBoundingClientRect();
       const position = {
-        x: event.clientX - reactFlowBounds.left - 80,
-        y: event.clientY - reactFlowBounds.top - 40,
+        x: event.clientX - reactFlowBounds.left - 62.5,
+        y: event.clientY - reactFlowBounds.top - 25,
       };
 
       // Store the pending drop information - node will be created when config is saved
@@ -659,86 +1387,15 @@ export function WorkflowDesigner() {
       return;
     }
 
-    // Sort nodes by their sequence number to maintain logical order
-    const sortedNodes = [...nodes].sort((a, b) => {
-      const seqA = a.data.sequenceNo || 0;
-      const seqB = b.data.sequenceNo || 0;
-      return seqA - seqB;
-    });
-
-    // Configuration for snake layout
-    const nodesPerRow = 5; // Number of nodes in each row
-    const horizontalSpacing = 200; // Space between nodes horizontally
-    const verticalSpacing = 120; // Space between rows
-    const startX = 50; // Starting X position
-    const startY = 50; // Starting Y position
-
-    // Arrange nodes in a snake pattern
-    const arrangedNodes = sortedNodes.map((node, index) => {
-      const rowIndex = Math.floor(index / nodesPerRow);
-      const colIndex = index % nodesPerRow;
-
-      // Snake pattern: reverse direction on odd rows
-      const isOddRow = rowIndex % 2 === 1;
-      const actualColIndex = isOddRow ? (nodesPerRow - 1 - colIndex) : colIndex;
-
-      return {
-        ...node,
-        draggable: false,
-        position: {
-          x: startX + (actualColIndex * horizontalSpacing),
-          y: startY + (rowIndex * verticalSpacing),
-        },
-      };
-    });
-
-    setNodes(arrangedNodes);
-
-    // Auto-connect all nodes in sequence with proper row transitions
-    const newEdges: Edge[] = [];
-    for (let i = 0; i < sortedNodes.length - 1; i++) {
-      const sourceNode = sortedNodes[i];
-      const targetNode = sortedNodes[i + 1];
-      
-      const sourceIndex = i;
-      const targetIndex = i + 1;
-      
-      // Determine if we're transitioning to the next row
-      const sourceRow = Math.floor(sourceIndex / nodesPerRow);
-      const targetRow = Math.floor(targetIndex / nodesPerRow);
-      const isRowTransition = sourceRow !== targetRow;
-      
-      // Determine handle positions based on layout
-      let sourceHandle = 'right'; // Default: connect from right
-      let targetHandle = 'left';  // Default: connect to left
-      
-      // If it's a row transition (moving to next row)
-      if (isRowTransition) {
-        // Connect from bottom of last task in row to top of first task in next row
-        sourceHandle = 'bottom';
-        targetHandle = 'top';
-      }
-      
-      newEdges.push({
-        id: `${sourceNode.id}-${targetNode.id}`,
-        source: sourceNode.id,
-        sourceHandle: sourceHandle,
-        target: targetNode.id,
-        targetHandle: targetHandle,
-        type: 'straight',
-        animated: true,
-        style: { stroke: '#00bcd4', strokeWidth: 2 },
-      });
-    }
-    setEdges(newEdges);
-  }, [nodes, setNodes, setEdges]);
+    performAutoArrange(nodes);
+  }, [nodes, performAutoArrange, toast]);
 
   const handlePreview = () => {
     // Save current state temporarily
     if (workflow) {
       useWorkflowStore.getState().updateWorkflow(workflow.id, {
         nodes: nodes,
-        edges: edges,
+        edges: edges as WorkflowEdge[],
       });
       // Navigate to unified diagram page in preview mode
       navigate(`/diagram/${workflow.id}?mode=preview`);
@@ -749,42 +1406,147 @@ export function WorkflowDesigner() {
         name: workflowName,
         description: 'Preview workflow',
         nodes: nodes,
-        edges: edges,
+        edges: edges as WorkflowEdge[],
         createdAt: new Date().toISOString(),
         status: 'draft' as const,
+        publicationStatus: 'LOCAL' as const,
       };
       useWorkflowStore.getState().addWorkflow(tempWorkflow);
       navigate(`/diagram/${tempWorkflow.id}?mode=preview`);
     }
   };
 
-  const handleSave = (): boolean => {
-    if (!workflow) {
-      // Create new workflow if accessed from standalone designer
-      const newWorkflow = {
-        id: `workflow-${Date.now()}`,
+  // Helper: Create new workflow object from current state
+  const createNewWorkflow = () => ({
+    id: `workflow-${Date.now()}`,
+    name: workflowName,
+    description: workflowSettings.description,
+    nodes: nodes,
+    edges: edges as WorkflowEdge[],
+    createdAt: new Date().toISOString(),
+    status: workflowSettings.status.toLowerCase() as 'draft' | 'active' | 'paused',
+    settings: workflowSettings,
+  });
+
+  // Helper: Save workflow to local store and cache
+  const saveToLocalStoreAndCache = (wf: typeof workflow, isNew: boolean) => {
+    if (isNew) {
+      useWorkflowStore.getState().addWorkflow(wf!);
+    } else {
+      updateWorkflow(wf!.id, {
         name: workflowName,
         description: workflowSettings.description,
-        nodes: nodes,
-        edges: edges,
-        createdAt: new Date().toISOString(),
-        status: workflowSettings.status.toLowerCase() as 'draft' | 'active' | 'paused',
         settings: workflowSettings,
-      };
-      useWorkflowStore.getState().addWorkflow(newWorkflow);
-      navigate(`/workflows/${newWorkflow.id}`);
-      return false;
+        nodes: nodes,
+        edges: edges as WorkflowEdge[],
+      });
     }
 
-    // Update existing workflow
-    updateWorkflow(workflow.id, {
+    saveWorkflowToCache({
+      id: wf!.id,
       name: workflowName,
       description: workflowSettings.description,
-      settings: workflowSettings,
-      nodes: nodes,
-      edges: edges,
+      syncStatus: 'local-only',
+      isLocalOnly: isNew,
+      definition: {
+        name: workflowName,
+        description: workflowSettings.description,
+        version: workflowSettings.version,
+        settings: workflowSettings,
+        nodes: nodes,
+        edges: edges,
+      },
     });
-    return true;
+  };
+
+  // Helper: Sync workflow to filestore and Conductor API
+  const syncWorkflowToConductor = async (wf: typeof workflow): Promise<boolean> => {
+    await syncToFileStore().catch(err => {
+      console.warn('Failed to sync to filestore:', err);
+    });
+
+    markAsSyncing(wf!.id);
+    const { localWorkflowToConductor } = await import('@/utils/workflowConverter');
+    const conductorWorkflow = localWorkflowToConductor(wf!);
+
+    return saveWorkflow(conductorWorkflow);
+  };
+
+  // Helper: Handle successful Conductor publication
+  const handlePublishSuccess = (wf: typeof workflow, isNew: boolean) => {
+    markAsPublished(wf!.id);
+    updateWorkflow(wf!.id, { publicationStatus: 'PUBLISHED' });
+    toast({
+      title: 'Workflow saved',
+      description: `Workflow "${workflowName}" has been ${isNew ? 'created' : 'updated'} and published to Conductor`,
+    });
+
+    if (isNew) {
+      navigate(`/workflows/${wf!.id}`);
+    }
+  };
+
+  // Helper: Handle Conductor publication failure
+  const handlePublishFailure = (wf: typeof workflow, isNew: boolean) => {
+    markAsDraft(wf!.id);
+    toast({
+      title: 'Saved to cache',
+      description: `Workflow "${workflowName}" saved locally. Connection to Conductor server failed. You can publish it later.`,
+      variant: 'default',
+    });
+
+    if (isNew) {
+      navigate(`/workflows/${wf!.id}`);
+    }
+  };
+
+  // Helper: Handle save errors
+  const handleSaveError = (wf: typeof workflow | null) => {
+    if (wf) {
+      saveWorkflowToCache({
+        id: wf.id,
+        name: workflowName,
+        description: workflowSettings.description,
+        syncStatus: 'local-only',
+        isLocalOnly: true,
+        definition: {
+          name: workflowName,
+          description: workflowSettings.description,
+          version: workflowSettings.version,
+          settings: workflowSettings,
+          nodes: nodes,
+          edges: edges,
+        },
+      });
+      markAsDraft(wf.id);
+    }
+
+    toast({
+      title: 'Saved to cache',
+      description: 'Workflow saved locally due to an error. You can try publishing later.',
+      variant: 'default',
+    });
+  };
+
+  // Improved save logic with offline caching support
+  // Workflow changes are cached even if Conductor publish fails
+  const handleSave = async (): Promise<void> => {
+    try {
+      const isNew = !workflow;
+      const wf = isNew ? createNewWorkflow() : workflow;
+
+      saveToLocalStoreAndCache(wf, isNew);
+      const success = await syncWorkflowToConductor(wf);
+
+      if (success) {
+        handlePublishSuccess(wf, isNew);
+      } else {
+        handlePublishFailure(wf, isNew);
+      }
+    } catch (error) {
+      console.error('Error saving workflow:', error);
+      handleSaveError(workflow);
+    }
   };
 
   const handleExecute = () => {
@@ -806,7 +1568,7 @@ export function WorkflowDesigner() {
     }
   };
 
-  const handleExecuteWorkflow = (workflowId: string, input: any) => {
+  const handleExecuteWorkflow = (workflowId: string, input: unknown) => {
     try {
       executeWorkflow(workflowId, input);
 
@@ -842,30 +1604,45 @@ export function WorkflowDesigner() {
   );
 
   const getInitialConfig = (taskType: string) => {
-    // For editing existing node - read latest config from workflow.tasks (source of truth)
-    if (selectedNodeForConfig?.id && selectedNodeForConfig?.data?.taskType === taskType) {
-      // First, try to find the task in workflow.tasks by taskReferenceName
-      if (workflow?.tasks) {
-        const taskRefName = selectedNodeForConfig.data.config?.taskReferenceName;
-        const taskInWorkflow = workflow.tasks.find(
-          (t: any) => t.taskReferenceName === taskRefName
-        );
-        if (taskInWorkflow) {
-          return taskInWorkflow;
-        }
+    // For editing existing node - retrieve the complete config including all child tasks and references
+    if (selectedNodeForConfig?.data?.taskType === taskType) {
+      const nodeConfig = selectedNodeForConfig.data.config;
+      
+      if (nodeConfig) {
+        // Return the full node config which contains all task details including:
+        // - taskReferenceName
+        // - type (task type)
+        // - All input/output parameter mappings
+        // - For complex operators (Switch, Fork-Join, Do-While, etc.): child tasks and branches
+        // - All other Conductor-supported configuration fields
+        const config = nodeConfig as Record<string, unknown>;
+        
+        // Add sequenceNo from node data for UI ordering (not stored in config itself)
+        const configWithSequence = {
+          ...config,
+          sequenceNo: selectedNodeForConfig.data.sequenceNo,
+        };
+        return configWithSequence;
       }
       
-      // Fallback to node.data.config if not found in workflow.tasks
-      const currentNode = nodes.find(n => n.id === selectedNodeForConfig.id);
-      if (currentNode?.data?.config) {
-        return currentNode.data.config;
-      }
+      return nodeConfig;
     }
     
-    // For auto-config during creation
+    // For auto-config during creation - return the pending node's config
     if (pendingNodeForAutoConfig?.data?.taskType === taskType) {
-      return pendingNodeForAutoConfig.data.config;
+      const config = pendingNodeForAutoConfig.data.config;
+      
+      if (config) {
+        const configWithSequence = {
+          ...(config as Record<string, unknown>),
+          sequenceNo: pendingNodeForAutoConfig.data.sequenceNo,
+        };
+        return configWithSequence;
+      }
+      
+      return config;
     }
+    
     return undefined;
   };
 
@@ -875,17 +1652,28 @@ export function WorkflowDesigner() {
         {/* Top Bar */}
         <div className="h-16 bg-[#1a1f2e] border-b border-[#2a3142] px-6 flex items-center justify-between">
           <div className="flex items-center gap-4">
+            {/* Back Button */}
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => navigate('/workflows')}
+              className="text-gray-400 hover:text-white hover:bg-[#2a3142]"
+              title="Go back to workflows"
+            >
+              <ArrowLeftIcon className="w-5 h-5" />
+            </Button>
+            
             {/* Logo and App Name */}
             <img
               src={logo}
-              alt="Netflix Conductor Designer Logo"
+              alt="Netflix Conductor Hub Logo"
               className="h-8 w-8 mr-3 select-none"
               draggable={false}
               style={{ minWidth: 32 }}
             />
             <div className="flex flex-col">
               <div className="flex items-center gap-3">
-                <span className="text-base font-semibold text-white">Netflix Conductor Designer</span>
+                <span className="text-base font-semibold text-white">Netflix Conductor Hub</span>
                 <span className="text-base font-semibold text-white">/</span>
                 <span className="text-base font-semibold text-white">{workflowName}</span>
                 <span className="px-2 py-0.5 bg-cyan-500/20 text-cyan-400 text-xs font-medium rounded">
@@ -913,7 +1701,7 @@ export function WorkflowDesigner() {
             <Button
               variant="outline"
               size="sm"
-              onClick={handleSave}
+              onClick={() => handleSave()}
               className="text-gray-400 border-[#2a3142] hover:bg-[#2a3142] hover:text-white"
             >
               <SaveIcon className="w-4 h-4 mr-2" />
@@ -1016,9 +1804,9 @@ export function WorkflowDesigner() {
                   {/* Canvas Info Bar */}
                   <div className="bg-[#1a1f2e] border-b border-[#2a3142] px-4 py-2">
                   <p className="text-xs text-gray-400">
-                    <span className="font-medium">Tip:</span> Tasks auto-connect in sequence • Use <span className="font-medium">Auto Arrange</span> to organize in snake pattern (5 per row)
+                    <span className="font-medium">Tip:</span> Drop tasks on canvas to add them • Tasks are automatically organized in a snake pattern (5 per row)
                     <br />
-                    <span className="font-medium">Edit/Delete:</span> Hover over task and click blue Edit or red Delete button
+                    <span className="font-medium">Note:</span> Nodes auto-arrange on every drop for optimal layout. Edit/Delete: Hover over task and click blue/red buttons
                   </p>
                 </div>
 
@@ -1029,6 +1817,7 @@ export function WorkflowDesigner() {
                   onDragOver={onDragOver}
                   aria-label="Workflow canvas"
                 >
+                    {(() => { console.log(`[WorkflowDesigner RENDER] nodes.length: ${nodes.length}`); return null; })()}
                     {nodes.length === 0 ? (
                       <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                         <div className="text-center max-w-md">
@@ -1047,7 +1836,13 @@ export function WorkflowDesigner() {
                       <ReactFlow
                         nodes={nodes}
                         edges={edges}
-                        onNodesChange={onNodesChange}
+                        onNodesChange={(changes) => {
+                          // Filter out position changes to prevent users from moving nodes
+                          const filteredChanges = changes.filter((change) => change.type !== 'position');
+                          if (filteredChanges.length > 0) {
+                            onNodesChange(filteredChanges);
+                          }
+                        }}
                         onEdgesChange={onEdgesChange}
                         onConnect={onConnect}
                         nodeTypes={nodeTypes}
@@ -1060,7 +1855,13 @@ export function WorkflowDesigner() {
                         }}
                         onDrop={onDrop}
                         onDragOver={onDragOver}
+                        panOnScroll={false}
+                        panOnDrag={false}
+                        zoomOnScroll={false}
+                        zoomOnDoubleClick={false}
+                        zoomOnPinch={false}
                       >
+                        <FitViewListener />
                         <Background
                           color="#2a3142"
                           gap={20}
@@ -1139,6 +1940,50 @@ export function WorkflowDesigner() {
                             onChange={(e) => setWorkflowSettings({ ...workflowSettings, description: e.target.value })}
                             className="mt-2 bg-[#0f1419] text-white border-[#2a3142]"
                             rows={3}
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    <Separator className="bg-[#2a3142]" />
+
+                    {/* Ownership & Authorship */}
+                    <div className="space-y-4">
+                      <h4 className="text-lg font-medium text-white">Ownership & Authorship</h4>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <Label className="text-white">Created By (Default: Netflix Conductor Hub)</Label>
+                          <Input
+                            value={workflowSettings.createdBy || 'Netflix Conductor Hub'}
+                            onChange={(e) => setWorkflowSettings({ ...workflowSettings, createdBy: e.target.value })}
+                            className="mt-2 bg-[#0f1419] text-white border-[#2a3142]"
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-white">Updated By (Default: Netflix Conductor Hub)</Label>
+                          <Input
+                            value={workflowSettings.updatedBy || 'Netflix Conductor Hub'}
+                            onChange={(e) => setWorkflowSettings({ ...workflowSettings, updatedBy: e.target.value })}
+                            className="mt-2 bg-[#0f1419] text-white border-[#2a3142]"
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-white">Owner Email</Label>
+                          <Input
+                            type="email"
+                            value={workflowSettings.ownerEmail || ''}
+                            onChange={(e) => setWorkflowSettings({ ...workflowSettings, ownerEmail: e.target.value })}
+                            placeholder="dev-team@example.com"
+                            className="mt-2 bg-[#0f1419] text-white border-[#2a3142]"
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-white">Owner Application</Label>
+                          <Input
+                            value={workflowSettings.ownerApp || ''}
+                            onChange={(e) => setWorkflowSettings({ ...workflowSettings, ownerApp: e.target.value })}
+                            placeholder="data_service_api"
+                            className="mt-2 bg-[#0f1419] text-white border-[#2a3142]"
                           />
                         </div>
                       </div>
@@ -1237,13 +2082,54 @@ export function WorkflowDesigner() {
                             className="mt-2 bg-[#0f1419] text-white border-[#2a3142]"
                           />
                         </div>
-                        <div className="flex items-center justify-between pt-8">
+                        <div>
+                          <Label className="text-white">Timeout Policy</Label>
+                          <Select
+                            value={workflowSettings.timeoutPolicy || 'TIME_OUT_WF'}
+                            onValueChange={(value: 'TIME_OUT_WF' | 'ALERT_ONLY') => 
+                              setWorkflowSettings({ ...workflowSettings, timeoutPolicy: value })
+                            }
+                          >
+                            <SelectTrigger className="mt-2 bg-[#0f1419] text-white border-[#2a3142]">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent className="bg-[#1a1f2e] text-white border-[#2a3142]">
+                              <SelectItem value="TIME_OUT_WF">TIME_OUT_WF</SelectItem>
+                              <SelectItem value="ALERT_ONLY">ALERT_ONLY</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="flex items-center justify-between pt-4">
                           <Label className="text-white">Restartable</Label>
                           <Switch
                             checked={workflowSettings.restartable}
                             onCheckedChange={(checked) => setWorkflowSettings({ ...workflowSettings, restartable: checked })}
                           />
                         </div>
+                        <div className="flex items-center justify-between pt-4">
+                          <Label className="text-white">Workflow Status Listener Enabled</Label>
+                          <Switch
+                            checked={workflowSettings.workflowStatusListenerEnabled || false}
+                            onCheckedChange={(checked) => setWorkflowSettings({ ...workflowSettings, workflowStatusListenerEnabled: checked })}
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    <Separator className="bg-[#2a3142]" />
+
+                    {/* Failure Workflow */}
+                    <div className="space-y-4">
+                      <h4 className="text-lg font-medium text-white">Failure Handling</h4>
+                      <div>
+                        <Label className="text-white">Failure/Compensation Workflow</Label>
+                        <Input
+                          value={workflowSettings.failureWorkflow || ''}
+                          onChange={(e) => setWorkflowSettings({ ...workflowSettings, failureWorkflow: e.target.value })}
+                          placeholder="compensation_workflow_v1"
+                          className="mt-2 bg-[#0f1419] text-white border-[#2a3142]"
+                        />
+                        <p className="text-xs text-gray-400 mt-1">Optional workflow to execute on failure</p>
                       </div>
                     </div>
 
@@ -1265,6 +2151,23 @@ export function WorkflowDesigner() {
                         />
                       </div>
                       <div>
+                        <Label className="text-white">Input Template (JSON)</Label>
+                        <Textarea
+                          value={JSON.stringify(workflowSettings.inputTemplate, null, 2)}
+                          onChange={(e) => {
+                            try {
+                              const parsed = JSON.parse(e.target.value);
+                              setWorkflowSettings({ ...workflowSettings, inputTemplate: parsed });
+                            } catch {
+                              // Invalid JSON - silently ignore to allow editing
+                            }
+                          }}
+                          placeholder="{}"
+                          className="mt-2 bg-[#0f1419] text-white border-[#2a3142] font-mono text-sm"
+                          rows={3}
+                        />
+                      </div>
+                      <div>
                         <Label className="text-white">Output Parameters (JSON)</Label>
                         <Textarea
                           value={JSON.stringify(workflowSettings.outputParameters, null, 2)}
@@ -1276,8 +2179,50 @@ export function WorkflowDesigner() {
                               // Invalid JSON - silently ignore to allow editing
                             }
                           }}
+                          placeholder="{}"
                           className="mt-2 bg-[#0f1419] text-white border-[#2a3142] font-mono text-sm"
-                          rows={4}
+                          rows={3}
+                        />
+                      </div>
+                    </div>
+
+                    <Separator className="bg-[#2a3142]" />
+
+                    {/* Access Control & Variables */}
+                    <div className="space-y-4">
+                      <h4 className="text-lg font-medium text-white">Access Control & Variables</h4>
+                      <div>
+                        <Label className="text-white">Access Policy (JSON)</Label>
+                        <Textarea
+                          value={JSON.stringify(workflowSettings.accessPolicy, null, 2)}
+                          onChange={(e) => {
+                            try {
+                              const parsed = JSON.parse(e.target.value);
+                              setWorkflowSettings({ ...workflowSettings, accessPolicy: parsed });
+                            } catch {
+                              // Invalid JSON - silently ignore to allow editing
+                            }
+                          }}
+                          placeholder='{"read_group": "readers", "write_group": "writers"}'
+                          className="mt-2 bg-[#0f1419] text-white border-[#2a3142] font-mono text-sm"
+                          rows={3}
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-white">Workflow Variables (JSON)</Label>
+                        <Textarea
+                          value={JSON.stringify(workflowSettings.variables, null, 2)}
+                          onChange={(e) => {
+                            try {
+                              const parsed = JSON.parse(e.target.value);
+                              setWorkflowSettings({ ...workflowSettings, variables: parsed });
+                            } catch {
+                              // Invalid JSON - silently ignore to allow editing
+                            }
+                          }}
+                          placeholder='{"run_count": 1, "status": "active"}'
+                          className="mt-2 bg-[#0f1419] text-white border-[#2a3142] font-mono text-sm"
+                          rows={3}
                         />
                       </div>
                     </div>
@@ -1541,7 +2486,7 @@ export function WorkflowDesigner() {
             setSelectedNodeForConfig(null);
           }
         }}
-        initialConfig={getInitialConfig('SIMPLE')}
+        initialConfig={getInitialConfig('SIMPLE') as WorkflowTaskConfig | undefined}
         onSave={async (config) => {
           handleSaveSimpleTaskConfig(config);
         }}

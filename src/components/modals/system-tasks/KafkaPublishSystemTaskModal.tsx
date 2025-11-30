@@ -9,13 +9,19 @@ import { Plus, Trash2 } from 'lucide-react';
 export interface KafkaRequest {
   topic: string;
   key?: string;
-  value: any;
+  value: string | Record<string, unknown>;
   headers?: Record<string, string>;
+  bootStrapServers?: string;
+  keySerializer?: string;
 }
 
 export interface KafkaPublishTaskConfig extends BaseTaskConfig {
   type: 'KAFKA_PUBLISH';
-  kafka_request: KafkaRequest;
+  inputParameters?: {
+    kafka_request: KafkaRequest;
+    [key: string]: unknown;
+  };
+  kafka_request?: KafkaRequest; // Legacy support during transition
 }
 
 interface KafkaPublishTaskModalProps {
@@ -27,50 +33,69 @@ interface KafkaPublishTaskModalProps {
 
 export function KafkaPublishTaskModal({ open, onOpenChange, onSave, initialConfig }: KafkaPublishTaskModalProps) {
   // Use state for kafka-specific fields to ensure they persist across tab changes
-  const [topic, setTopic] = useState('my-topic');
+  const [topic, setTopic] = useState('userTopic');
   const [key, setKey] = useState('');
+  const [bootStrapServers, setBootStrapServers] = useState('localhost:9092');
+  const [keySerializer, setKeySerializer] = useState('');
   const [headers, setHeaders] = useState<Array<{id: string; key: string; value: string}>>([]);
-  const [valueText, setValueText] = useState('{"message": "hello"}');
+  const [valueText, setValueText] = useState('Message to publish');
 
   // Reset local state when modal opens
   useEffect(() => {
     if (open) {
-      if (initialConfig) {
-        setTopic(initialConfig.kafka_request.topic);
-        setKey(initialConfig.kafka_request.key || '');
-        const headerEntries = Object.entries(initialConfig.kafka_request.headers || {});
+      // Get kafka_request from either inputParameters or legacy kafka_request field
+      const kafkaReq = initialConfig?.inputParameters?.kafka_request || initialConfig?.kafka_request;
+      
+      if (kafkaReq) {
+        // Load configuration from initialConfig
+        setTopic(kafkaReq.topic || 'userTopic');
+        setKey(kafkaReq.key || '');
+        setBootStrapServers(kafkaReq.bootStrapServers || 'localhost:9092');
+        setKeySerializer(kafkaReq.keySerializer || '');
+        
+        const headerEntries = Object.entries(kafkaReq.headers || {});
         const headerList = headerEntries.map(([key, value], index) => ({
           id: `header-${Date.now()}-${index}`,
           key,
           value: String(value),
         }));
         setHeaders(headerList);
-        setValueText(typeof initialConfig.kafka_request.value === 'object'
-          ? JSON.stringify(initialConfig.kafka_request.value, null, 2)
-          : String(initialConfig.kafka_request.value));
+        
+        setValueText(typeof kafkaReq.value === 'object'
+          ? JSON.stringify(kafkaReq.value, null, 2)
+          : String(kafkaReq.value || 'Message to publish'));
+        
+        console.log('KafkaPublishTaskModal loaded with config:', initialConfig);
       } else {
-        setTopic('my-topic');
+        // Default configuration
+        setTopic('userTopic');
         setKey('');
+        setBootStrapServers('localhost:9092');
+        setKeySerializer('');
         setHeaders([]);
-        setValueText('{"message": "hello"}');
+        setValueText('Message to publish');
+        
+        if (initialConfig) {
+          console.log('KafkaPublishTaskModal: initialConfig missing kafka_request property:', initialConfig);
+        }
       }
     }
   }, [open, initialConfig]);
 
-  const handleAddHeader = () => {
+  const handleAddHeader = useCallback(() => {
     const newId = `header-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
-    setHeaders([...headers, { id: newId, key: '', value: '' }]);
-  };
+    setHeaders(prev => [...prev, { id: newId, key: '', value: '' }]);
+  }, []);
 
-  const handleRemoveHeader = (id: string) => {
-    setHeaders(headers.filter((h) => h.id !== id));
-  };
+  const handleRemoveHeader = useCallback((id: string) => {
+    setHeaders(prev => prev.filter((h) => h.id !== id));
+  }, []);
 
-  const handleHeaderChange = (id: string, field: 'key' | 'value', val: string) => {
-    setHeaders(headers.map((h) =>
+  const handleHeaderChange = useCallback((id: string, field: 'key' | 'value', val: string) => {
+    setHeaders(prev => prev.map((h) =>
       h.id === id ? { ...h, [field]: val } : h
     ));
-  };
+  }, []);
 
   const validateConfig = (): string | null => {
     // Validate using the state values
@@ -82,6 +107,7 @@ export function KafkaPublishTaskModal({ open, onOpenChange, onSave, initialConfi
 
   // Before saving, merge headers and value into kafka_request
   const handleSaveWithMerge = useCallback((cfg: KafkaPublishTaskConfig) => {
+    const timestamp = Date.now();
     const headersObj: Record<string, string> = {};
     for (const h of headers) {
       if (h.key && h.value) {
@@ -89,7 +115,7 @@ export function KafkaPublishTaskModal({ open, onOpenChange, onSave, initialConfi
       }
     }
 
-    let value: any = {};
+    let value: string | Record<string, unknown> = {};
     if (valueText.trim()) {
       try {
         value = JSON.parse(valueText);
@@ -98,21 +124,33 @@ export function KafkaPublishTaskModal({ open, onOpenChange, onSave, initialConfi
       }
     }
 
+    const kafkaRequest: KafkaRequest = {
+      topic: topic,
+      value: value,
+    };
+    
+    // Add optional fields if they have values
+    if (key) kafkaRequest.key = key;
+    if (bootStrapServers && bootStrapServers !== 'localhost:9092') kafkaRequest.bootStrapServers = bootStrapServers;
+    if (keySerializer) kafkaRequest.keySerializer = keySerializer;
+    if (Object.keys(headersObj).length > 0) kafkaRequest.headers = headersObj;
+
     const updatedConfig: KafkaPublishTaskConfig = {
-      ...cfg,
-      kafka_request: {
-        topic: topic,
-        key: key || undefined,
-        value: value,
-        headers: Object.keys(headersObj).length > 0 ? headersObj : undefined,
+      name: cfg.name || `kafka_${timestamp}`,
+      taskReferenceName: cfg.taskReferenceName || `kafka_ref_${timestamp}`,
+      description: cfg.description,
+      type: 'KAFKA_PUBLISH',
+      inputParameters: {
+        kafka_request: kafkaRequest,
       },
     };
 
     onSave(updatedConfig);
-  }, [topic, key, valueText, headers, onSave]);
+  }, [topic, key, bootStrapServers, keySerializer, valueText, headers, onSave]);
 
   // Build current config with current kafka fields for JSON preview
   // This will update when kafka fields change, showing them in JSON tab
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   const currentConfig = useMemo<KafkaPublishTaskConfig>(() => {
     const headersObj: Record<string, string> = {};
     for (const h of headers) {
@@ -121,7 +159,7 @@ export function KafkaPublishTaskModal({ open, onOpenChange, onSave, initialConfi
       }
     }
 
-    let value: any = {};
+    let value: unknown = {};
     if (valueText.trim()) {
       try {
         value = JSON.parse(valueText);
@@ -130,18 +168,27 @@ export function KafkaPublishTaskModal({ open, onOpenChange, onSave, initialConfi
       }
     }
 
+    const kafkaRequest: KafkaRequest = {
+      topic: topic,
+      value: value as string | Record<string, unknown>,
+    };
+    
+    // Add optional fields if they have values
+    if (key) kafkaRequest.key = key;
+    if (bootStrapServers && bootStrapServers !== 'localhost:9092') kafkaRequest.bootStrapServers = bootStrapServers;
+    if (keySerializer) kafkaRequest.keySerializer = keySerializer;
+    if (Object.keys(headersObj).length > 0) kafkaRequest.headers = headersObj;
+
     return {
       type: 'KAFKA_PUBLISH',
-      name: '',
-      taskReferenceName: '',
-      kafka_request: {
-        topic: topic,
-        key: key || undefined,
-        value: value,
-        headers: Object.keys(headersObj).length > 0 ? headersObj : undefined,
+      name: initialConfig?.name || 'kafka',
+      taskReferenceName: initialConfig?.taskReferenceName || 'kafka_ref',
+      description: initialConfig?.description,
+      inputParameters: {
+        kafka_request: kafkaRequest,
       },
     };
-  }, [topic, key, valueText, headers]);
+  }, [topic, key, bootStrapServers, keySerializer, valueText, headers, initialConfig]);
 
   // Create kafka tab content dynamically so it updates with state changes
   const kafkaTab = useMemo(() => ({
@@ -170,15 +217,37 @@ export function KafkaPublishTaskModal({ open, onOpenChange, onSave, initialConfi
         </div>
 
         <div>
-          <Label className="text-white">Value (JSON) *</Label>
+          <Label className="text-white">Value *</Label>
           <JsonTextarea
             value={valueText}
             onChange={(value) => {
               setValueText(value);
             }}
-            placeholder='{"message": "hello"}'
+            placeholder="Message to publish"
             className="mt-1 bg-[#1a1f2e] text-white font-mono text-sm min-h-[100px]"
           />
+        </div>
+
+        <div>
+          <Label className="text-white">Bootstrap Servers</Label>
+          <Input
+            value={bootStrapServers}
+            onChange={(e) => setBootStrapServers(e.target.value)}
+            placeholder="localhost:9092"
+            className="mt-1 bg-[#1a1f2e] text-white border-[#2a3142]"
+          />
+          <p className="text-xs text-gray-400 mt-1">Kafka broker addresses (comma-separated)</p>
+        </div>
+
+        <div>
+          <Label className="text-white">Key Serializer</Label>
+          <Input
+            value={keySerializer}
+            onChange={(e) => setKeySerializer(e.target.value)}
+            placeholder="org.apache.kafka.common.serialization.IntegerSerializer"
+            className="mt-1 bg-[#1a1f2e] text-white border-[#2a3142]"
+          />
+          <p className="text-xs text-gray-400 mt-1">Serializer class for message key</p>
         </div>
 
         <div>
@@ -222,7 +291,7 @@ export function KafkaPublishTaskModal({ open, onOpenChange, onSave, initialConfi
         </div>
       </div>
     ),
-  }), [topic, key, valueText, headers]);
+  }), [topic, key, bootStrapServers, keySerializer, valueText, headers, handleAddHeader, handleHeaderChange, handleRemoveHeader]);
 
   return (
     <BaseTaskModal

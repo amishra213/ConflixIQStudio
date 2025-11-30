@@ -3,7 +3,7 @@ import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { useWorkflowStore } from '@/stores/workflowStore';
-import { ActivityIcon, CheckCircle2Icon, XCircleIcon, EyeIcon } from 'lucide-react';
+import { ActivityIcon, CheckCircle2Icon, XCircleIcon, EyeIcon, ArrowLeftIcon } from 'lucide-react';
 
 export function Executions() {
   const navigate = useNavigate();
@@ -38,9 +38,20 @@ export function Executions() {
   return (
     <div className="p-8 space-y-8 bg-[#0f1419]">
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-4xl font-bold text-white mb-2">Executions</h1>
-          <p className="text-base text-gray-400">Monitor workflow execution history</p>
+        <div className="flex items-center gap-4">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => navigate('/')}
+            className="text-gray-400 hover:text-white hover:bg-[#2a3142]"
+            title="Back to dashboard"
+          >
+            <ArrowLeftIcon className="w-5 h-5" />
+          </Button>
+          <div>
+            <h1 className="text-4xl font-bold text-white mb-2">Executions</h1>
+            <p className="text-base text-gray-400">Monitor workflow execution history</p>
+          </div>
         </div>
         <div className="text-sm text-gray-400">
           Total Executions: <span className="text-white font-semibold">{executions.length}</span>

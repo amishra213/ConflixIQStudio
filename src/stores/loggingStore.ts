@@ -11,9 +11,9 @@ export interface LogEntry {
   status?: number;
   duration?: number;
   requestHeaders?: Record<string, string>;
-  requestBody?: any;
+  requestBody?: Record<string, unknown>;
   responseHeaders?: Record<string, string>;
-  responseBody?: any;
+  responseBody?: Record<string, unknown>;
   error?: string;
 }
 
@@ -33,9 +33,10 @@ interface LoggingState {
   logs: LogEntry[];
   updateLoggingSettings: (settings: Partial<LoggingSettings>) => void;
   addLog: (log: Omit<LogEntry, 'id' | 'timestamp'>) => void;
-  clearLogs: () => void;
+  clearLogs: () => Promise<void>;
   exportLogs: () => void;
   getFilteredLogs: (filter?: { type?: string; operation?: string; startDate?: Date; endDate?: Date }) => LogEntry[];
+  loadPersistedLogs: () => Promise<void>;
 }
 
 const defaultLoggingSettings: LoggingSettings = {
@@ -93,10 +94,26 @@ export const useLoggingStore = create<LoggingState>()(
         );
 
         set({ logs: filteredLogs });
+
+        // Persist logs to IndexedDB
+        const persistLogs = async () => {
+          const { saveLogsToIndexedDB: save } = await import('../utils/logFileStore');
+          await save(filteredLogs);
+        };
+        persistLogs().catch((err) => console.error('Failed to persist logs:', err));
       },
 
-      clearLogs: () => {
+      clearLogs: async () => {
+        // Immediately clear the in-memory state
         set({ logs: [] });
+        
+        // Then clear from IndexedDB asynchronously
+        try {
+          const { clearLogsFromIndexedDB: clear } = await import('../utils/logFileStore');
+          await clear();
+        } catch (error) {
+          console.error('Failed to clear logs from IndexedDB:', error);
+        }
       },
 
       exportLogs: () => {
@@ -106,7 +123,7 @@ export const useLoggingStore = create<LoggingState>()(
         const url = URL.createObjectURL(dataBlob);
         const link = document.createElement('a');
         link.href = url;
-        link.download = `conductor-logs-${new Date().toISOString()}.json`;
+        link.download = `netflix-conductor-logs-${new Date().toISOString().replaceAll(/[:.]/g, '-')}.json`;
         document.body.appendChild(link);
         link.click();
         link.remove();
@@ -126,12 +143,20 @@ export const useLoggingStore = create<LoggingState>()(
           return true;
         });
       },
+
+      loadPersistedLogs: async () => {
+        const { loadLogsFromIndexedDB: load } = await import('../utils/logFileStore');
+        const persistedLogs = await load();
+        if (persistedLogs && persistedLogs.length > 0) {
+          set({ logs: persistedLogs });
+        }
+      },
     }),
     {
       name: 'conductor-logging',
       partialize: (state) => ({
         loggingSettings: state.loggingSettings,
-        logs: state.logs,
+        // Don't persist logs - they are runtime data only
       }),
     }
   )

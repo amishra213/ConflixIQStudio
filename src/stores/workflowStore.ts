@@ -1,33 +1,12 @@
 import { create } from 'zustand';
-import { persist, createJSONStorage } from 'zustand/middleware';
-
-/**
- * Workflow Store with Zustand Persist Middleware
- * 
- * CACHING STRATEGY:
- * - PRIMARY: Zustand + localStorage for WIP (Work In Progress) workflows and tasks
- *   - Automatically persists workflows, nodes, edges, and tasks to browser localStorage
- *   - Survives page refreshes and browser restarts
- *   - Fast read/write operations
- * 
- * - SECONDARY: FileStore backend service (optional)
- *   - Used for backup, export, and import operations
- *   - Enables sharing workflows across devices/users
- *   - Falls back gracefully if backend is unavailable
- * 
- * This dual-layer approach ensures:
- * 1. WIP workflows are never lost (localStorage persistence)
- * 2. Workflows can be backed up to server (filestore)
- * 3. Workflows can be exported/imported as JSON files
- * 4. System works offline (localStorage only)
- */
+import { fileStoreClient } from '@/utils/fileStore';
 
 export interface Task {
   id: string;
   name: string;
   type: string;
   description: string;
-  config?: any;
+  config?: unknown;
 }
 
 export interface WorkflowNode {
@@ -41,13 +20,13 @@ export interface WorkflowNode {
     taskName?: string;
     color?: string;
     sequenceNo?: number;
-    config?: any;
+    config?: unknown;
     status?: 'idle' | 'running' | 'success' | 'failed';
     onEdit?: (nodeId: string) => void;
     onDelete?: (nodeId: string) => void;
-    [key: string]: any; // Allow additional properties
+    [key: string]: unknown; // Allow additional properties
   };
-  [key: string]: any; // Allow additional ReactFlow properties
+  [key: string]: unknown; // Allow additional ReactFlow properties
 }
 
 export interface WorkflowEdge {
@@ -56,21 +35,31 @@ export interface WorkflowEdge {
   target: string;
   type?: string;
   animated?: boolean;
-  style?: any;
-  [key: string]: any; // Allow additional properties
+  style?: unknown;
+  [key: string]: unknown; // Allow additional properties
 }
 
 export interface WorkflowSettings {
   description: string;
   version: number;
   timeoutSeconds: number;
+  timeoutPolicy?: 'TIME_OUT_WF' | 'ALERT_ONLY';
   restartable: boolean;
   schemaVersion: number;
   effectiveDate: string;
   endDate: string;
   status: 'DRAFT' | 'ACTIVE' | 'PAUSED';
   inputParameters: string[];
-  outputParameters: Record<string, any>;
+  outputParameters: Record<string, unknown>;
+  inputTemplate?: Record<string, unknown>;
+  createdBy?: string;
+  updatedBy?: string;
+  ownerEmail?: string;
+  ownerApp?: string;
+  accessPolicy?: Record<string, unknown>;
+  variables?: Record<string, unknown>;
+  failureWorkflow?: string;
+  workflowStatusListenerEnabled?: boolean;
 }
 
 export interface Workflow {
@@ -80,19 +69,28 @@ export interface Workflow {
   version?: number;
   schemaVersion?: number;
   ownerEmail?: string;
+  ownerApp?: string;
+  createdBy?: string;
+  updatedBy?: string;
+  createTime?: string;
+  updateTime?: string;
   nodes: WorkflowNode[];
   edges: WorkflowEdge[];
   createdAt: string;
-  status: 'draft' | 'active' | 'paused';
+  status: 'draft' | 'active' | 'paused'; // Business status of the workflow
+  syncStatus?: 'local-only' | 'synced' | 'syncing'; // Conductor sync status
+  publicationStatus?: 'LOCAL' | 'PUBLISHED'; // Internal publication status (LOCAL=cache only, PUBLISHED=on Conductor server)
   restartable?: boolean;
   timeoutSeconds?: number;
   timeoutPolicy?: 'TIME_OUT_WF' | 'ALERT_ONLY';
   workflowStatusListenerEnabled?: boolean;
   failureWorkflow?: string;
   inputParameters?: string[];
-  outputParameters?: Record<string, any>;
-  inputTemplate?: Record<string, any>;
-  tasks?: any[]; // OSS Conductor task definitions
+  outputParameters?: Record<string, unknown>;
+  inputTemplate?: Record<string, unknown>;
+  accessPolicy?: Record<string, unknown>;
+  variables?: Record<string, unknown>;
+  tasks?: unknown[]; // OSS Conductor task definitions
   settings?: WorkflowSettings;
 }
 
@@ -104,8 +102,8 @@ export interface Execution {
   startTime: string;
   endTime?: string;
   duration?: number;
-  input?: any;
-  output?: any;
+  input?: unknown;
+  output?: unknown;
   tasks: {
     taskId: string;
     taskName: string;
@@ -113,8 +111,8 @@ export interface Execution {
     status: 'pending' | 'running' | 'completed' | 'failed';
     startTime?: string;
     endTime?: string;
-    input?: any;
-    output?: any;
+    input?: unknown;
+    output?: unknown;
   }[];
 }
 
@@ -126,7 +124,7 @@ export interface CanvasNode {
   y: number;
   width: number;
   height: number;
-  config?: any;
+  config?: unknown;
 }
 
 export interface CanvasEdge {
@@ -153,12 +151,13 @@ interface WorkflowStore {
   setSelectedExecution: (execution: Execution | null) => void;
   setCanvasNodes: (nodes: CanvasNode[]) => void;
   setCanvasEdges: (edges: CanvasEdge[]) => void;
-  executeWorkflow: (workflowId: string, input?: any) => Execution;
+  executeWorkflow: (workflowId: string, input?: unknown) => Execution;
+  loadWorkflows: (workflows: Workflow[]) => void;
+  persistWorkflows: () => Promise<void>;
+  clearWorkflows: () => void;
 }
 
-export const useWorkflowStore = create<WorkflowStore>()(
-  persist(
-    (set) => {
+export const useWorkflowStore = create<WorkflowStore>((set) => {
   // Helper function to get task status
   const getTaskStatus = (isSuccess: boolean, taskIndex: number): 'completed' | 'failed' => {
     if (isSuccess) {
@@ -168,7 +167,7 @@ export const useWorkflowStore = create<WorkflowStore>()(
   };
 
   // Helper function to create task output
-  const createTaskOutput = (isSuccess: boolean, taskIndex: number): any => {
+  const createTaskOutput = (isSuccess: boolean, taskIndex: number): Record<string, unknown> => {
     if (isSuccess) {
       return {
         processed: true,
@@ -190,7 +189,7 @@ export const useWorkflowStore = create<WorkflowStore>()(
   };
 
   // Helper function to map task with completion data
-  const mapCompletedTask = (task: any, index: number, isSuccess: boolean): any => ({
+  const mapCompletedTask = (task: Execution['tasks'][0], index: number, isSuccess: boolean): Execution['tasks'][0] => ({
     ...task,
     status: getTaskStatus(isSuccess, index),
     endTime: new Date().toISOString(),
@@ -234,226 +233,30 @@ export const useWorkflowStore = create<WorkflowStore>()(
   };
 
   return {
-  workflows: [
-    {
-      id: '1',
-      name: 'Data Processing Pipeline',
-      description: 'ETL workflow for customer data',
-      nodes: [],
-      edges: [],
-      createdAt: new Date().toISOString(),
-      status: 'active',
-    },
-    {
-      id: '2',
-      name: 'Notification Service',
-      description: 'Send notifications to users',
-      nodes: [],
-      edges: [],
-      createdAt: new Date().toISOString(),
-      status: 'active',
-    },
-  ],
-  tasks: [
-    { id: '1', name: 'HTTP Request', type: 'http', description: 'Make HTTP API calls' },
-    { id: '2', name: 'Transform Data', type: 'transform', description: 'Transform JSON data' },
-    { id: '3', name: 'Send Email', type: 'email', description: 'Send email notifications' },
-    { id: '4', name: 'Database Query', type: 'database', description: 'Execute database queries' },
-  ],
-  executions: [
-    {
-      id: 'exec-1',
-      workflowId: '1',
-      workflowName: 'Data Processing Pipeline',
-      status: 'completed',
-      startTime: new Date(Date.now() - 3600000).toISOString(),
-      endTime: new Date(Date.now() - 3000000).toISOString(),
-      duration: 600,
-      input: {
-        orderType: 'BOPIS',
-        shipNode: 'DC001',
-        customerId: 'CUST123',
-        items: [
-          { itemId: 'ITEM001', quantity: 2, price: 29.99 },
-          { itemId: 'ITEM002', quantity: 1, price: 49.99 }
-        ]
-      },
-      output: {
-        status: 'success',
-        orderId: 'ORD-2024-001',
-        processedAt: new Date(Date.now() - 3000000).toISOString(),
-        totalAmount: 109.97
-      },
-      tasks: [
-        {
-          taskId: 'http_request_1',
-          taskName: 'HTTP Request',
-          taskType: 'HTTP',
-          status: 'completed',
-          startTime: new Date(Date.now() - 3600000).toISOString(),
-          endTime: new Date(Date.now() - 3500000).toISOString(),
-          input: {
-            url: 'https://api.example.com/orders',
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: {
-              orderType: 'BOPIS',
-              shipNode: 'DC001',
-              customerId: 'CUST123'
-            }
-          },
-          output: {
-            statusCode: 200,
-            response: {
-              orderId: 'ORD-2024-001',
-              status: 'created',
-              timestamp: new Date(Date.now() - 3500000).toISOString()
-            }
-          }
-        },
-        {
-          taskId: 'mapper_transform_2',
-          taskName: 'Transform Data',
-          taskType: 'MAPPER',
-          status: 'completed',
-          startTime: new Date(Date.now() - 3500000).toISOString(),
-          endTime: new Date(Date.now() - 3400000).toISOString(),
-          input: {
-            orderId: 'ORD-2024-001',
-            items: [
-              { itemId: 'ITEM001', quantity: 2, price: 29.99 },
-              { itemId: 'ITEM002', quantity: 1, price: 49.99 }
-            ]
-          },
-          output: {
-            transformedData: {
-              orderId: 'ORD-2024-001',
-              totalAmount: 109.97,
-              itemCount: 2,
-              processedItems: [
-                { id: 'ITEM001', qty: 2, total: 59.98 },
-                { id: 'ITEM002', qty: 1, total: 49.99 }
-              ]
-            }
-          }
-        },
-        {
-          taskId: 'decision_check_inventory_3',
-          taskName: 'Check Inventory Decision',
-          taskType: 'DECISION',
-          status: 'completed',
-          startTime: new Date(Date.now() - 3400000).toISOString(),
-          endTime: new Date(Date.now() - 3350000).toISOString(),
-          input: {
-            inventoryLevel: 'high',
-            orderAmount: 109.97
-          },
-          output: {
-            decision: 'proceed',
-            reason: 'Sufficient inventory available'
-          }
-        },
-        {
-          taskId: 'generic_db_query_4',
-          taskName: 'Database Query',
-          taskType: 'GENERIC',
-          status: 'completed',
-          startTime: new Date(Date.now() - 3350000).toISOString(),
-          endTime: new Date(Date.now() - 3000000).toISOString(),
-          input: {
-            query: 'INSERT INTO orders VALUES (?)',
-            params: ['ORD-2024-001', 'CUST123', 109.97]
-          },
-          output: {
-            rowsAffected: 1,
-            insertId: 'ORD-2024-001',
-            success: true
-          }
-        },
-      ],
-    },
-    {
-      id: 'exec-2',
-      workflowId: '2',
-      workflowName: 'Notification Service',
-      status: 'running',
-      startTime: new Date(Date.now() - 300000).toISOString(),
-      input: {
-        userId: 'USER456',
-        notificationType: 'email',
-        template: 'order_confirmation',
-        data: {
-          orderId: 'ORD-2024-002',
-          customerName: 'John Doe'
-        }
-      },
-      tasks: [
-        {
-          taskId: 'lambda_validate_1',
-          taskName: 'Validate Input Lambda',
-          taskType: 'LAMBDA',
-          status: 'completed',
-          startTime: new Date(Date.now() - 300000).toISOString(),
-          endTime: new Date(Date.now() - 290000).toISOString(),
-          input: {
-            userId: 'USER456',
-            notificationType: 'email'
-          },
-          output: {
-            valid: true,
-            sanitizedData: {
-              userId: 'USER456',
-              notificationType: 'email'
-            }
-          }
-        },
-        {
-          taskId: 'generic_send_email_2',
-          taskName: 'Send Email',
-          taskType: 'GENERIC',
-          status: 'running',
-          startTime: new Date(Date.now() - 290000).toISOString(),
-          input: {
-            to: 'john.doe@example.com',
-            subject: 'Order Confirmation',
-            template: 'order_confirmation',
-            data: {
-              orderId: 'ORD-2024-002',
-              customerName: 'John Doe',
-              items: [
-                { name: 'Product A', quantity: 1, price: 29.99 }
-              ]
-            }
-          },
-          output: undefined
-        },
-        {
-          taskId: 'wait_signal_3',
-          taskName: 'Wait for Confirmation Signal',
-          taskType: 'WAIT_FOR_SIGNAL',
-          status: 'pending',
-          input: {
-            signalName: 'email_confirmed',
-            timeout: 3600
-          },
-          output: undefined
-        },
-        {
-          taskId: 'passthrough_log_4',
-          taskName: 'Log Activity',
-          taskType: 'PASS_THROUGH',
-          status: 'pending',
-          input: undefined,
-          output: undefined
-        },
-      ],
-    },
-  ],
+  workflows: [],
+  tasks: [],
+  executions: [],
   selectedWorkflow: null,
   selectedExecution: null,
   canvasNodes: [],
   canvasEdges: [],
-  addWorkflow: (workflow) => set((state) => ({ workflows: [...state.workflows, workflow] })),
+  addWorkflow: (workflow) =>
+    set((state) => {
+      // Check if workflow with same name already exists
+      const existingIndex = state.workflows.findIndex((w) => w.name === workflow.name);
+      
+      if (existingIndex >= 0) {
+        // Replace existing workflow with updated version
+        console.log(`[WorkflowStore] Replacing existing workflow "${workflow.name}" with updated version`);
+        const updatedWorkflows = [...state.workflows];
+        updatedWorkflows[existingIndex] = workflow;
+        return { workflows: updatedWorkflows };
+      }
+      
+      // Add as new workflow if it doesn't exist
+      console.log(`[WorkflowStore] Adding new workflow "${workflow.name}"`);
+      return { workflows: [...state.workflows, workflow] };
+    }),
   updateWorkflow: (id, workflow) =>
     set((state) => ({
       workflows: state.workflows.map((w) => (w.id === id ? { ...w, ...workflow } : w)),
@@ -531,18 +334,76 @@ export const useWorkflowStore = create<WorkflowStore>()(
 
     return newExecution;
   },
-  };
-},
-    {
-      name: 'conductor-workflow-store', // unique name for localStorage key
-      storage: createJSONStorage(() => localStorage),
-      // Persist workflows, nodes, edges, and tasks for WIP caching
-      partialize: (state) => ({
-        workflows: state.workflows,
-        tasks: state.tasks,
-        canvasNodes: state.canvasNodes,
-        canvasEdges: state.canvasEdges,
-      }),
+  loadWorkflows: (workflows) => set({ workflows }),
+  persistWorkflows: async () => {
+    // Get current state and persist to filestore
+    const state = useWorkflowStore.getState();
+    const workflows = state.workflows;
+    
+    // Also save to localStorage for quick access
+    try {
+      localStorage.setItem('workflows', JSON.stringify(workflows));
+      console.log('Workflows persisted to localStorage');
+    } catch (err) {
+      console.warn('Failed to save workflows to localStorage:', err);
     }
-  )
-);
+    
+    // Save each workflow to filestore as individual file for scalability and Git compatibility
+    try {
+      let savedCount = 0;
+      for (const wf of workflows) {
+        const workflowToSave = {
+          id: wf.id,
+          name: wf.name,
+          description: wf.description,
+          version: wf.version,
+          schemaVersion: wf.schemaVersion,
+          ownerEmail: wf.ownerEmail,
+          ownerApp: wf.ownerApp,
+          createdBy: wf.createdBy,
+          updatedBy: wf.updatedBy,
+          createTime: wf.createTime,
+          updateTime: wf.updateTime,
+          nodes: wf.nodes, // Complete node data with all task configurations
+          edges: wf.edges, // All edge connections
+          createdAt: wf.createdAt,
+          status: wf.status,
+          syncStatus: wf.syncStatus,
+          restartable: wf.restartable,
+          timeoutSeconds: wf.timeoutSeconds,
+          timeoutPolicy: wf.timeoutPolicy,
+          workflowStatusListenerEnabled: wf.workflowStatusListenerEnabled,
+          failureWorkflow: wf.failureWorkflow,
+          inputParameters: wf.inputParameters,
+          outputParameters: wf.outputParameters,
+          inputTemplate: wf.inputTemplate,
+          accessPolicy: wf.accessPolicy,
+          variables: wf.variables,
+          tasks: wf.tasks, // OSS Conductor task definitions
+          settings: wf.settings, // Complete workflow settings
+          publicationStatus: wf.publicationStatus,
+        };
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const result = await fileStoreClient.saveWorkflow(workflowToSave as any);
+        if (result) {
+          savedCount++;
+          console.log(`Persisted workflow ${wf.name} to filestore (${savedCount}/${workflows.length})`);
+        } else {
+          console.warn(`Failed to persist workflow ${wf.name} to filestore`);
+        }
+      }
+      console.log(`Successfully persisted ${savedCount}/${workflows.length} workflows to filestore with individual files`);
+    } catch (err) {
+      console.warn('Failed to save workflows to filestore:', err);
+    }
+  },
+  clearWorkflows: () => {
+    set({ workflows: [] });
+    try {
+      localStorage.removeItem('workflows');
+    } catch (err) {
+      console.warn('Failed to clear workflows from localStorage:', err);
+    }
+  },
+  };
+});

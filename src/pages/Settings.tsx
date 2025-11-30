@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -6,10 +7,26 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/hooks/use-toast';
-import { SaveIcon, SettingsIcon, ServerIcon, CheckCircle2Icon, AlertCircleIcon } from 'lucide-react';
+import { SaveIcon, SettingsIcon, ServerIcon, CheckCircle2Icon, AlertCircleIcon, Trash2Icon as TrashIcon, ArrowLeftIcon } from 'lucide-react';
 import { useSettingsStore } from '@/stores/settingsStore';
+import { useWorkflowStore } from '@/stores/workflowStore';
+
+interface WorkflowHeaderSettings {
+  createdBy: string;
+  updatedBy: string;
+  ownerEmail: string;
+  ownerApp: string;
+  timeoutSeconds: number;
+  timeoutPolicy: 'TIME_OUT_WF' | 'ALERT_ONLY';
+  workflowStatusListenerEnabled: boolean;
+  restartable: boolean;
+  failureWorkflow: string;
+  accessPolicy: Record<string, unknown>;
+  variables: Record<string, unknown>;
+}
 
 export function Settings() {
+  const navigate = useNavigate();
   const { toast } = useToast();
   const {
     proxyServer,
@@ -26,9 +43,103 @@ export function Settings() {
     setEnableNotifications,
     setAutoSaveWorkflows,
   } = useSettingsStore();
+  const { selectedWorkflow, updateWorkflow } = useWorkflowStore();
 
   const [testingConnection, setTestingConnection] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState<'idle' | 'success' | 'error'>('idle');
+  
+  // Initialize workflow settings from selected workflow
+  const initialSettings = useMemo(
+    () => ({
+      createdBy: selectedWorkflow?.createdBy || 'Netflix Conductor Hub',
+      updatedBy: selectedWorkflow?.updatedBy || 'Netflix Conductor Hub',
+      ownerEmail: selectedWorkflow?.ownerEmail || '',
+      ownerApp: selectedWorkflow?.ownerApp || '',
+      timeoutSeconds: selectedWorkflow?.timeoutSeconds || 3600,
+      timeoutPolicy: (selectedWorkflow?.timeoutPolicy as 'TIME_OUT_WF' | 'ALERT_ONLY') || 'TIME_OUT_WF',
+      workflowStatusListenerEnabled: selectedWorkflow?.workflowStatusListenerEnabled || false,
+      restartable: selectedWorkflow?.restartable || true,
+      failureWorkflow: selectedWorkflow?.failureWorkflow || '',
+      accessPolicy: selectedWorkflow?.accessPolicy || {},
+      variables: selectedWorkflow?.variables || {},
+    }),
+    [selectedWorkflow]
+  );
+
+  const [workflowSettings, setWorkflowSettings] = useState<WorkflowHeaderSettings>(initialSettings);
+  const [policyKey, setPolicyKey] = useState('');
+  const [policyValue, setPolicyValue] = useState('');
+  const [variableKey, setVariableKey] = useState('');
+  const [variableValue, setVariableValue] = useState('');
+
+  const handleAddAccessPolicy = () => {
+    if (policyKey.trim()) {
+      setWorkflowSettings({
+        ...workflowSettings,
+        accessPolicy: {
+          ...workflowSettings.accessPolicy,
+          [policyKey]: policyValue,
+        },
+      });
+      setPolicyKey('');
+      setPolicyValue('');
+    }
+  };
+
+  const handleRemoveAccessPolicy = (key: string) => {
+    const newPolicy = { ...workflowSettings.accessPolicy };
+    delete newPolicy[key];
+    setWorkflowSettings({
+      ...workflowSettings,
+      accessPolicy: newPolicy,
+    });
+  };
+
+  const handleAddVariable = () => {
+    if (variableKey.trim()) {
+      setWorkflowSettings({
+        ...workflowSettings,
+        variables: {
+          ...workflowSettings.variables,
+          [variableKey]: variableValue,
+        },
+      });
+      setVariableKey('');
+      setVariableValue('');
+    }
+  };
+
+  const handleRemoveVariable = (key: string) => {
+    const newVariables = { ...workflowSettings.variables };
+    delete newVariables[key];
+    setWorkflowSettings({
+      ...workflowSettings,
+      variables: newVariables,
+    });
+  };
+
+  const handleSaveWorkflowSettings = () => {
+    if (!selectedWorkflow) {
+      toast({
+        title: 'No workflow selected',
+        description: 'Please select a workflow to save settings',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    const now = new Date().toISOString();
+    updateWorkflow(selectedWorkflow.id, {
+      ...workflowSettings,
+      updateTime: now,
+      updatedBy: 'Netflix Conductor Hub',
+    });
+
+    toast({
+      title: 'Workflow settings saved',
+      description: 'Your workflow header settings have been saved successfully.',
+    });
+  };
 
   const handleSave = () => {
     toast({
@@ -85,13 +196,288 @@ export function Settings() {
 
   return (
     <div className="p-8 space-y-8 bg-background">
-      <div>
-        <h1 className="text-4xl font-bold text-foreground mb-2">Settings</h1>
-        <p className="text-base text-muted-foreground">Configure your Conductor Studio preferences</p>
+      <div className="flex items-center gap-4">
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => navigate('/')}
+          className="text-gray-400 hover:text-white hover:bg-[#2a3142]"
+          title="Back to dashboard"
+        >
+          <ArrowLeftIcon className="w-5 h-5" />
+        </Button>
+        <div>
+          <h1 className="text-4xl font-bold text-foreground mb-2">Settings</h1>
+          <p className="text-base text-muted-foreground">Configure your Conductor Studio preferences</p>
+        </div>
       </div>
 
-      <div className="max-w-3xl space-y-6">
-        {/* GraphQL Proxy Server Configuration */}
+      <div className="max-w-4xl space-y-6">
+        {/* Workflow Header Settings */}
+        {selectedWorkflow && (
+          <Card className="p-6 bg-card border-border shadow-sm">
+            <div className="flex items-center gap-3 mb-6">
+              <SettingsIcon className="w-5 h-5 text-green-500" />
+              <h2 className="text-xl font-semibold text-foreground">Workflow Header Configuration</h2>
+            </div>
+            
+            <div className="space-y-6">
+              {/* Basic Information */}
+              <div>
+                <h3 className="text-lg font-semibold text-foreground mb-4">Basic Information</h3>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="created-by" className="text-foreground">Created By (Default: Netflix Conductor Hub)</Label>
+                    <Input
+                      id="created-by"
+                      value={workflowSettings.createdBy}
+                      onChange={(e) => setWorkflowSettings({ ...workflowSettings, createdBy: e.target.value })}
+                      className="mt-2 bg-background text-foreground border-border"
+                      placeholder="Netflix Conductor Hub"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="updated-by" className="text-foreground">Updated By (Default: Netflix Conductor Hub)</Label>
+                    <Input
+                      id="updated-by"
+                      value={workflowSettings.updatedBy}
+                      onChange={(e) => setWorkflowSettings({ ...workflowSettings, updatedBy: e.target.value })}
+                      className="mt-2 bg-background text-foreground border-border"
+                      placeholder="Netflix Conductor Hub"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="owner-email" className="text-foreground">Owner Email</Label>
+                    <Input
+                      id="owner-email"
+                      type="email"
+                      value={workflowSettings.ownerEmail}
+                      onChange={(e) => setWorkflowSettings({ ...workflowSettings, ownerEmail: e.target.value })}
+                      className="mt-2 bg-background text-foreground border-border"
+                      placeholder="dev-team@example.com"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="owner-app" className="text-foreground">Owner Application</Label>
+                    <Input
+                      id="owner-app"
+                      value={workflowSettings.ownerApp}
+                      onChange={(e) => setWorkflowSettings({ ...workflowSettings, ownerApp: e.target.value })}
+                      className="mt-2 bg-background text-foreground border-border"
+                      placeholder="data_service_api"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <Separator className="bg-border" />
+
+              {/* Timeout Configuration */}
+              <div>
+                <h3 className="text-lg font-semibold text-foreground mb-4">Timeout Configuration</h3>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="timeout-seconds" className="text-foreground">Timeout (Seconds)</Label>
+                    <Input
+                      id="timeout-seconds"
+                      type="number"
+                      value={workflowSettings.timeoutSeconds}
+                      onChange={(e) => setWorkflowSettings({ ...workflowSettings, timeoutSeconds: Number.parseInt(e.target.value, 10) })}
+                      className="mt-2 bg-background text-foreground border-border"
+                      placeholder="3600"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="timeout-policy" className="text-foreground">Timeout Policy</Label>
+                    <select
+                      id="timeout-policy"
+                      value={workflowSettings.timeoutPolicy}
+                      onChange={(e) => setWorkflowSettings({ ...workflowSettings, timeoutPolicy: e.target.value as 'TIME_OUT_WF' | 'ALERT_ONLY' })}
+                      className="mt-2 w-full px-3 py-2 bg-background text-foreground border border-border rounded-md"
+                    >
+                      <option value="TIME_OUT_WF">TIME_OUT_WF</option>
+                      <option value="ALERT_ONLY">ALERT_ONLY</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              <Separator className="bg-border" />
+
+              {/* Workflow Behavior */}
+              <div>
+                <h3 className="text-lg font-semibold text-foreground mb-4">Workflow Behavior</h3>
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <Label className="text-foreground">Restartable</Label>
+                      <p className="text-sm text-muted-foreground mt-1">Allow this workflow to be restarted</p>
+                    </div>
+                    <Switch
+                      checked={workflowSettings.restartable}
+                      onCheckedChange={(checked) => setWorkflowSettings({ ...workflowSettings, restartable: checked })}
+                    />
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <Label className="text-foreground">Workflow Status Listener Enabled</Label>
+                      <p className="text-sm text-muted-foreground mt-1">Enable status listener for this workflow</p>
+                    </div>
+                    <Switch
+                      checked={workflowSettings.workflowStatusListenerEnabled}
+                      onCheckedChange={(checked) => setWorkflowSettings({ ...workflowSettings, workflowStatusListenerEnabled: checked })}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <Separator className="bg-border" />
+
+              {/* Failure Workflow */}
+              <div>
+                <Label htmlFor="failure-workflow" className="text-foreground">Failure/Compensation Workflow</Label>
+                <Input
+                  id="failure-workflow"
+                  value={workflowSettings.failureWorkflow}
+                  onChange={(e) => setWorkflowSettings({ ...workflowSettings, failureWorkflow: e.target.value })}
+                  className="mt-2 bg-background text-foreground border-border"
+                  placeholder="compensation_workflow_v1"
+                />
+                <p className="text-sm text-muted-foreground mt-1">Optional workflow to execute on failure</p>
+              </div>
+
+              <Separator className="bg-border" />
+
+              {/* Access Policy */}
+              <div>
+                <h3 className="text-lg font-semibold text-foreground mb-4">Access Policy</h3>
+                <div className="space-y-4">
+                  <div className="grid grid-cols-3 gap-2">
+                    <div>
+                      <Label htmlFor="policy-key" className="text-foreground text-sm">Policy Key</Label>
+                      <Input
+                        id="policy-key"
+                        value={policyKey}
+                        onChange={(e) => setPolicyKey(e.target.value)}
+                        placeholder="e.g., additionalProp1"
+                        className="mt-1 bg-background text-foreground border-border"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="policy-value" className="text-foreground text-sm">Policy Value</Label>
+                      <Input
+                        id="policy-value"
+                        value={policyValue}
+                        onChange={(e) => setPolicyValue(e.target.value)}
+                        placeholder="e.g., read_group_a"
+                        className="mt-1 bg-background text-foreground border-border"
+                      />
+                    </div>
+                    <div className="flex items-end">
+                      <Button
+                        onClick={handleAddAccessPolicy}
+                        variant="outline"
+                        className="w-full"
+                      >
+                        Add Policy
+                      </Button>
+                    </div>
+                  </div>
+
+                  {Object.entries(workflowSettings.accessPolicy).length > 0 && (
+                    <div className="border border-border rounded-md p-3 space-y-2">
+                      {Object.entries(workflowSettings.accessPolicy).map(([key, value]) => (
+                        <div key={key} className="flex items-center justify-between bg-background p-2 rounded">
+                          <div className="text-sm">
+                            <span className="font-semibold text-foreground">{key}:</span>
+                            <span className="text-muted-foreground ml-2">{String(value)}</span>
+                          </div>
+                          <button
+                            onClick={() => handleRemoveAccessPolicy(key)}
+                            className="text-destructive hover:text-destructive/80"
+                          >
+                            <TrashIcon className="w-4 h-4" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <Separator className="bg-border" />
+
+              {/* Variables */}
+              <div>
+                <h3 className="text-lg font-semibold text-foreground mb-4">Workflow Variables</h3>
+                <div className="space-y-4">
+                  <div className="grid grid-cols-3 gap-2">
+                    <div>
+                      <Label htmlFor="variable-key" className="text-foreground text-sm">Variable Name</Label>
+                      <Input
+                        id="variable-key"
+                        value={variableKey}
+                        onChange={(e) => setVariableKey(e.target.value)}
+                        placeholder="e.g., run_count"
+                        className="mt-1 bg-background text-foreground border-border"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="variable-value" className="text-foreground text-sm">Variable Value</Label>
+                      <Input
+                        id="variable-value"
+                        value={variableValue}
+                        onChange={(e) => setVariableValue(e.target.value)}
+                        placeholder="e.g., 1"
+                        className="mt-1 bg-background text-foreground border-border"
+                      />
+                    </div>
+                    <div className="flex items-end">
+                      <Button
+                        onClick={handleAddVariable}
+                        variant="outline"
+                        className="w-full"
+                      >
+                        Add Variable
+                      </Button>
+                    </div>
+                  </div>
+
+                  {Object.entries(workflowSettings.variables).length > 0 && (
+                    <div className="border border-border rounded-md p-3 space-y-2">
+                      {Object.entries(workflowSettings.variables).map(([key, value]) => (
+                        <div key={key} className="flex items-center justify-between bg-background p-2 rounded">
+                          <div className="text-sm">
+                            <span className="font-semibold text-foreground">{key}:</span>
+                            <span className="text-muted-foreground ml-2">{String(value)}</span>
+                          </div>
+                          <button
+                            onClick={() => handleRemoveVariable(key)}
+                            className="text-destructive hover:text-destructive/80"
+                          >
+                            <TrashIcon className="w-4 h-4" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <Separator className="bg-border" />
+
+              <div className="flex justify-end">
+                <Button
+                  onClick={handleSaveWorkflowSettings}
+                  className="bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm font-medium"
+                >
+                  <SaveIcon className="w-5 h-5 mr-2" />
+                  Save Workflow Settings
+                </Button>
+              </div>
+            </div>
+          </Card>
+        )}
         <Card className="p-6 bg-card border-border shadow-sm">
           <div className="flex items-center gap-3 mb-6">
             <ServerIcon className="w-5 h-5 text-blue-500" />

@@ -15,7 +15,7 @@ export interface HttpRequest {
   accept?: string;
   contentType?: string;
   headers?: Record<string, string>;
-  body?: any;
+  body?: Record<string, unknown> | string | null;
   asyncComplete?: boolean;
   connectionTimeOut?: number;
   readTimeOut?: number;
@@ -25,7 +25,7 @@ export interface HttpTaskConfig extends BaseTaskConfig {
   type: 'HTTP';
   inputParameters: {
     http_request: HttpRequest;
-    [key: string]: any;
+    [key: string]: unknown;
   };
 }
 
@@ -64,17 +64,23 @@ export function HttpTaskModal({
 
   useEffect(() => {
     if (open) {
+      console.log('[HttpTaskModal] Modal opening with initialConfig:', initialConfig);
       if (initialConfig) {
         // Safely access http_request from initialConfig
         const httpRequest = initialConfig.inputParameters?.http_request || {};
+        const timestamp = Date.now();
+        
+        console.log('[HttpTaskModal] Setting config from initialConfig. httpRequest:', httpRequest);
         
         setConfig({ 
           ...initialConfig,
+          name: initialConfig.name || `http_task_${timestamp}`,
+          taskReferenceName: initialConfig.taskReferenceName || `http_task_ref_${timestamp}`,
           inputParameters: {
             ...initialConfig.inputParameters,
             http_request: {
               uri: httpRequest.uri || 'http://localhost:8080/api',
-              method: (httpRequest.method as any) || 'GET',
+              method: httpRequest.method || 'GET',
               accept: httpRequest.accept || 'application/json',
               contentType: httpRequest.contentType || 'application/json',
               connectionTimeOut: httpRequest.connectionTimeOut ?? 100,
@@ -97,10 +103,12 @@ export function HttpTaskModal({
         const body = httpRequest.body;
         setBodyJson(body ? JSON.stringify(body, null, 2) : '');
       } else {
+        console.log('[HttpTaskModal] No initialConfig provided, using defaults');
+        const timestamp = Date.now();
         const defaultConfig: HttpTaskConfig = {
           type: 'HTTP',
-          name: 'http_task',
-          taskReferenceName: 'http_task_ref',
+          name: `http_task_${timestamp}`,
+          taskReferenceName: `http_task_ref_${timestamp}`,
           inputParameters: {
             http_request: {
               uri: 'http://localhost:8080/api',
@@ -181,7 +189,7 @@ export function HttpTaskModal({
     }
 
     // Parse body
-    let body: any = undefined;
+    let body: Record<string, unknown> | string | undefined = undefined;
     if (bodyJson.trim()) {
       try {
         body = JSON.parse(bodyJson);
@@ -246,7 +254,7 @@ export function HttpTaskModal({
                       ...config,
                       inputParameters: {
                         ...config.inputParameters,
-                        http_request: { ...config.inputParameters.http_request, method: value as any },
+                        http_request: { ...config.inputParameters.http_request, method: value as HttpRequest['method'] },
                       },
                     })
                   }
@@ -449,7 +457,7 @@ export function HttpTaskModal({
             onChange={(value) => {
               setBodyJson(value);
               // Sync to config
-              let body: any = undefined;
+              let body: Record<string, unknown> | string | undefined = undefined;
               if (value.trim()) {
                 try {
                   body = JSON.parse(value);

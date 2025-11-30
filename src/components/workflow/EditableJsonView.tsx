@@ -18,53 +18,56 @@ export default function EditableJsonView() {
       console.log('Canvas nodes:', canvasNodes);
       
       const workflowJson = {
+        name: selectedWorkflow.name || '',
         description: selectedWorkflow.description || '',
         version: selectedWorkflow.version || 1,
-        effectiveDate: selectedWorkflow.createdAt || '',
-        endDate: '',
-        status: selectedWorkflow.status || 'DRAFT',
         tasks: canvasNodes.map((node, index) => {
           console.log(`Processing node ${index + 1} for JSON view:`, node);
           
           if (node.config) {
             console.log(`Node ${index + 1} config:`, node.config);
             
-            const taskJson: any = {
-              taskRefId: node.config.taskRefId || `task_ref_${index + 1}`,
-              taskId: node.config.taskId || `task_${index + 1}`,
-              taskType: node.config.taskType,
-              sequenceNo: node.config.sequenceNo || (index + 1),
+            const config = node.config as Record<string, unknown>;
+            
+            // OSS Conductor workflow task definition
+            const taskJson: Record<string, unknown> = {
+              name: (config.name as string) || `task_${index + 1}`,
+              taskReferenceName: (config.taskReferenceName as string) || `task_ref_${index + 1}`,
+              type: (config.type as string) || (config.taskType as string) || 'SIMPLE',
             };
 
-            // Add taskListDomain if it exists
-            if (node.config.taskListDomain) {
-              taskJson.taskListDomain = node.config.taskListDomain;
+            // Add optional fields if they exist
+            if (config.inputParameters) {
+              taskJson.inputParameters = config.inputParameters;
             }
 
-            // Add taskinputParameters if they exist
-            if (node.config.taskinputParameters) {
-              taskJson.taskinputParameters = node.config.taskinputParameters;
+            if (config.optional !== undefined) {
+              taskJson.optional = config.optional;
             }
 
-            // For Decision tasks, add caseValues and output
-            if (node.config.taskType === 'DECISION' && node.config.caseValues) {
-              console.log('Adding caseValues to JSON:', node.config.caseValues);
-              taskJson.caseValues = node.config.caseValues;
-              taskJson.output = node.config.output || {};
+            if (config.asyncComplete !== undefined) {
+              taskJson.asyncComplete = config.asyncComplete;
+            }
+
+            // For SWITCH tasks, add decisionCases and defaultCase
+            if (((config.type as string) === 'SWITCH' || (config.taskType as string) === 'SWITCH') && config.decisionCases) {
+              console.log('Adding decisionCases to JSON:', config.decisionCases);
+              taskJson.decisionCases = config.decisionCases;
+              if (config.defaultCase) {
+                taskJson.defaultCase = config.defaultCase;
+              }
             }
 
             return taskJson;
           } else {
             return {
-              taskRefId: `${node.name.replaceAll(/\s+/g, '-').toLowerCase()}-${index + 1}-taskref`,
-              taskId: `${node.name.replaceAll(/\s+/g, '-').toLowerCase()}-task`,
-              taskType: node.type || 'GENERIC',
-              taskListDomain: 'DEFAULT-TASKLIST',
-              sequenceNo: index + 1,
+              name: node.name.replaceAll(/\s+/g, '_').toLowerCase(),
+              taskReferenceName: `${node.name.replaceAll(/\s+/g, '_').toLowerCase()}_ref_${index + 1}`,
+              type: node.type || 'SIMPLE',
             };
           }
         }),
-        inputParameters: selectedWorkflow.inputParameters || [],
+        inputParameters: selectedWorkflow.inputParameters || {},
         outputParameters: selectedWorkflow.outputParameters || {},
         timeoutSeconds: selectedWorkflow.timeoutSeconds || 3600,
         restartable: selectedWorkflow.restartable ?? true,
@@ -143,32 +146,27 @@ export default function EditableJsonView() {
   const handleReset = () => {
     if (selectedWorkflow) {
       const workflowJson = {
+        name: selectedWorkflow.name || '',
         description: selectedWorkflow.description || '',
         version: selectedWorkflow.version || 1,
-        effectiveDate: selectedWorkflow.createdAt || '',
-        endDate: '',
-        status: selectedWorkflow.status || 'DRAFT',
         tasks: canvasNodes.map((node, index) => {
           if (node.config) {
+            const config = node.config as Record<string, unknown>;
             return {
-              taskRefId: node.config.taskRefId || `task_ref_${index + 1}`,
-              taskId: node.config.taskId || `task_${index + 1}`,
-              taskType: node.config.taskType,
-              taskListDomain: node.config.taskListDomain || 'DEFAULT-TASKLIST',
-              sequenceNo: node.config.sequenceNo || (index + 1),
-              taskinputParameters: node.config.taskinputParameters,
+              name: (config.name as string) || `task_${index + 1}`,
+              taskReferenceName: (config.taskReferenceName as string) || `task_ref_${index + 1}`,
+              type: (config.type as string) || (config.taskType as string) || 'SIMPLE',
+              inputParameters: config.inputParameters,
             };
           } else {
             return {
-              taskRefId: `${node.name.replaceAll(/\s+/g, '-').toLowerCase()}-${index + 1}-taskref`,
-              taskId: `${node.name.replaceAll(/\s+/g, '-').toLowerCase()}-task`,
-              taskType: node.type || 'GENERIC',
-              taskListDomain: 'DEFAULT-TASKLIST',
-              sequenceNo: index + 1,
+              name: node.name.replaceAll(/\s+/g, '_').toLowerCase(),
+              taskReferenceName: `${node.name.replaceAll(/\s+/g, '_').toLowerCase()}_ref_${index + 1}`,
+              type: node.type || 'SIMPLE',
             };
           }
         }),
-        inputParameters: selectedWorkflow.inputParameters || [],
+        inputParameters: selectedWorkflow.inputParameters || {},
         outputParameters: selectedWorkflow.outputParameters || {},
         timeoutSeconds: selectedWorkflow.timeoutSeconds || 3600,
         restartable: selectedWorkflow.restartable ?? true,

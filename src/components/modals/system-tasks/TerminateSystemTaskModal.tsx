@@ -9,7 +9,7 @@ export interface TerminateSystemTaskConfig extends BaseTaskConfig {
   name: string;
   taskReferenceName: string;
   terminationStatus: 'COMPLETED' | 'FAILED';
-  workflowOutput?: Record<string, any>;
+  workflowOutput?: Record<string, unknown>;
 }
 
 interface TerminateSystemTaskModalProps {
@@ -31,14 +31,19 @@ export function TerminateSystemTaskModal({ open, onOpenChange, onSave, initialCo
 
   useEffect(() => {
     if (open) {
+      const timestamp = Date.now();
       if (initialConfig) {
-        setConfig({ ...initialConfig });
+        setConfig({
+          ...initialConfig,
+          name: initialConfig.name || `terminate_${timestamp}`,
+          taskReferenceName: initialConfig.taskReferenceName || `terminate_ref_${timestamp}`,
+        });
         setOutputText(initialConfig.workflowOutput ? JSON.stringify(initialConfig.workflowOutput, null, 2) : '');
       } else {
         setConfig({
           type: 'TERMINATE',
-          name: '',
-          taskReferenceName: '',
+          name: `terminate_${timestamp}`,
+          taskReferenceName: `terminate_ref_${timestamp}`,
           terminationStatus: 'COMPLETED',
         });
         setOutputText('');
@@ -82,7 +87,7 @@ export function TerminateSystemTaskModal({ open, onOpenChange, onSave, initialCo
   );
 
   const handleSaveWithOutput = (finalConfig: TerminateSystemTaskConfig) => {
-    let workflowOutput: Record<string, any> | undefined = undefined;
+    let workflowOutput: Record<string, unknown> | undefined = undefined;
     if (outputText.trim()) {
       try {
         workflowOutput = JSON.parse(outputText);

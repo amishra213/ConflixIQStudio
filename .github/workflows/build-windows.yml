@@ -1,0 +1,82 @@
+name: Build Windows Executable
+
+on:
+  push:
+    branches:
+      - main
+      - master
+      - copilot/**
+  pull_request:
+    branches:
+      - main
+      - master
+
+jobs:
+  build-windows:
+    name: Build Windows Executable
+    runs-on: windows-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Type check
+        run: npm run type-check
+
+      - name: Build web application
+        run: npm run build
+
+      - name: Build Windows executable
+        run: npm run electron-build
+        env:
+          TEMP: ${{ runner.temp }}\conductor-build-temp
+          TMP: ${{ runner.temp }}\conductor-build-temp
+          ELECTRON_CACHE: ${{ runner.temp }}\conductor-build-temp\electron-cache
+          ELECTRON_BUILDER_CACHE: ${{ runner.temp }}\conductor-build-temp\electron-builder-cache
+          npm_config_cache: ${{ runner.temp }}\conductor-build-temp\npm-cache
+          SKIP_NOTARIZATION: 'true'
+          ELECTRON_BUILDER_ALLOW_UNRESOLVED_DEPENDENCIES: 'true'
+
+      - name: Create ZIP archive
+        shell: powershell
+        run: |
+          $exePath = "dist\Conductor Designer-1.0.0-portable.exe"
+          $zipPath = "dist\Conductor Designer-1.0.0.zip"
+          if (Test-Path $exePath) {
+            Compress-Archive -Path $exePath -DestinationPath $zipPath -Force
+            Write-Host "✓ ZIP archive created: $zipPath"
+          } else {
+            Write-Host "⚠ EXE not found: $exePath"
+          }
+
+      - name: Upload Windows artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-builds
+          path: dist/
+          if-no-files-found: warn
+          retention-days: 30
+
+      - name: Create Release (on main/master push)
+        if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            dist/**/*.exe
+            dist/**/*.zip
+          draft: true
+          prerelease: false
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

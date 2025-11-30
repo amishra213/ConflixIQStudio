@@ -1,0 +1,340 @@
+{
+  "timestamp": 1764393683932,
+  "id": "workflow-1764390227818",
+  "name": "NewWorkflow_29112025095347_665",
+  "description": "A new workflow definition",
+  "nodes": [
+    {
+      "id": "http_task_ref_1764390234350",
+      "type": "custom",
+      "position": {
+        "x": 50,
+        "y": 50
+      },
+      "draggable": false,
+      "data": {
+        "label": "http_task_ref_1764390234350",
+        "taskType": "HTTP",
+        "taskName": "http_task_1764390234350",
+        "color": "#ff9800",
+        "sequenceNo": 1,
+        "config": {
+          "type": "HTTP",
+          "name": "http_task_1764390234350",
+          "taskReferenceName": "http_task_ref_1764390234350",
+          "inputParameters": {
+            "http_request": {
+              "uri": "http://localhost:8080/api",
+              "method": "GET",
+              "accept": "application/json",
+              "contentType": "application/json",
+              "connectionTimeOut": 100,
+              "readTimeOut": 150,
+              "asyncComplete": false
+            }
+          }
+        }
+      },
+      "width": 125,
+      "height": 50
+    },
+    {
+      "id": "human_ref_1764390237646",
+      "type": "custom",
+      "position": {
+        "x": 250,
+        "y": 50
+      },
+      "draggable": false,
+      "data": {
+        "label": "human_ref_1764390237646",
+        "taskType": "HUMAN",
+        "taskName": "human_1764390237646",
+        "color": "#ff9800",
+        "sequenceNo": 2,
+        "config": {
+          "type": "HUMAN",
+          "name": "human_1764390237646",
+          "taskReferenceName": "human_ref_1764390237646",
+          "inputParameters": {}
+        }
+      },
+      "width": 125,
+      "height": 50
+    },
+    {
+      "id": "inline_ref_1764390243765",
+      "type": "custom",
+      "position": {
+        "x": 450,
+        "y": 50
+      },
+      "draggable": false,
+      "data": {
+        "label": "inline_ref_1764390243765",
+        "taskType": "INLINE",
+        "taskName": "inline_1764390243765",
+        "color": "#ff9800",
+        "sequenceNo": 3,
+        "config": {
+          "type": "INLINE",
+          "name": "inline_1764390243765",
+          "taskReferenceName": "inline_ref_1764390243765",
+          "evaluatorType": "javascript",
+          "expression": "function() { return { result: true }; }"
+        }
+      },
+      "width": 125,
+      "height": 50
+    },
+    {
+      "id": "kafka_ref",
+      "type": "custom",
+      "position": {
+        "x": 650,
+        "y": 50
+      },
+      "draggable": false,
+      "data": {
+        "label": "kafka_ref",
+        "taskType": "KAFKA_PUBLISH",
+        "taskName": "kafka",
+        "color": "#ff9800",
+        "sequenceNo": 4,
+        "config": {
+          "name": "kafka",
+          "taskReferenceName": "kafka_ref",
+          "type": "KAFKA_PUBLISH",
+          "inputParameters": {
+            "kafka_request": {
+              "topic": "userTopic",
+              "value": "Message to publish"
+            }
+          }
+        }
+      },
+      "width": 125,
+      "height": 50
+    },
+    {
+      "id": "task_ref_1764391619615",
+      "type": "custom",
+      "position": {
+        "x": 850,
+        "y": 50
+      },
+      "draggable": false,
+      "data": {
+        "label": "task_ref_1764391619615",
+        "taskType": "SWITCH",
+        "taskName": "Switch",
+        "color": "#9c27b0",
+        "sequenceNo": 5,
+        "config": {
+          "taskRefId": "switch-1764391601935",
+          "name": "Switch",
+          "taskType": "SWITCH",
+          "evaluatorType": "value-param",
+          "expression": "switchCaseValue",
+          "inputParameters": {
+            "switchCaseValue": "${workflow.input}"
+          },
+          "decisionCases": {
+            "ADSA": [
+              {
+                "type": "HTTP",
+                "name": "http_task_1764391617770",
+                "taskReferenceName": "http_task_ref_1764391617770",
+                "inputParameters": {
+                  "http_request": {
+                    "uri": "http://localhost:8080/api",
+                    "method": "GET",
+                    "accept": "application/json",
+                    "contentType": "application/json",
+                    "connectionTimeOut": 100,
+                    "readTimeOut": 150,
+                    "asyncComplete": false
+                  }
+                }
+              }
+            ]
+          },
+          "defaultCase": [
+            {
+              "type": "EVENT",
+              "name": "event_1764391609021",
+              "taskReferenceName": "event_ref_1764391609021",
+              "sink": "conductor",
+              "asyncComplete": false
+            }
+          ],
+          "taskReferenceName": "task_ref_1764391619615"
+        }
+      },
+      "width": 125,
+      "height": 50
+    }
+  ],
+  "edges": [
+    {
+      "id": "http_task_ref_1764390234350-human_ref_1764390237646",
+      "source": "http_task_ref_1764390234350",
+      "sourceHandle": "right",
+      "target": "human_ref_1764390237646",
+      "targetHandle": "left",
+      "type": "straight",
+      "animated": true,
+      "style": {
+        "stroke": "#00bcd4",
+        "strokeWidth": 2
+      }
+    },
+    {
+      "id": "human_ref_1764390237646-inline_ref_1764390243765",
+      "source": "human_ref_1764390237646",
+      "sourceHandle": "right",
+      "target": "inline_ref_1764390243765",
+      "targetHandle": "left",
+      "type": "straight",
+      "animated": true,
+      "style": {
+        "stroke": "#00bcd4",
+        "strokeWidth": 2
+      }
+    },
+    {
+      "id": "inline_ref_1764390243765-kafka_ref",
+      "source": "inline_ref_1764390243765",
+      "sourceHandle": "right",
+      "target": "kafka_ref",
+      "targetHandle": "left",
+      "type": "straight",
+      "animated": true,
+      "style": {
+        "stroke": "#00bcd4",
+        "strokeWidth": 2
+      }
+    },
+    {
+      "id": "kafka_ref-task_ref_1764391619615",
+      "source": "kafka_ref",
+      "sourceHandle": "right",
+      "target": "task_ref_1764391619615",
+      "targetHandle": "left",
+      "type": "straight",
+      "animated": true,
+      "style": {
+        "stroke": "#00bcd4",
+        "strokeWidth": 2
+      }
+    }
+  ],
+  "createdAt": "2025-11-29T04:45:56.196Z",
+  "status": "draft",
+  "syncStatus": "synced",
+  "tasks": [
+    {
+      "type": "HTTP",
+      "name": "http_task_1764390234350",
+      "taskReferenceName": "http_task_ref_1764390234350",
+      "inputParameters": {
+        "http_request": {
+          "uri": "http://localhost:8080/api",
+          "method": "GET",
+          "accept": "application/json",
+          "contentType": "application/json",
+          "connectionTimeOut": 100,
+          "readTimeOut": 150,
+          "asyncComplete": false
+        }
+      }
+    },
+    {
+      "type": "HUMAN",
+      "name": "human_1764390237646",
+      "taskReferenceName": "human_ref_1764390237646",
+      "inputParameters": {}
+    },
+    {
+      "type": "INLINE",
+      "name": "inline_1764390243765",
+      "taskReferenceName": "inline_ref_1764390243765",
+      "evaluatorType": "javascript",
+      "expression": "function() { return { result: true }; }"
+    },
+    {
+      "name": "kafka",
+      "taskReferenceName": "kafka_ref",
+      "type": "KAFKA_PUBLISH",
+      "inputParameters": {
+        "kafka_request": {
+          "topic": "userTopic",
+          "value": "Message to publish"
+        }
+      }
+    },
+    {
+      "taskRefId": "switch-1764391601935",
+      "name": "Switch",
+      "taskType": "SWITCH",
+      "evaluatorType": "value-param",
+      "expression": "switchCaseValue",
+      "inputParameters": {
+        "switchCaseValue": "${workflow.input}"
+      },
+      "decisionCases": {
+        "ADSA": [
+          {
+            "type": "HTTP",
+            "name": "http_task_1764391617770",
+            "taskReferenceName": "http_task_ref_1764391617770",
+            "inputParameters": {
+              "http_request": {
+                "uri": "http://localhost:8080/api",
+                "method": "GET",
+                "accept": "application/json",
+                "contentType": "application/json",
+                "connectionTimeOut": 100,
+                "readTimeOut": 150,
+                "asyncComplete": false
+              }
+            }
+          }
+        ]
+      },
+      "defaultCase": [
+        {
+          "type": "EVENT",
+          "name": "event_1764391609021",
+          "taskReferenceName": "event_ref_1764391609021",
+          "sink": "conductor",
+          "asyncComplete": false
+        }
+      ],
+      "taskReferenceName": "task_ref_1764391619615"
+    }
+  ],
+  "settings": {
+    "description": "A new workflow definition",
+    "version": 1,
+    "timeoutSeconds": 3600,
+    "timeoutPolicy": "TIME_OUT_WF",
+    "restartable": true,
+    "schemaVersion": 2,
+    "effectiveDate": "11-29-2025",
+    "endDate": "11-29-2035",
+    "status": "DRAFT",
+    "inputParameters": [],
+    "outputParameters": {},
+    "inputTemplate": {},
+    "createdBy": "Netflix Conductor Hub",
+    "updatedBy": "Netflix Conductor Hub",
+    "ownerEmail": "",
+    "ownerApp": "",
+    "accessPolicy": {},
+    "variables": {},
+    "failureWorkflow": "",
+    "workflowStatusListenerEnabled": false
+  },
+  "publicationStatus": "PUBLISHED"
+}

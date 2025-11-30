@@ -1,9 +1,10 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useWorkflowStore } from '@/stores/workflowStore';
-import { PlusIcon, Trash2Icon } from 'lucide-react';
+import { PlusIcon, Trash2Icon, ArrowLeftIcon } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useConductorApi } from '@/hooks/useConductorApi';
 import { SimpleTaskModal } from '@/components/modals/SimpleTaskModal';
@@ -15,11 +16,8 @@ type SimpleTaskDefinition = {
   // Add other fields as required by your application
 };
 
-const workerTaskTypes = [
-  { id: 'SIMPLE', name: 'Simple Task', description: 'Simple task definition', color: '#00bcd4' },
-];
-
 export function Tasks() {
+  const navigate = useNavigate();
   const { tasks, addTask, deleteTask } = useWorkflowStore();
   const { toast } = useToast();
   const { createTaskDefinition } = useConductorApi({ enableFallback: false });
@@ -54,9 +52,20 @@ export function Tasks() {
   return (
     <div className="p-8 space-y-8 bg-[#0f1419]">
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-4xl font-bold text-white mb-2">Tasks</h1>
-          <p className="text-base text-gray-400">Manage reusable task definitions</p>
+        <div className="flex items-center gap-4">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => navigate('/')}
+            className="text-gray-400 hover:text-white hover:bg-[#2a3142]"
+            title="Back to dashboard"
+          >
+            <ArrowLeftIcon className="w-5 h-5" />
+          </Button>
+          <div>
+            <h1 className="text-4xl font-bold text-white mb-2">Tasks</h1>
+            <p className="text-base text-gray-400">Manage reusable task definitions</p>
+          </div>
         </div>
         <Button 
           onClick={() => setIsSimpleTaskModalOpen(true)}
@@ -77,7 +86,7 @@ export function Tasks() {
               </div>
               <div className="flex items-center gap-2 flex-wrap">
                 <Badge className="bg-cyan-500/20 text-cyan-400 border border-cyan-500/50 font-medium">{task.type}</Badge>
-                {task.config && <Badge className="bg-green-500/20 text-green-400 border border-green-500/50 font-medium">Configured</Badge>}
+                {task.config && typeof task.config === 'object' ? <Badge className="bg-green-500/20 text-green-400 border border-green-500/50 font-medium">Configured</Badge> : null}
               </div>
               <div className="flex gap-2 pt-4 border-t border-border">
                 <Button size="sm" onClick={() => handleDelete(task.id, task.name)} variant="outline" className="flex-1 text-destructive border-border hover:bg-destructive/10">

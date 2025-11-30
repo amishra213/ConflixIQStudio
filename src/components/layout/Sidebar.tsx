@@ -14,7 +14,7 @@ export function Sidebar() {
 
   const navItems = [
     { path: '/', label: 'Dashboard', icon: LayoutDashboardIcon },
-    { path: '/workflow-designer', label: 'Designer', icon: PenToolIcon },
+    { path: '/workflow-designer', label: 'Designer', icon: PenToolIcon, isDesigner: true },
     { path: '/workflows', label: 'Workflows', icon: WorkflowIcon },
     { path: '/tasks', label: 'Tasks', icon: ListChecksIcon },
     { path: '/executions', label: 'Executions', icon: ActivityIcon },
@@ -46,13 +46,15 @@ export function Sidebar() {
       </div>
 
       <nav className="flex-1 px-3 py-6 space-y-1">
-        {navItems.map((item) => {
+        {navItems.map((item, index) => {
           const Icon = item.icon;
+          const isInWorkflowDesigner = location.pathname.startsWith('/workflows/') || location.pathname === '/workflow-designer';
           const isActive = location.pathname === item.path || 
-            (item.path === '/workflow-designer' && location.pathname.startsWith('/workflows/')) ||
+            (item.path === '/workflow-designer' && isInWorkflowDesigner) ||
+            (item.path === '/workflows' && location.pathname === '/workflows') ||
             (item.path === '/validation' && location.pathname.includes('/validate'));
           return (
-            <Link key={item.path} to={item.path}>
+            <Link key={`${item.path}-${item.label}-${index}`} to={item.path}>
               <Button
                 variant="ghost"
                 className={`w-full justify-start font-medium transition-all duration-200 ${

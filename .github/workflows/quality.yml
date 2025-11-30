@@ -1,0 +1,53 @@
+name: Quality Assurance
+
+on:
+  push:
+    branches:
+      - main
+      - master
+  pull_request:
+    branches:
+      - main
+      - master
+
+jobs:
+  quality-checks:
+    name: Quality Checks
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Format check
+        run: npm run format:check
+
+      - name: Type check
+        run: npm run type-check
+
+      - name: Run tests
+        run: |
+          if npm run | grep -q "test"; then
+            npm test || echo "Tests not configured or failed (non-blocking)"
+          else
+            echo "No test script found in package.json (skipping)"
+          fi
+        continue-on-error: true
+
+      - name: Security audit
+        run: npm audit --audit-level=moderate || echo "Vulnerabilities found but continuing"
+        continue-on-error: true

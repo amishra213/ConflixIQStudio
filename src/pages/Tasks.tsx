@@ -13,7 +13,15 @@ import type { SimpleTaskDefinitionConfig } from '@/components/modals/SimpleTaskD
 
 export function Tasks() {
   const { tasks, addTask, deleteTask } = useWorkflowStore();
-  const { markAsPublished, markAllAsPublished, syncToFileStore, loadFromFileStore, getTaskStatus } = useTaskStore();
+  const { 
+    markAsPublished, 
+    markAllAsPublished, 
+    syncToFileStore, 
+    loadFromFileStore, 
+    getTaskStatus,
+    setTaskDefinitions,
+    getTaskDefinitions,
+  } = useTaskStore();
   const { toast } = useToast();
   const { fetchAllTaskDefinitions, createTaskDefinition } = useConductorApi({ enableFallback: false });
 
@@ -30,6 +38,15 @@ export function Tasks() {
     loadFromFileStore();
   }, [loadFromFileStore]);
 
+  // Load cached task definitions on component mount
+  useEffect(() => {
+    const cachedDefs = getTaskDefinitions();
+    if (cachedDefs && cachedDefs.length > 0) {
+      console.log('Restoring task definitions from cache:', cachedDefs);
+      setAllTasks(cachedDefs as TaskDefinition[]);
+    }
+  }, [getTaskDefinitions]);
+
   // Load all task definitions
   const loadAllTasks = async () => {
     setIsLoading(true);
@@ -38,37 +55,40 @@ export function Tasks() {
       console.log('Fetched task definitions:', data);
       
       // Handle both array and object with data property
-      const tasksArray = Array.isArray(data) ? data : ((data as any)?.taskDefs || (data as any)?.data || []);
-      
+      let tasksArray: TaskDefinition[] = [];
+      if (Array.isArray(data)) {
+        tasksArray = data;
+      } else if (
+        typeof data === 'object' &&
+        data !== null &&
+        'taskDefs' in data &&
+        Array.isArray((data as { taskDefs?: unknown }).taskDefs)
+      ) {
+        tasksArray = (data as { taskDefs: TaskDefinition[] }).taskDefs;
+      } else if (
+        typeof data === 'object' &&
+        data !== null &&
+        'data' in data &&
+        Array.isArray((data as { data?: unknown }).data)
+      ) {
+        tasksArray = (data as { data: TaskDefinition[] }).data;
+      }
+
       if (!tasksArray || tasksArray.length === 0) {
-        // Use mock data if API returns empty
-        const mockData: TaskDefinition[] = [
-          {
-            name: 'sample_task_1',
-            description: 'Sample task for testing',
-            retryCount: 3,
-            timeoutSeconds: 300,
-            timeoutPolicy: 'RETRY',
-            retryLogic: 'FIXED',
-            concurrentExecLimit: 5,
-          },
-          {
-            name: 'sample_task_2',
-            description: 'Another sample task',
-            retryCount: 2,
-            timeoutSeconds: 600,
-            timeoutPolicy: 'ALERT',
-            retryLogic: 'EXPONENTIAL_BACKOFF',
-            concurrentExecLimit: 10,
-          },
-        ];
-        setAllTasks(mockData);
-        // Mark mock data as published
-        markAllAsPublished(mockData.map(t => t.name));
+        // No mock data - show empty state
+        setAllTasks([]);
+        setTaskDefinitions([]);
       } else {
         setAllTasks(tasksArray);
+        // Cache the full task definitions (cast to compatible type)
+        const definitionsToCache = tasksArray.map(t => ({
+          ...t,
+          createTime: typeof t.createTime === 'number' ? t.createTime.toString() : t.createTime,
+          updateTime: typeof t.updateTime === 'number' ? t.updateTime.toString() : t.updateTime,
+        }));
+        setTaskDefinitions(definitionsToCache);
         // Mark API tasks as published
-        markAllAsPublished(tasksArray.map((t: any) => t.name));
+        markAllAsPublished(tasksArray.map((t: TaskDefinition) => t.name));
       }
       
       // Sync cache to filestore after successful load
@@ -119,7 +139,7 @@ export function Tasks() {
     }
   };
 
-  const handleEditTask = (task: any) => {
+  const handleEditTask = (task: TaskDefinition) => {
     setEditingTask(task);
     setIsSimpleTaskModalOpen(true);
   };
@@ -179,7 +199,7 @@ export function Tasks() {
               </div>
               <h3 className="text-2xl font-semibold text-white">No tasks yet</h3>
               <p className="text-base text-gray-400">
-                Create a task definition or click "Get Task List" to load task definitions from your Conductor instance.
+                Create a task definition or click &quot;Get Task List&quot; to load task definitions from your Conductor instance.
               </p>
             </div>
           </Card>
@@ -291,7 +311,7 @@ export function Tasks() {
                         <span className="text-sm text-gray-400 line-clamp-1">{task.description || '-'}</span>
                       </td>
                       <td className="px-6 py-4">
-                        <span className="text-sm text-gray-400">{(task as any)?.executionNameSpace || '-'}</span>
+                        <span className="text-sm text-gray-400">{task.executionNameSpace || '-'}</span>
                       </td>
                       <td className="px-6 py-4 text-center">
                         <span className="text-sm text-gray-400">{task.timeoutSeconds ?? '-'}</span>
