@@ -73,15 +73,34 @@ export const useLoggingStore = create<LoggingState>()(
         if (log.type === 'response' && !loggingSettings.logResponses) return;
         if (log.type === 'error' && !loggingSettings.logErrors) return;
 
+        // Generate a more unique ID to prevent duplicates
+        const timestamp = Date.now();
+        const random = Math.random().toString(36).slice(2, 11);
+        const uniqueId = `log_${timestamp}_${random}_${Math.floor(Math.random() * 10000)}`;
+
         const newLog: LogEntry = {
           ...log,
-          id: `log_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`,
+          id: uniqueId,
           timestamp: new Date().toISOString(),
           requestHeaders: loggingSettings.logHeaders ? log.requestHeaders : undefined,
           responseHeaders: loggingSettings.logHeaders ? log.responseHeaders : undefined,
           requestBody: loggingSettings.logBody ? log.requestBody : undefined,
           responseBody: loggingSettings.logBody ? log.responseBody : undefined,
         };
+
+        // Check for duplicate entries (same operation, method, url, type within 100ms)
+        const isDuplicate = logs.some(existingLog => 
+          existingLog.type === newLog.type &&
+          existingLog.operation === newLog.operation &&
+          existingLog.method === newLog.method &&
+          existingLog.url === newLog.url &&
+          Math.abs(new Date(existingLog.timestamp).getTime() - new Date(newLog.timestamp).getTime()) < 100
+        );
+
+        if (isDuplicate) {
+          console.debug('Skipping duplicate log entry:', newLog.operation, newLog.type);
+          return;
+        }
 
         const updatedLogs = [newLog, ...logs].slice(0, loggingSettings.maxLogEntries);
 

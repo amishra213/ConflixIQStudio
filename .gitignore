@@ -35,6 +35,5 @@ dist-ssr
 *.ps1
 QUICK-START.ps1
 .build-metadata.json
-.filestore/workflows/NewWorkflow_23NOv25_98789789-v1.json
-.filestore/workflows/NewWorkflow_29112025095347_665-v1.json
-.filestore/workflows/workflow-1764390227818.json
+
+

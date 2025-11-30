@@ -236,17 +236,38 @@ const resolvers = {
   },
   Mutation: {
     async createWorkflow(_, { workflow }) {
-      const client = createConductorClient();
-      const mutation = `
-        mutation CreateWorkflow($workflow: WorkflowInput!) {
-          createWorkflow(workflow: $workflow) {
-            name
-            version
-          }
+      // Use REST POST endpoint for creating new workflows
+      // This maps to: POST /api/metadata/workflow
+      const client = axios.create({
+        baseURL: conductorConfig.serverUrl,
+        headers: {
+          'Content-Type': 'application/json',
+          ...(conductorConfig.apiKey && { 'X-API-Key': conductorConfig.apiKey }),
+        },
+        validateStatus: () => true, // Don't throw on any status code
+      });
+      
+      try {
+        // Wrap workflow in array as expected by Conductor backend
+        const workflowArray = Array.isArray(workflow) ? workflow : [workflow];
+        console.log('Creating new workflow in Conductor (POST):', JSON.stringify(workflowArray, null, 2));
+        const response = await client.post('/api/metadata/workflow', workflowArray);
+        
+        if (response.status >= 200 && response.status < 300) {
+          // Success - return name and version
+          return {
+            name: workflow.name,
+            version: workflow.version || 1,
+          };
+        } else {
+          // Error response
+          console.error('Failed to create workflow:', response.status, response.data);
+          throw new Error(response.data?.message || `HTTP ${response.status}: ${response.statusText}`);
         }
-      `;
-      const response = await client.post('/', { query: mutation, variables: { workflow } });
-      return response.data?.data?.createWorkflow || null;
+      } catch (error) {
+        console.error('Error creating workflow:', error);
+        throw error;
+      }
     },
     async updateWorkflow(_, { workflow }) {
       const client = createConductorClient();
@@ -262,7 +283,7 @@ const resolvers = {
       return response.data?.data?.updateWorkflow || null;
     },
     async saveWorkflow(_, { workflow }) {
-      // Use REST PUT endpoint for workflow save (create or update)
+      // Use REST PUT endpoint for workflow update
       // The Conductor API expects workflows in an array format
       // This maps to: PUT /api/metadata/workflow
       const client = axios.create({
@@ -277,7 +298,7 @@ const resolvers = {
       try {
         // Wrap workflow in array as expected by Conductor backend
         const workflowArray = Array.isArray(workflow) ? workflow : [workflow];
-        console.log('Sending workflow to Conductor:', JSON.stringify(workflowArray, null, 2));
+        console.log('Updating existing workflow in Conductor (PUT):', JSON.stringify(workflowArray, null, 2));
         const response = await client.put('/api/metadata/workflow', workflowArray);
         
         if (response.status >= 200 && response.status < 300) {

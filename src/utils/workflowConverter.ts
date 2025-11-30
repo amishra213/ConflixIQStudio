@@ -99,6 +99,81 @@ function cleanTaskObject(obj: unknown, excludedFields: Set<string>): unknown {
 function ensureRequiredOperatorFields(task: Record<string, unknown>): Record<string, unknown> {
   const result = { ...task };
   
+  // Ensure ALL tasks have these base required fields with proper defaults
+  if (result.optional === undefined || result.optional === null) {
+    result.optional = false;
+  }
+  if (result.asyncComplete === undefined || result.asyncComplete === null) {
+    result.asyncComplete = false;
+  }
+  if (!result.inputParameters) {
+    result.inputParameters = {};
+  }
+  // Set explicit null for fields that should be nullable (not undefined)
+  if (result.description === undefined) {
+    result.description = null;
+  }
+  if (result.retryCount === undefined) {
+    result.retryCount = null;
+  }
+  if (result.startDelay === undefined) {
+    result.startDelay = 0;
+  }
+  if (result.rateLimited === undefined) {
+    result.rateLimited = null;
+  }
+  if (result.evaluatorType === undefined) {
+    result.evaluatorType = null;
+  }
+  if (result.expression === undefined) {
+    result.expression = null;
+  }
+  if (result.scriptExpression === undefined) {
+    result.scriptExpression = null;
+  }
+  if (result.decisionCases === undefined) {
+    result.decisionCases = null;
+  }
+  if (result.defaultCase === undefined) {
+    result.defaultCase = null;
+  }
+  if (result.forkTasks === undefined) {
+    result.forkTasks = null;
+  }
+  if (result.joinOn === undefined) {
+    result.joinOn = null;
+  }
+  if (result.loopCondition === undefined) {
+    result.loopCondition = null;
+  }
+  if (result.loopOver === undefined) {
+    result.loopOver = null;
+  }
+  if (result.dynamicTaskNameParam === undefined) {
+    result.dynamicTaskNameParam = null;
+  }
+  if (result.sink === undefined) {
+    result.sink = null;
+  }
+  if (result.subWorkflowParam === undefined) {
+    result.subWorkflowParam = null;
+  }
+  if (result.workflowTaskType === undefined) {
+    result.workflowTaskType = null;
+  }
+  if (result.outputParameters === undefined) {
+    result.outputParameters = null;
+  }
+  if (result.defaultExclusiveJoinTask === undefined) {
+    result.defaultExclusiveJoinTask = null;
+  }
+  if (result.dynamicForkTasksParam === undefined) {
+    result.dynamicForkTasksParam = null;
+  }
+  if (result.dynamicForkTasksInputParamName === undefined) {
+    result.dynamicForkTasksInputParamName = null;
+  }
+  
   // Ensure required fields for specific operator types
   const taskType = result.type as string;
   

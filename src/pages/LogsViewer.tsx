@@ -372,8 +372,21 @@ export default function LogsViewer() {
 
                             {log.error && (
                               <TabsContent value="error" className="mt-4">
-                                <div className="rounded-lg bg-destructive/10 border border-destructive p-4">
-                                  <p className="font-mono text-sm text-destructive">{log.error}</p>
+                                <div className="space-y-3">
+                                  <div className="rounded-lg bg-destructive/10 border border-destructive p-4">
+                                    <h4 className="text-sm font-semibold text-destructive mb-2">Error Message</h4>
+                                    <p className="font-mono text-sm text-destructive whitespace-pre-wrap">{log.error}</p>
+                                  </div>
+                                  {log.responseBody && (
+                                    <div>
+                                      <h4 className="text-sm font-medium text-foreground mb-2">Full Error Response</h4>
+                                      <div className="rounded-lg bg-background border border-destructive p-4">
+                                        <pre className="font-mono text-xs text-foreground overflow-x-auto">
+                                          {JSON.stringify(log.responseBody, null, 2)}
+                                        </pre>
+                                      </div>
+                                    </div>
+                                  )}
                                 </div>
                               </TabsContent>
                             )}

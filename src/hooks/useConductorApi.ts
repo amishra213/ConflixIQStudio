@@ -375,6 +375,8 @@ export function useConductorApi(options: UseConductorApiOptions = {}) {
               isolationGroupId
               pollTimeoutSeconds
               backoffScaleFactor
+              inputTemplate
+              accessPolicy
             }
           }
         `;
@@ -383,18 +385,22 @@ export function useConductorApi(options: UseConductorApiOptions = {}) {
         console.log('Fetched task definitions via GraphQL:', taskDefs.length);
         return taskDefs;
       } else {
-        // Use REST
+        // Use REST - GET call to /api/metadata/taskdefs
         const headers: HeadersInit = {};
         if (apiKey) {
           headers['X-Conductor-API-Key'] = apiKey;
         }
         
-        console.log('Fetching task definitions via REST from:', `${baseUrl}/metadata/taskdefs`);
-        const response = await fetch(`${baseUrl}/metadata/taskdefs`, { headers });
+        console.log('Fetching task definitions via REST from:', `${baseUrl}/api/metadata/taskdefs`);
+        const response = await fetch(`${baseUrl}/api/metadata/taskdefs`, { 
+          method: 'GET',
+          headers 
+        });
         if (!response.ok) {
           throw new Error(`Failed to fetch task definitions: ${response.statusText}`);
         }
         const data = await response.json();
+        console.log('Fetched task definitions via REST:', Array.isArray(data) ? data.length : 0);
         return Array.isArray(data) ? data : [];
       }
     } catch (err) {
@@ -653,7 +659,7 @@ export function useConductorApi(options: UseConductorApiOptions = {}) {
     }
   }, [proxyServer, createTaskDefinitionViaGraphQL, createTaskDefinitionViaRest, convertToTaskDef]);
 
-  const saveWorkflow = useCallback(async (workflowDef: unknown): Promise<boolean> => {
+  const saveWorkflow = useCallback(async (workflowDef: unknown, isNew: boolean = false): Promise<boolean> => {
     // Use GraphQL proxy endpoint if enabled
     if (!proxyServer.enabled || !proxyServer.proxyEndpoint) {
       console.error('GraphQL proxy not enabled. Cannot save workflow.');
@@ -661,45 +667,80 @@ export function useConductorApi(options: UseConductorApiOptions = {}) {
       return false;
     }
 
-    const mutation = `
-      mutation SaveWorkflow($workflow: WorkflowInput!) {
-        saveWorkflow(workflow: $workflow) {
-          name
-          version
+    setLoading(true);
+    setError(null);
+
+    try {
+      // Use createWorkflow mutation for new workflows, saveWorkflow for updates
+      const mutationType = isNew ? 'createWorkflow' : 'saveWorkflow';
+      const mutation = `
+        mutation ${isNew ? 'Create' : 'Save'}Workflow($workflow: WorkflowInput!) {
+          ${mutationType}(workflow: $workflow) {
+            name
+            version
+          }
         }
+      `;
+      
+      const headers: HeadersInit = {
+        'Content-Type': 'application/json',
+      };
+      if (apiKey) {
+        headers['X-Conductor-API-Key'] = apiKey;
       }
-    `;
-    
-    const headers: HeadersInit = {
-      'Content-Type': 'application/json',
-    };
-    if (apiKey) {
-      headers['X-Conductor-API-Key'] = apiKey;
+
+      // Fetch interceptor will handle logging automatically
+      const response = await fetch(`${proxyServer.proxyEndpoint}`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          query: mutation,
+          variables: { workflow: workflowDef },
+        }),
+      });
+
+      const responseData = await response.json();
+      
+      // Handle HTTP-level errors (non-200 status codes)
+      if (!response.ok) {
+        let errorMessage = `Failed to save workflow (${response.status}): ${response.statusText}`;
+        if (responseData?.message) {
+          errorMessage = responseData.message;
+        } else if (responseData?.errors && Array.isArray(responseData.errors)) {
+          errorMessage = responseData.errors[0]?.message || errorMessage;
+        }
+        const error = new Error(errorMessage);
+        setError(error);
+        console.error('Failed to save workflow - Full error:', responseData);
+        throw error;
+      }
+      
+      // Handle GraphQL errors
+      if (responseData.errors) {
+        const errorMessage = responseData.errors[0]?.message || 'GraphQL error';
+        const error = new Error(errorMessage);
+        setError(error);
+        console.error('Failed to save workflow - GraphQL errors:', responseData.errors);
+        throw error;
+      }
+
+      // Check for successful response based on mutation type
+      const workflowData = isNew ? responseData.data?.createWorkflow : responseData.data?.saveWorkflow;
+      if (!workflowData?.name) {
+        const error = new Error('Failed to save workflow - No data returned');
+        setError(error);
+        throw error;
+      }
+
+      return true;
+    } catch (err) {
+      const error = err as Error;
+      setError(error);
+      console.error('Error in saveWorkflow:', error);
+      throw error;
+    } finally {
+      setLoading(false);
     }
-
-    // Fetch interceptor will handle logging automatically
-    const response = await fetch(`${proxyServer.proxyEndpoint}`, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify({
-        query: mutation,
-        variables: { workflow: workflowDef },
-      }),
-    });
-
-    const responseData = await response.json();
-    
-    if (responseData.errors) {
-      const errorMessage = responseData.errors[0]?.message || 'GraphQL error';
-      throw new Error(errorMessage);
-    }
-
-    // Check for successful response
-    if (!responseData.data?.saveWorkflow?.name) {
-      throw new Error('Failed to save workflow');
-    }
-
-    return true;
   }, [apiKey, proxyServer]);
 
   const deleteWorkflow = useCallback(async (

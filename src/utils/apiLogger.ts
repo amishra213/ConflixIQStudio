@@ -209,18 +209,35 @@ export class APILogger {
       const body = APILogger.parseBodyIfNeeded(init?.body);
       const headers = APILogger.extractHeaders(init?.headers);
 
+      // Skip logging for GraphQL requests - they're handled by Apollo's loggingLink
+      const isGraphQLRequest = url.includes('/graphql') || 
+                               (typeof body === 'object' && body !== null && 'query' in body);
+      
       const startTime = performance.now();
 
       try {
-        APILogger.logRestRequest(method, url, body, headers);
+        // Only log non-GraphQL requests to avoid duplicates
+        if (!isGraphQLRequest) {
+          APILogger.logRestRequest(method, url, body, headers);
+        }
+        
         const response = await originalFetch.apply(this, [input, init]);
         const duration = Math.round(performance.now() - startTime);
         
-        await APILogger.handleSuccessResponse(response, method, url, duration, headers);
+        // Only log non-GraphQL responses to avoid duplicates
+        if (!isGraphQLRequest) {
+          await APILogger.handleSuccessResponse(response, method, url, duration, headers);
+        }
+        
         return response;
       } catch (error: unknown) {
         const duration = Math.round(performance.now() - startTime);
-        APILogger.handleErrorResponse(error, method, url, duration);
+        
+        // Only log non-GraphQL errors to avoid duplicates
+        if (!isGraphQLRequest) {
+          APILogger.handleErrorResponse(error, method, url, duration);
+        }
+        
         throw error;
       }
     };
@@ -294,9 +311,43 @@ export class APILogger {
     }
 
     if (response.ok) {
-      APILogger.logRestResponse(method, url, responseData, response.status, duration, responseHeaders);
+      // Check if it's a successful GraphQL response but with errors in the data
+      if (responseData?.errors && Array.isArray(responseData.errors) && responseData.errors.length > 0) {
+        // GraphQL errors in a 200 response
+        const firstError = responseData.errors[0];
+        const errorMessage = firstError?.message || 'GraphQL error';
+        const errorDetails: ErrorDetails = { 
+          message: errorMessage,
+          code: response.status,
+          errors: responseData.errors
+        };
+        APILogger.logRestError(method, url, errorDetails, response.status, duration, responseData);
+      } else {
+        // Normal successful response
+        APILogger.logRestResponse(method, url, responseData, response.status, duration, responseHeaders);
+      }
     } else {
-      const errorDetails: ErrorDetails = { message: response.statusText };
+      // HTTP error response (4xx, 5xx)
+      // Check if it's a GraphQL error wrapped in HTTP error
+      let errorMessage = responseData?.message || response.statusText || 'Unknown error';
+      
+      // For GraphQL errors, extract the actual error message
+      if (responseData?.errors && Array.isArray(responseData.errors) && responseData.errors.length > 0) {
+        const graphqlError = responseData.errors[0];
+        errorMessage = graphqlError?.message || errorMessage;
+        
+        // Try to extract nested Conductor error if present
+        if (errorMessage.includes('JSON parse error:') || errorMessage.includes('Cannot deserialize')) {
+          // The full error message is already in the GraphQL error message
+          // Keep it as is for detailed logging
+        }
+      }
+      
+      const errorDetails: ErrorDetails = { 
+        message: errorMessage,
+        code: responseData?.status || response.status,
+        errors: responseData?.errors || [responseData]
+      };
       APILogger.logRestError(method, url, errorDetails, response.status, duration, responseData);
     }
   }

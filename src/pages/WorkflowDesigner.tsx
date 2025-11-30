@@ -462,23 +462,14 @@ export function WorkflowDesigner() {
       setWorkflowSettings(foundWorkflow.settings);
     }
     
-    // Only use cache for LOCAL workflows, not for PUBLISHED workflows from server
-    // Published workflows should always use fresh nodes/edges from the server
-    const cached = foundWorkflow.publicationStatus === 'LOCAL' ? loadCachedWorkflow(foundWorkflow.id) : null;
-    
-    if (cached) {
-      console.log(`[WorkflowDesigner.loadNodesAndEdgesFromWorkflow] Using cached workflow with ${cached.nodes.length} nodes`);
-      setNodes(cached.nodes.map(mapNodeWithHandlers));
-      setEdges(cached.edges?.length > 0 ? (cached.edges as Edge[]) : []);
-      return;
-    }
-    
+    // Use the workflow's nodes and edges directly (they may already be from cache)
     let nodes: Node[] = foundWorkflow.nodes?.length > 0 
       ? foundWorkflow.nodes.map(mapNodeWithHandlers)
       : [];
     let edges: Edge[] = foundWorkflow.edges?.length > 0 ? (foundWorkflow.edges as Edge[]) : [];
     
     // For API-loaded workflows (PUBLISHED status) with linear node positions, apply auto-arrange
+    // But only if nodes weren't already arranged (cache would have arranged nodes)
     const isLinearLayout = isNodesInLinearLayout(nodes);
     
     if (foundWorkflow.publicationStatus === 'PUBLISHED' && nodes.length > 0 && isLinearLayout) {
@@ -622,23 +613,37 @@ export function WorkflowDesigner() {
       console.log(`[WorkflowDesigner.loadWorkflow] Found in store:`, foundWorkflow ? { id: foundWorkflow.id, name: foundWorkflow.name, nodes: foundWorkflow.nodes?.length } : 'NO');
       
       if (foundWorkflow) {
+        // Check if there's a localStorage cache with recent changes
+        const cached = loadCachedWorkflow(foundWorkflow.id);
+        const hasCachedChanges = cached && cached.nodes?.length > 0;
+        
         // Check if the stored workflow has already been auto-arranged (nodes have snake pattern positions)
-        // If it has, use the stored version to preserve the arrangement
         const hasArrangedNodes = checkIfArranged(foundWorkflow);
         
-        // If nodes are pre-arranged, use the stored version; otherwise fetch fresh from API
-        if (hasArrangedNodes) {
+        // Priority: Use cache if available (preserves user's unsaved changes)
+        if (hasCachedChanges) {
+          console.log(`[WorkflowDesigner.loadWorkflow] Using cached workflow with ${cached.nodes.length} nodes to preserve unsaved changes`);
+          // Update the workflow in store with cached data
+          foundWorkflow = {
+            ...foundWorkflow,
+            nodes: cached.nodes,
+            edges: cached.edges,
+          };
+          loadNodesAndEdgesFromWorkflow(foundWorkflow);
+        } else if (hasArrangedNodes) {
+          // Use stored version if it has arranged nodes (no cache needed)
           console.log(`[WorkflowDesigner.loadWorkflow] Workflow found with pre-arranged nodes, using stored version`);
+          loadNodesAndEdgesFromWorkflow(foundWorkflow);
         } else {
+          // No cache and nodes not arranged - fetch fresh from API
           console.log(`[WorkflowDesigner.loadWorkflow] Workflow found locally but nodes are in linear position, fetching latest from server...`);
           const apiWorkflow = await loadPublishedWorkflowFromApi(foundWorkflow.id);
           if (apiWorkflow) {
             foundWorkflow = apiWorkflow;
             console.log(`[WorkflowDesigner.loadWorkflow] Successfully fetched latest from server`);
           }
+          loadNodesAndEdgesFromWorkflow(foundWorkflow);
         }
-        
-        loadNodesAndEdgesFromWorkflow(foundWorkflow);
       } else {
         // Workflow not in local store - try to load from API by ID
         console.warn(`[WorkflowDesigner.loadWorkflow] Workflow not found in local store, attempting to load from server by ID: ${id}`);
@@ -1466,7 +1471,7 @@ export function WorkflowDesigner() {
   };
 
   // Helper: Sync workflow to filestore and Conductor API
-  const syncWorkflowToConductor = async (wf: typeof workflow): Promise<boolean> => {
+  const syncWorkflowToConductor = async (wf: typeof workflow, isNew: boolean): Promise<boolean> => {
     await syncToFileStore().catch(err => {
       console.warn('Failed to sync to filestore:', err);
     });
@@ -1475,7 +1480,14 @@ export function WorkflowDesigner() {
     const { localWorkflowToConductor } = await import('@/utils/workflowConverter');
     const conductorWorkflow = localWorkflowToConductor(wf!);
 
-    return saveWorkflow(conductorWorkflow);
+    try {
+      const success = await saveWorkflow(conductorWorkflow, isNew);
+      return success;
+    } catch (error) {
+      console.error('Failed to sync workflow to Conductor:', error);
+      // Re-throw to allow handleSave to catch and display error details
+      throw error;
+    }
   };
 
   // Helper: Handle successful Conductor publication
@@ -1542,7 +1554,7 @@ export function WorkflowDesigner() {
       const wf = isNew ? createNewWorkflow() : workflow;
 
       saveToLocalStoreAndCache(wf, isNew);
-      const success = await syncWorkflowToConductor(wf);
+      const success = await syncWorkflowToConductor(wf, isNew);
 
       if (success) {
         handlePublishSuccess(wf, isNew);
@@ -1551,6 +1563,18 @@ export function WorkflowDesigner() {
       }
     } catch (error) {
       console.error('Error saving workflow:', error);
+      
+      // Extract detailed error message
+      const errorMessage = error instanceof Error ? error.message : 'Failed to save workflow';
+      
+      // Show detailed error to user
+      toast({
+        title: 'Failed to save workflow',
+        description: errorMessage,
+        variant: 'destructive',
+      });
+      
+      // Save to cache as fallback
       handleSaveError(workflow);
     }
   };
