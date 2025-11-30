@@ -95,7 +95,7 @@
     "@vitejs/plugin-react": "4.3.4",
     "concurrently": "^8.2.2",
     "electron": "^31.0.0",
-    "electron-builder": "^25.0.5",
+    "electron-builder": "^24.6.4",
     "electron-is-dev": "^2.0.0",
     "esbuild": "0.25.5",
     "eslint": "^8.57.0",
@@ -119,6 +119,8 @@
   "build": {
     "appId": "com.conductor.designer",
     "productName": "Conductor Designer",
+    "asarUnpack": false,
+    "asar": false,
     "directories": {
       "buildResources": "assets",
       "output": "dist"
@@ -137,24 +139,13 @@
     ],
     "win": {
       "target": [
-        {
-          "target": "nsis",
-          "arch": [
-            "x64"
-          ]
-        },
-        {
-          "target": "portable",
-          "arch": [
-            "x64"
-          ]
-        }
+        "portable"
       ],
       "certificateFile": null,
       "certificatePassword": null,
-      "signingHashAlgorithms": [
-        "sha256"
-      ]
+      "forceCodeSigning": false,
+      "sign": null,
+      "signDlls": false
     },
     "nsis": {
       "oneClick": false,

@@ -34,3 +34,4 @@ dist-ssr
 *.sw?
 *.ps1
 QUICK-START.ps1
+.build-metadata.json

@@ -43,9 +43,13 @@ set "USERPROFILE=%LOCAL_TEMP_DIR%"
 set "ELECTRON_CACHE=%LOCAL_TEMP_DIR%\electron-cache"
 set "ELECTRON_BUILDER_CACHE=%LOCAL_TEMP_DIR%\electron-builder-cache"
 set "npm_config_cache=%LOCAL_TEMP_DIR%\npm-cache"
-REM Disable code signing to avoid symbolic link privilege errors
+REM Disable all code signing to avoid symbolic link privilege errors and winCodeSign downloads
 set "CSC_LINK="
 set "WIN_CSC_LINK="
+set "SKIP_NOTARIZATION=true"
+set "ELECTRON_BUILDER_ALLOW_UNRESOLVED_DEPENDENCIES=true"
+set "DISABLE_CODE_SIGNING=true"
+set "NO_CODE_SIGNING=true"
 
 echo Building Conductor Designer for production...
 echo Using local temp directory: %LOCAL_TEMP_DIR%

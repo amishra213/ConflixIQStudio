@@ -53,9 +53,17 @@ set "USERPROFILE=%LOCAL_TEMP_DIR%"
 set "ELECTRON_CACHE=%LOCAL_TEMP_DIR%\electron-cache"
 set "ELECTRON_BUILDER_CACHE=%LOCAL_TEMP_DIR%\electron-builder-cache"
 set "npm_config_cache=%LOCAL_TEMP_DIR%\npm-cache"
-REM Disable code signing to avoid symbolic link privilege errors
+set "APPDATA=%LOCAL_TEMP_DIR%\appdata"
+set "LOCALAPPDATA=%LOCAL_TEMP_DIR%\localappdata"
+REM Disable all code signing to avoid symbolic link privilege errors and winCodeSign downloads
 set "CSC_LINK="
 set "WIN_CSC_LINK="
+set "SKIP_NOTARIZATION=true"
+set "ELECTRON_BUILDER_ALLOW_UNRESOLVED_DEPENDENCIES=true"
+set "DISABLE_CODE_SIGNING=true"
+set "NO_CODE_SIGNING=true"
+REM Force disable code signing in electron-builder
+set "SKIP_CODESIGNTOOL=true"
 
 echo.
 echo Building Windows executable with Electron Builder...
@@ -70,10 +78,17 @@ if %errorlevel% equ 0 (
     echo Windows build completed successfully!
     echo ====================================
     echo.
+    echo Creating ZIP archive...
+    powershell -Command "Compress-Archive -Path 'dist\Conductor Designer-1.0.0-portable.exe' -DestinationPath 'dist\Conductor Designer-1.0.0.zip' -Force"
+    echo ZIP created successfully!
+    echo.
     echo Output directory: dist\
     echo.
     echo Artifacts:
     for /f %%f in ('dir /b dist\*.exe 2^>nul') do (
+        echo   - %%f
+    )
+    for /f %%f in ('dir /b dist\*.zip 2^>nul') do (
         echo   - %%f
     )
     echo.

@@ -47,6 +47,22 @@ jobs:
           npm_config_cache: ${{ runner.temp }}\conductor-build-temp\npm-cache
           CSC_LINK: ''
           WIN_CSC_LINK: ''
+          SKIP_NOTARIZATION: 'true'
+          ELECTRON_BUILDER_ALLOW_UNRESOLVED_DEPENDENCIES: 'true'
+          DISABLE_CODE_SIGNING: 'true'
+          NO_CODE_SIGNING: 'true'
+
+      - name: Create ZIP archive
+        shell: powershell
+        run: |
+          $exePath = "dist\Conductor Designer-1.0.0-portable.exe"
+          $zipPath = "dist\Conductor Designer-1.0.0.zip"
+          if (Test-Path $exePath) {
+            Compress-Archive -Path $exePath -DestinationPath $zipPath -Force
+            Write-Host "✓ ZIP archive created: $zipPath"
+          } else {
+            Write-Host "⚠ EXE not found: $exePath"
+          }
 
       - name: Upload Windows artifacts
         uses: actions/upload-artifact@v4
@@ -60,7 +76,9 @@ jobs:
         if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
         uses: softprops/action-gh-release@v1
         with:
-          files: dist/**/*.exe
+          files: |
+            dist/**/*.exe
+            dist/**/*.zip
           draft: true
           prerelease: false
           generate_release_notes: true

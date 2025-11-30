@@ -121,6 +121,10 @@ function getBuildEnvironment(localTempDir: string): NodeJS.ProcessEnv {
     npm_config_cache: path.join(localTempDir, 'npm-cache'),
     CSC_LINK: '',
     WIN_CSC_LINK: '',
+    SKIP_NOTARIZATION: 'true',
+    ELECTRON_BUILDER_ALLOW_UNRESOLVED_DEPENDENCIES: 'true',
+    DISABLE_CODE_SIGNING: 'true',
+    NO_CODE_SIGNING: 'true',
   };
 }
 
