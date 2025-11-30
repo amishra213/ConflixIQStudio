@@ -1,0 +1,538 @@
+import axios from 'axios';
+import GraphQLJSON from 'graphql-type-json';
+
+// Global configuration that can be updated at runtime
+let conductorConfig = {
+  serverUrl: process.env.VITE_CONDUCTOR_SERVER_URL || 'http://localhost:8080',
+  apiKey: process.env.VITE_CONDUCTOR_API_KEY || '',
+};
+
+// Function to create a new client with current config
+function createConductorClient() {
+  return axios.create({
+    baseURL: `${conductorConfig.serverUrl}/graphql`,
+    headers: {
+      'Content-Type': 'application/json',
+      ...(conductorConfig.apiKey && { 'X-API-Key': conductorConfig.apiKey }),
+    },
+    validateStatus: () => true, // Don't throw on any status code
+  });
+}
+
+// Function to update the global configuration
+function updateConductorConfig(serverUrl, apiKey) {
+  if (serverUrl) {
+    conductorConfig.serverUrl = serverUrl;
+  }
+  if (apiKey !== undefined) {
+    conductorConfig.apiKey = apiKey;
+  }
+  console.log(`Updated Conductor Config - URL: ${conductorConfig.serverUrl}, Has API Key: ${!!conductorConfig.apiKey}`);
+}
+
+// Helper function to extract error message from various response formats
+function extractErrorMessage(data) {
+  if (data?.message) return data.message;
+  if (Array.isArray(data?.errors)) return data.errors[0] || 'Unknown error';
+  if (data?.errors) return String(data.errors);
+  return null;
+}
+
+const resolvers = {
+  JSON: GraphQLJSON,
+  Query: {
+    async workflows(_, { limit, offset }) {
+      // Fetch from Conductor REST API instead of GraphQL (Conductor may not have GraphQL endpoint)
+      try {
+        const client = axios.create({
+          baseURL: conductorConfig.serverUrl,
+          headers: {
+            'Content-Type': 'application/json',
+            ...(conductorConfig.apiKey && { 'X-API-Key': conductorConfig.apiKey }),
+          },
+          validateStatus: () => true,
+        });
+
+        // Fetch all workflows from REST endpoint
+        const response = await client.get('/api/metadata/workflow');
+        
+        if (response.status >= 400) {
+          console.error('[Resolvers] Error fetching workflows from REST:', response.status, response.data);
+          return [];
+        }
+
+        let allWorkflows = Array.isArray(response.data) ? response.data : [];
+        
+        // Apply pagination if needed
+        if (offset !== undefined || limit !== undefined) {
+          const start = offset || 0;
+          const end = limit ? start + limit : undefined;
+          allWorkflows = allWorkflows.slice(start, end);
+        }
+
+        console.log(`[Resolvers] Fetched ${allWorkflows.length} workflows from Conductor REST API`);
+        return allWorkflows;
+      } catch (error) {
+        console.error('[Resolvers] Error in workflows resolver:', error.message);
+        return [];
+      }
+    },
+    async workflow(_, { name, version }) {
+      const client = createConductorClient();
+      const query = `
+        query GetWorkflowByName($name: String!, $version: Int) {
+          workflow(name: $name, version: $version) {
+            name
+            description
+            version
+            createTime
+            updateTime
+            createdBy
+            updatedBy
+            ownerEmail
+            ownerApp
+            timeoutSeconds
+            timeoutPolicy
+            tasks {
+              name
+              taskReferenceName
+              type
+              description
+              workflowTaskType
+              inputParameters
+              outputParameters
+              optional
+              asyncComplete
+              retryCount
+              startDelay
+              rateLimited
+              evaluatorType
+              expression
+              scriptExpression
+              decisionCases
+              defaultCase
+              forkTasks
+              joinOn
+              defaultExclusiveJoinTask
+              loopCondition
+              loopOver
+              dynamicForkTasksParam
+              dynamicForkTasksInputParamName
+              dynamicTaskNameParam
+              sink
+              subWorkflowParam
+            }
+            inputParameters
+            inputTemplate
+            outputParameters
+            effectiveDate
+            endDate
+            status
+            restartable
+            schemaVersion
+            accessPolicy
+            failureWorkflow
+            variables
+            workflowStatusListenerEnabled
+          }
+        }
+      `;
+      const response = await client.post('/', { query, variables: { name, version } });
+      
+      // Check if GraphQL returned errors OR null workflow data
+      const workflow = response.data?.data?.workflow;
+      if (response.data?.errors || !workflow) {
+        if (response.data?.errors) {
+          console.warn(`[Resolvers] GraphQL error fetching workflow: ${response.data.errors[0]?.message}`);
+        } else {
+          console.log(`[Resolvers] GraphQL returned null workflow for ${name} v${version}`);
+        }
+        console.log(`[Resolvers] Falling back to REST API for workflow ${name} v${version}`);
+        
+        // Fallback to REST API
+        try {
+          const axios = await import('axios').then(m => m.default);
+          const headers = {
+            'Content-Type': 'application/json',
+          };
+          
+          if (conductorConfig.apiKey) {
+            headers['X-Conductor-API-Key'] = conductorConfig.apiKey;
+          }
+          
+          let restUrl = `${conductorConfig.serverUrl}/api/metadata/workflow/${name}`;
+          if (version) {
+            restUrl += `?version=${version}`;
+          }
+          
+          const restResponse = await axios.get(restUrl, { headers });
+          console.log(`[Resolvers] Successfully fetched workflow via REST fallback: ${name} v${version}`);
+          return restResponse.data;
+        } catch (restError) {
+          console.error(`[Resolvers] REST fallback also failed: ${restError.message}`);
+          return null;
+        }
+      }
+      
+      return workflow;
+    },
+    async workflowExecutions(_, { workflowName, limit }) {
+      const client = createConductorClient();
+      const query = `
+        query GetWorkflowExecutions($workflowName: String!, $limit: Int) {
+          workflowExecutions(workflowName: $workflowName, limit: $limit) {
+            workflowId
+            workflowName
+            status
+            startTime
+            endTime
+            input
+            output
+            tasks {
+              taskId
+              taskType
+              status
+              startTime
+              endTime
+            }
+          }
+        }
+      `;
+      const response = await client.post('/', { query, variables: { workflowName, limit } });
+      return response.data?.data?.workflowExecutions || [];
+    },
+    async taskDefinitions() {
+      // Fetch task definitions from REST API: GET /api/metadata/taskdefs
+      try {
+        const client = axios.create({
+          baseURL: conductorConfig.serverUrl,
+          headers: {
+            'Content-Type': 'application/json',
+            ...(conductorConfig.apiKey && { 'X-API-Key': conductorConfig.apiKey }),
+          },
+          validateStatus: () => true,
+        });
+
+        const response = await client.get('/api/metadata/taskdefs');
+        
+        if (response.status >= 400) {
+          console.error('Failed to fetch task definitions:', response.status, response.data);
+          throw new Error(`Failed to fetch task definitions: ${response.statusText}`);
+        }
+
+        return Array.isArray(response.data) ? response.data : [];
+      } catch (error) {
+        console.error('Error fetching task definitions:', error);
+        throw error;
+      }
+    },
+    async searchWorkflows(_, { query, limit }) {
+      const client = createConductorClient();
+      const graphqlQuery = `
+        query SearchWorkflows($query: String!, $limit: Int) {
+          searchWorkflows(query: $query, limit: $limit) {
+            workflowId
+            workflowName
+            version
+            status
+            startTime
+            endTime
+          }
+        }
+      `;
+      const response = await client.post('/', { query: graphqlQuery, variables: { query, limit } });
+      return response.data?.data?.searchWorkflows || [];
+    },
+  },
+  Mutation: {
+    async createWorkflow(_, { workflow }) {
+      // Use REST POST endpoint for creating new workflows
+      // This maps to: POST /api/metadata/workflow
+      const client = axios.create({
+        baseURL: conductorConfig.serverUrl,
+        headers: {
+          'Content-Type': 'application/json',
+          ...(conductorConfig.apiKey && { 'X-API-Key': conductorConfig.apiKey }),
+        },
+        validateStatus: () => true, // Don't throw on any status code
+      });
+      
+      try {
+        // Normalize workflow to ensure all required fields are present
+        const normalizedWorkflow = {
+          name: workflow.name || 'Unnamed Workflow',
+          version: workflow.version ?? 1,
+          description: workflow.description || '',
+          ...workflow,
+          tasks: Array.isArray(workflow.tasks) ? workflow.tasks : [],
+          inputParameters: Array.isArray(workflow.inputParameters) ? workflow.inputParameters : [],
+          outputParameters: workflow.outputParameters || {},
+          inputTemplate: workflow.inputTemplate || {},
+          variables: workflow.variables || {},
+          accessPolicy: workflow.accessPolicy || {},
+          restartable: workflow.restartable ?? true,
+          workflowStatusListenerEnabled: workflow.workflowStatusListenerEnabled ?? false,
+          schemaVersion: workflow.schemaVersion || 2,
+          timeoutSeconds: workflow.timeoutSeconds || 3600,
+          timeoutPolicy: workflow.timeoutPolicy || 'TIME_OUT_WF',
+        };
+        
+        // Wrap in array as required by Conductor backend
+        const workflowArray = [normalizedWorkflow];
+        console.log('Creating new workflow in Conductor (POST) - Array wrapped:', JSON.stringify(workflowArray, null, 2));
+        const response = await client.post('/api/metadata/workflow', workflowArray);
+        
+        if (response.status >= 200 && response.status < 300) {
+          // Success - return name and version
+          console.log('Workflow created successfully:', response.data);
+          return {
+            name: normalizedWorkflow.name,
+            version: normalizedWorkflow.version || 1,
+          };
+        }
+        
+        // Error response - extract and log detailed error from Conductor
+        const errorData = response.data;
+        const errorMsg = extractErrorMessage(errorData) || `HTTP ${response.status}: ${response.statusText}`;
+        
+        console.error('[Resolvers] Conductor returned error creating workflow:', {
+          status: response.status,
+          statusText: response.statusText,
+          errorMessage: errorMsg,
+          fullResponse: errorData,
+          requestBody: workflowArray
+        });
+        
+        throw new Error(`Conductor Error: ${errorMsg}`);
+      } catch (error) {
+        console.error('[Resolvers] Error creating workflow:', error);
+        throw error;
+      }
+    },
+    async updateWorkflow(_, { workflow }) {
+      const client = createConductorClient();
+      const mutation = `
+        mutation UpdateWorkflow($workflow: WorkflowInput!) {
+          updateWorkflow(workflow: $workflow) {
+            name
+            version
+          }
+        }
+      `;
+      const response = await client.post('/', { query: mutation, variables: { workflow } });
+      return response.data?.data?.updateWorkflow || null;
+    },
+    async saveWorkflow(_, { workflow }) {
+      // Use REST PUT endpoint for workflow update
+      // The Conductor API expects workflows in an array format
+      // This maps to: PUT /api/metadata/workflow
+      const client = axios.create({
+        baseURL: conductorConfig.serverUrl,
+        headers: {
+          'Content-Type': 'application/json',
+          ...(conductorConfig.apiKey && { 'X-API-Key': conductorConfig.apiKey }),
+        },
+        validateStatus: () => true, // Don't throw on any status code
+      });
+      
+      try {
+        // Normalize workflow to ensure all required fields are present
+        const normalizedWorkflow = {
+          name: workflow.name || 'Unnamed Workflow',
+          version: workflow.version ?? 1,
+          description: workflow.description || '',
+          ...workflow,
+          tasks: Array.isArray(workflow.tasks) ? workflow.tasks : [],
+          inputParameters: Array.isArray(workflow.inputParameters) ? workflow.inputParameters : [],
+          outputParameters: workflow.outputParameters || {},
+          inputTemplate: workflow.inputTemplate || {},
+          variables: workflow.variables || {},
+          accessPolicy: workflow.accessPolicy || {},
+          restartable: workflow.restartable ?? true,
+          workflowStatusListenerEnabled: workflow.workflowStatusListenerEnabled ?? false,
+          schemaVersion: workflow.schemaVersion || 2,
+          timeoutSeconds: workflow.timeoutSeconds || 3600,
+          timeoutPolicy: workflow.timeoutPolicy || 'TIME_OUT_WF',
+        };
+        
+        // Wrap in array as required by Conductor backend
+        const workflowArray = [normalizedWorkflow];
+        console.log('Updating existing workflow in Conductor (PUT) - Array wrapped:', JSON.stringify(workflowArray, null, 2));
+        const response = await client.put('/api/metadata/workflow', workflowArray);
+        
+        if (response.status >= 200 && response.status < 300) {
+          // Success - return name and version
+          console.log('Workflow updated successfully:', response.data);
+          return {
+            name: normalizedWorkflow.name || 'unknown',
+            version: normalizedWorkflow.version || 1,
+          };
+        }
+        
+        // Error response - extract and log detailed error from Conductor
+        const errorData = response.data;
+        const errorMsg = extractErrorMessage(errorData) || `HTTP ${response.status}: ${response.statusText}`;
+        
+        console.error('[Resolvers] Conductor returned error updating workflow:', {
+          status: response.status,
+          statusText: response.statusText,
+          errorMessage: errorMsg,
+          fullResponse: errorData,
+          requestBody: workflowArray
+        });
+        
+        throw new Error(`Conductor Error: ${errorMsg}`);
+      } catch (error) {
+        console.error('[Resolvers] Error saving workflow:', error);
+        throw error;
+      }
+    },
+    async startWorkflow(_, { name, version, input }) {
+      const client = createConductorClient();
+      const mutation = `
+        mutation StartWorkflow($name: String!, $version: Int, $input: JSON) {
+          startWorkflow(name: $name, version: $version, input: $input) {
+            workflowId
+          }
+        }
+      `;
+      const response = await client.post('/', { query: mutation, variables: { name, version, input } });
+      return response.data?.data?.startWorkflow || null;
+    },
+    async terminateWorkflow(_, { workflowId, reason }) {
+      const client = createConductorClient();
+      const mutation = `
+        mutation TerminateWorkflow($workflowId: String!, $reason: String) {
+          terminateWorkflow(workflowId: $workflowId, reason: $reason) {
+            success
+          }
+        }
+      `;
+      const response = await client.post('/', { query: mutation, variables: { workflowId, reason } });
+      return response.data?.data?.terminateWorkflow || null;
+    },
+    async restartWorkflow(_, { workflowId }) {
+      const client = createConductorClient();
+      const mutation = `
+        mutation RestartWorkflow($workflowId: String!) {
+          restartWorkflow(workflowId: $workflowId) {
+            workflowId
+          }
+        }
+      `;
+      const response = await client.post('/', { query: mutation, variables: { workflowId } });
+      return response.data?.data?.restartWorkflow || null;
+    },
+    async pauseWorkflow(_, { workflowId }) {
+      const client = createConductorClient();
+      const mutation = `
+        mutation PauseWorkflow($workflowId: String!) {
+          pauseWorkflow(workflowId: $workflowId) {
+            success
+          }
+        }
+      `;
+      const response = await client.post('/', { query: mutation, variables: { workflowId } });
+      return response.data?.data?.pauseWorkflow || null;
+    },
+    async resumeWorkflow(_, { workflowId }) {
+      const client = createConductorClient();
+      const mutation = `
+        mutation ResumeWorkflow($workflowId: String!) {
+          resumeWorkflow(workflowId: $workflowId) {
+            success
+          }
+        }
+      `;
+      const response = await client.post('/', { query: mutation, variables: { workflowId } });
+      return response.data?.data?.resumeWorkflow || null;
+    },
+    async registerTask(_, { task }) {
+      // Use REST API endpoint for task registration
+      const client = axios.create({
+        baseURL: conductorConfig.serverUrl,
+        headers: {
+          'Content-Type': 'application/json',
+          ...(conductorConfig.apiKey && { 'X-API-Key': conductorConfig.apiKey }),
+        },
+        validateStatus: () => true,
+      });
+
+      const response = await client.post('/api/metadata/taskdefs', [task]);
+      
+      if (!response.ok && response.status >= 400) {
+        console.error('Failed to register task:', response.data);
+        throw new Error(response.data?.message || `Failed to register task: ${response.statusText}`);
+      }
+
+      // Return the registered task info
+      return {
+        name: task.name,
+        ...response.data,
+      };
+    },
+    async updateTask(_, { task }) {
+      // Use REST PUT endpoint: /api/metadata/taskdefs
+      const client = axios.create({
+        baseURL: conductorConfig.serverUrl,
+        headers: {
+          'Content-Type': 'application/json',
+          ...(conductorConfig.apiKey && { 'X-API-Key': conductorConfig.apiKey }),
+        },
+        validateStatus: () => true,
+      });
+
+      try {
+        console.log('Updating task definition (PUT):', JSON.stringify(task, null, 2));
+        const response = await client.put('/api/metadata/taskdefs', task);
+
+        if (response.status >= 200 && response.status < 300) {
+          return {
+            name: task.name,
+          };
+        } else {
+          console.error('Failed to update task:', response.status, response.data);
+          throw new Error(response.data?.message || `HTTP ${response.status}: ${response.statusText}`);
+        }
+      } catch (error) {
+        console.error('Error updating task:', error);
+        throw error;
+      }
+    },
+    async deleteTask(_, { taskName }) {
+      // Use REST DELETE endpoint: /api/metadata/taskdefs/{tasktype}
+      const client = axios.create({
+        baseURL: conductorConfig.serverUrl,
+        headers: {
+          'Content-Type': 'application/json',
+          ...(conductorConfig.apiKey && { 'X-API-Key': conductorConfig.apiKey }),
+        },
+        validateStatus: () => true,
+      });
+
+      try {
+        console.log('Deleting task definition (DELETE):', taskName);
+        const response = await client.delete(`/api/metadata/taskdefs/${encodeURIComponent(taskName)}`);
+
+        // Treat 404 as success - task doesn't exist
+        if (response.status === 404) {
+          console.log(`Task ${taskName} not found on server (already deleted)`);
+          return { success: true };
+        }
+
+        if (response.status >= 200 && response.status < 300) {
+          return { success: true };
+        } else {
+          console.error('Failed to delete task:', response.status, response.data);
+          throw new Error(response.data?.message || `HTTP ${response.status}: ${response.statusText}`);
+        }
+      } catch (error) {
+        console.error('Error deleting task:', error);
+        throw error;
+      }
+    },
+  },
+};
+
+export { resolvers, updateConductorConfig };
+

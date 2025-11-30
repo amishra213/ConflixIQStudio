@@ -38,6 +38,7 @@ COPY --from=builder /app/dist ./dist
 # Copy backend files
 COPY index.js ./
 COPY fileStoreServer.js ./
+COPY server-logger.js ./
 COPY resolvers.js ./
 COPY schema.js ./
 
