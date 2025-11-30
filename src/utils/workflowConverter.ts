@@ -430,5 +430,5 @@ export function localWorkflowToConductor(workflow: LocalWorkflow): WorkflowDefin
     result.variables = workflow.variables || settings.variables || {};
   }
 
-  return result as WorkflowDefinition;
+  return result as unknown as WorkflowDefinition;
 }

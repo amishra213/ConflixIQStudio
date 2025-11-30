@@ -74,7 +74,7 @@ export class APILogger {
       url: url || '/api/graphql',
       status,
       duration,
-      responseBody: responseData,
+      responseBody: (typeof responseData === 'object' && responseData !== null ? responseData as Record<string, unknown> : undefined),
       responseHeaders: {
         'Content-Type': 'application/json',
       },
@@ -132,7 +132,7 @@ export class APILogger {
       operation: operationName,
       method,
       url,
-      requestBody: body,
+      requestBody: (typeof body === 'object' && body !== null ? body as Record<string, unknown> : undefined),
       requestHeaders: headers,
     });
   }
@@ -159,7 +159,7 @@ export class APILogger {
       url,
       status,
       duration,
-      responseBody: responseData,
+      responseBody: (typeof responseData === 'object' && responseData !== null ? responseData as Record<string, unknown> : undefined),
       responseHeaders: headers,
     });
   }
@@ -190,7 +190,7 @@ export class APILogger {
       status,
       duration,
       error: `[${errorCode}] ${errorMessage}`,
-      responseBody: responseData || { error: errorMessage },
+      responseBody: (typeof responseData === 'object' && responseData !== null ? responseData as Record<string, unknown> : { error: errorMessage }),
     });
   }
 
