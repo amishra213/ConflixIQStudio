@@ -24,12 +24,19 @@ export function useConductorApi(options: UseConductorApiOptions = {}) {
 
   // Helper function to make GraphQL requests
   const graphqlRequest = useCallback(async (query: string, variables?: unknown): Promise<unknown> => {
+    const { APILogger } = await import('@/utils/apiLogger');
+    
     const headers: HeadersInit = {
       'Content-Type': 'application/json',
     };
     if (apiKey) {
       headers['X-Conductor-API-Key'] = apiKey;
     }
+
+    // Log the GraphQL request manually since we're using direct fetch
+    APILogger.logGraphQLRequest(query, variables as Record<string, unknown> || {}, baseUrl);
+
+    const startTime = performance.now();
 
     const response = await fetch(baseUrl, {
       method: 'POST',
@@ -41,10 +48,35 @@ export function useConductorApi(options: UseConductorApiOptions = {}) {
     });
 
     const data = await response.json();
-    if (data.errors) {
-      const errorMessage = data.errors[0]?.message || 'GraphQL error';
+    const duration = Math.round(performance.now() - startTime);
+    
+    // Handle HTTP-level errors
+    if (!response.ok) {
+      let errorMessage = `GraphQL request failed (${response.status}): ${response.statusText}`;
+      if (data?.message) {
+        errorMessage = data.message;
+      } else if (data?.errors && Array.isArray(data.errors)) {
+        errorMessage = data.errors[0]?.message || errorMessage;
+      }
+      
+      // Log the error response
+      APILogger.logGraphQLError(query, { message: errorMessage, errors: data?.errors }, duration, response.status, baseUrl);
+      
       throw new Error(errorMessage);
     }
+    
+    // Handle GraphQL errors
+    if (data.errors) {
+      const errorMessage = data.errors[0]?.message || 'GraphQL error';
+      
+      // Log the GraphQL error response
+      APILogger.logGraphQLError(query, { message: errorMessage, errors: data.errors }, duration, 200, baseUrl);
+      
+      throw new Error(errorMessage);
+    }
+
+    // Log successful response
+    APILogger.logGraphQLResponse(query, data, duration, response.status, baseUrl);
 
     return data.data;
   }, [baseUrl, apiKey]);
@@ -601,6 +633,8 @@ export function useConductorApi(options: UseConductorApiOptions = {}) {
   }, []);
 
   const createTaskDefinitionViaGraphQL = useCallback(async (taskDef: unknown): Promise<boolean> => {
+    const { APILogger } = await import('@/utils/apiLogger');
+    
     const mutation = `
       mutation RegisterTask($task: TaskDefinitionInput!) {
         registerTask(task: $task) {
@@ -616,7 +650,11 @@ export function useConductorApi(options: UseConductorApiOptions = {}) {
       headers['X-Conductor-API-Key'] = apiKey;
     }
 
-    // Fetch interceptor will handle logging automatically
+    // Log the GraphQL request manually since we're using direct fetch
+    APILogger.logGraphQLRequest(mutation, { task: taskDef as Record<string, unknown> }, proxyServer.proxyEndpoint);
+
+    const startTime = performance.now();
+    
     const response = await fetch(`${proxyServer.proxyEndpoint}`, {
       method: 'POST',
       headers,
@@ -627,11 +665,17 @@ export function useConductorApi(options: UseConductorApiOptions = {}) {
     });
 
     const responseData = await response.json();
+    const duration = Math.round(performance.now() - startTime);
     
     if (responseData.errors) {
       const errorMessage = responseData.errors[0]?.message || 'GraphQL error';
+      // Log the GraphQL error response
+      APILogger.logGraphQLError(mutation, { message: errorMessage, errors: responseData.errors }, duration, 200, proxyServer.proxyEndpoint);
       throw new Error(errorMessage);
     }
+
+    // Log successful response
+    APILogger.logGraphQLResponse(mutation, responseData, duration, response.status, proxyServer.proxyEndpoint);
 
     // Check for successful response - resolver returns task object with name
     if (!responseData.data?.registerTask?.name) {
@@ -697,6 +741,7 @@ export function useConductorApi(options: UseConductorApiOptions = {}) {
     setLoading(true);
     setError(null);
     try {
+      const { APILogger } = await import('@/utils/apiLogger');
       const formattedTaskDef = convertToTaskDef(taskDef);
       
       if (proxyServer.enabled && proxyServer.proxyEndpoint) {
@@ -716,7 +761,11 @@ export function useConductorApi(options: UseConductorApiOptions = {}) {
           }
         `;
 
-        // Fetch interceptor will handle logging automatically
+        // Log the GraphQL request manually since we're using direct fetch
+        APILogger.logGraphQLRequest(mutation, { task: formattedTaskDef as Record<string, unknown> }, proxyServer.proxyEndpoint);
+
+        const startTime = performance.now();
+        
         const response = await fetch(proxyServer.proxyEndpoint, {
           method: 'POST',
           headers,
@@ -727,6 +776,7 @@ export function useConductorApi(options: UseConductorApiOptions = {}) {
         });
 
         const responseData = await response.json();
+        const duration = Math.round(performance.now() - startTime);
         
         // Handle HTTP-level errors
         if (!response.ok) {
@@ -736,6 +786,10 @@ export function useConductorApi(options: UseConductorApiOptions = {}) {
           } else if (responseData?.errors && Array.isArray(responseData.errors)) {
             errorMessage = responseData.errors[0]?.message || errorMessage;
           }
+          
+          // Log the error response
+          APILogger.logGraphQLError(mutation, { message: errorMessage, errors: responseData?.errors }, duration, response.status, proxyServer.proxyEndpoint);
+          
           const error = new Error(errorMessage);
           console.error('Failed to update task - Full error:', responseData);
           throw error;
@@ -744,10 +798,17 @@ export function useConductorApi(options: UseConductorApiOptions = {}) {
         // Handle GraphQL errors
         if (responseData.errors) {
           const errorMessage = responseData.errors[0]?.message || 'Failed to update task';
+          
+          // Log the GraphQL error response
+          APILogger.logGraphQLError(mutation, { message: errorMessage, errors: responseData.errors }, duration, 200, proxyServer.proxyEndpoint);
+          
           const error = new Error(errorMessage);
           console.error('Failed to update task - GraphQL errors:', responseData.errors);
           throw error;
         }
+
+        // Log successful response
+        APILogger.logGraphQLResponse(mutation, responseData, duration, response.status, proxyServer.proxyEndpoint);
 
         if (!responseData.data?.updateTask?.name) {
           const error = new Error('Failed to update task definition - No data returned');
@@ -822,6 +883,8 @@ export function useConductorApi(options: UseConductorApiOptions = {}) {
     try {
       if (proxyServer.enabled && proxyServer.proxyEndpoint) {
         // Use GraphQL proxy with deleteTask mutation
+        const { APILogger } = await import('@/utils/apiLogger');
+        
         const headers: HeadersInit = {
           'Content-Type': 'application/json',
         };
@@ -837,6 +900,11 @@ export function useConductorApi(options: UseConductorApiOptions = {}) {
           }
         `;
 
+        // Log the GraphQL request manually since we're using direct fetch
+        APILogger.logGraphQLRequest(mutation, { taskName }, proxyServer.proxyEndpoint);
+
+        const startTime = performance.now();
+
         const response = await fetch(proxyServer.proxyEndpoint, {
           method: 'POST',
           headers,
@@ -847,10 +915,35 @@ export function useConductorApi(options: UseConductorApiOptions = {}) {
         });
 
         const data = await response.json();
-        if (data.errors) {
-          const errorMessage = data.errors[0]?.message || 'Failed to delete task';
+        const duration = Math.round(performance.now() - startTime);
+        
+        // Handle HTTP-level errors
+        if (!response.ok) {
+          let errorMessage = `Failed to delete task (${response.status}): ${response.statusText}`;
+          if (data?.message) {
+            errorMessage = data.message;
+          } else if (data?.errors && Array.isArray(data.errors)) {
+            errorMessage = data.errors[0]?.message || errorMessage;
+          }
+          
+          // Log the error response
+          APILogger.logGraphQLError(mutation, { message: errorMessage, errors: data?.errors }, duration, response.status, proxyServer.proxyEndpoint);
+          
           throw new Error(errorMessage);
         }
+        
+        // Handle GraphQL errors
+        if (data.errors) {
+          const errorMessage = data.errors[0]?.message || 'Failed to delete task';
+          
+          // Log the GraphQL error response
+          APILogger.logGraphQLError(mutation, { message: errorMessage, errors: data.errors }, duration, 200, proxyServer.proxyEndpoint);
+          
+          throw new Error(errorMessage);
+        }
+
+        // Log successful response
+        APILogger.logGraphQLResponse(mutation, data, duration, response.status, proxyServer.proxyEndpoint);
 
         if (!data.data?.deleteTask?.success) {
           throw new Error('Failed to delete task definition');
@@ -915,6 +1008,9 @@ export function useConductorApi(options: UseConductorApiOptions = {}) {
     setError(null);
 
     try {
+      // Dynamically import APILogger for logging
+      const { APILogger } = await import('@/utils/apiLogger');
+      
       // Use createWorkflow mutation for new workflows, saveWorkflow for updates
       const mutationType = isNew ? 'createWorkflow' : 'saveWorkflow';
       const mutation = `
@@ -933,17 +1029,24 @@ export function useConductorApi(options: UseConductorApiOptions = {}) {
         headers['X-Conductor-API-Key'] = apiKey;
       }
 
+      // Log the GraphQL request manually since we're using direct fetch
+      const requestBody = {
+        query: mutation,
+        variables: { workflow: workflowDef },
+      };
+      APILogger.logGraphQLRequest(mutation, { workflow: workflowDef as Record<string, unknown> }, proxyServer.proxyEndpoint);
+
+      const startTime = performance.now();
+      
       // Fetch interceptor will handle logging automatically
       const response = await fetch(`${proxyServer.proxyEndpoint}`, {
         method: 'POST',
         headers,
-        body: JSON.stringify({
-          query: mutation,
-          variables: { workflow: workflowDef },
-        }),
+        body: JSON.stringify(requestBody),
       });
 
       const responseData = await response.json();
+      const duration = Math.round(performance.now() - startTime);
       
       // Handle HTTP-level errors (non-200 status codes)
       if (!response.ok) {
@@ -953,20 +1056,36 @@ export function useConductorApi(options: UseConductorApiOptions = {}) {
         } else if (responseData?.errors && Array.isArray(responseData.errors)) {
           errorMessage = responseData.errors[0]?.message || errorMessage;
         }
+        
+        // Log the error response
+        const errorDetails = {
+          message: errorMessage,
+          code: response.status,
+          errors: responseData?.errors || [responseData]
+        };
+        APILogger.logGraphQLError(mutation, errorDetails, duration, response.status, proxyServer.proxyEndpoint);
+        
         const error = new Error(errorMessage);
         setError(error);
         console.error('Failed to save workflow - Full error:', responseData);
         throw error;
       }
       
-      // Handle GraphQL errors
+      // Handle GraphQL errors (200 response but with GraphQL errors)
       if (responseData.errors) {
         const errorMessage = responseData.errors[0]?.message || 'GraphQL error';
+        
+        // Log the GraphQL error response
+        APILogger.logGraphQLError(mutation, { message: errorMessage, errors: responseData.errors }, duration, 200, proxyServer.proxyEndpoint);
+        
         const error = new Error(errorMessage);
         setError(error);
         console.error('Failed to save workflow - GraphQL errors:', responseData.errors);
         throw error;
       }
+
+      // Log successful response
+      APILogger.logGraphQLResponse(mutation, responseData, duration, response.status, proxyServer.proxyEndpoint);
 
       // Check for successful response based on mutation type
       const workflowData = isNew ? responseData.data?.createWorkflow : responseData.data?.saveWorkflow;

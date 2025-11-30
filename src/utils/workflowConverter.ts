@@ -13,6 +13,14 @@ interface LocalWorkflow {
   description?: string;
   version?: number;
   nodes?: WorkflowNode[];
+  createdBy?: string;
+  updatedBy?: string;
+  ownerEmail?: string;
+  ownerApp?: string;
+  inputTemplate?: Record<string, unknown>;
+  accessPolicy?: Record<string, unknown>;
+  failureWorkflow?: string;
+  variables?: Record<string, unknown>;
   settings?: {
     description?: string;
     version?: number;
@@ -23,6 +31,14 @@ interface LocalWorkflow {
     workflowStatusListenerEnabled?: boolean;
     inputParameters?: string[];
     outputParameters?: Record<string, unknown>;
+    createdBy?: string;
+    updatedBy?: string;
+    ownerEmail?: string;
+    ownerApp?: string;
+    inputTemplate?: Record<string, unknown>;
+    accessPolicy?: Record<string, unknown>;
+    failureWorkflow?: string;
+    variables?: Record<string, unknown>;
   };
   timeoutSeconds?: number;
   restartable?: boolean;
@@ -60,8 +76,15 @@ export interface WorkflowDefinition {
   restartable?: boolean;
   workflowStatusListenerEnabled?: boolean;
   ownerEmail?: string;
+  ownerApp?: string;
   timeoutPolicy?: string;
   timeoutSeconds?: number;
+  createdBy?: string;
+  updatedBy?: string;
+  inputTemplate?: Record<string, unknown>;
+  accessPolicy?: Record<string, unknown>;
+  failureWorkflow?: string;
+  variables?: Record<string, unknown>;
 }
 
 /**
@@ -98,6 +121,14 @@ function cleanTaskObject(obj: unknown, excludedFields: Set<string>): unknown {
  */
 function ensureRequiredOperatorFields(task: Record<string, unknown>): Record<string, unknown> {
   const result = { ...task };
+  
+  // CRITICAL: Ensure 'type' field is always set and valid - Conductor will fail to deserialize if type is null
+  if (!result.type || result.type === '') {
+    throw new Error(`Task "${String(task.name || 'unknown')}" is missing a required 'type' field. All tasks must have a valid Conductor task type.`);
+  }
+  
+  // Remove workflowTaskType field - Conductor backend only uses 'type', not 'workflowTaskType'
+  delete result.workflowTaskType;
   
   // Ensure ALL tasks have these base required fields with proper defaults
   if (result.optional === undefined || result.optional === null) {
@@ -157,9 +188,6 @@ function ensureRequiredOperatorFields(task: Record<string, unknown>): Record<str
   }
   if (result.subWorkflowParam === undefined) {
     result.subWorkflowParam = null;
-  }
-  if (result.workflowTaskType === undefined) {
-    result.workflowTaskType = null;
   }
   if (result.outputParameters === undefined) {
     result.outputParameters = null;
@@ -332,13 +360,26 @@ function createTaskObject(
   node: WorkflowNode,
   finalCleanConfig: Record<string, unknown>
 ): Record<string, unknown> {
+  // Extract the task type from either taskType or type field
+  let taskType = (node.data?.taskType || node.data?.type || finalCleanConfig.type) as string;
+  
+  // Ensure we have a valid type - Conductor requires this field
+  if (!taskType) {
+    const taskLabel = typeof node.data?.label === 'string' ? node.data.label : (typeof node.id === 'string' ? node.id : 'unknown');
+    throw new Error(`Task "${taskLabel}" is missing a required 'type' field. All tasks must have a valid type (e.g., HTTP, SIMPLE, EVENT, WAIT, etc.)`);
+  }
+  
+  // Remove workflowTaskType from the final config since Conductor expects only 'type'
+  const configWithoutWorkflowTaskType = { ...finalCleanConfig };
+  delete configWithoutWorkflowTaskType.workflowTaskType;
+  
   return {
     name: node.data?.taskName || node.data?.label || 'Unnamed Task',
     taskReferenceName: node.id,
-    type: node.data?.taskType || 'GENERIC',
+    type: taskType,
     description: node.data?.description,
-    inputParameters: finalCleanConfig.inputParameters || node.data?.inputParameters || {},
-    ...finalCleanConfig,
+    inputParameters: configWithoutWorkflowTaskType.inputParameters || node.data?.inputParameters || {},
+    ...configWithoutWorkflowTaskType,
   };
 }
 
@@ -394,7 +435,8 @@ export function localWorkflowToConductor(workflow: LocalWorkflow): WorkflowDefin
   const settings = workflow.settings || {};
   const tasks = processWorkflowNodes(workflow.nodes, validTaskFields, excludedFields);
 
-  return {
+  // Build the complete workflow definition with all supported fields
+  const result: Record<string, unknown> = {
     name: workflow.name || 'Unnamed Workflow',
     description: workflow.description || settings.description || '',
     version: settings.version || workflow.version || 1,
@@ -407,4 +449,40 @@ export function localWorkflowToConductor(workflow: LocalWorkflow): WorkflowDefin
     timeoutPolicy: settings.timeoutPolicy || workflow.timeoutPolicy || 'TIME_OUT_WF',
     workflowStatusListenerEnabled: settings.workflowStatusListenerEnabled || workflow.workflowStatusListenerEnabled || false,
   };
+
+  // Add optional fields if they exist in the workflow or settings
+  // These fields are supported by the Conductor API
+  if (workflow.createdBy || settings.createdBy) {
+    result.createdBy = workflow.createdBy || settings.createdBy || 'ConductorDesigner';
+  }
+  
+  if (workflow.updatedBy || settings.updatedBy) {
+    result.updatedBy = workflow.updatedBy || settings.updatedBy || 'ConductorDesigner';
+  }
+  
+  if (workflow.ownerEmail || settings.ownerEmail) {
+    result.ownerEmail = workflow.ownerEmail || settings.ownerEmail || '';
+  }
+  
+  if (workflow.ownerApp || settings.ownerApp) {
+    result.ownerApp = workflow.ownerApp || settings.ownerApp || '';
+  }
+  
+  if (workflow.inputTemplate || settings.inputTemplate) {
+    result.inputTemplate = workflow.inputTemplate || settings.inputTemplate || {};
+  }
+  
+  if (workflow.accessPolicy || settings.accessPolicy) {
+    result.accessPolicy = workflow.accessPolicy || settings.accessPolicy || {};
+  }
+  
+  if (workflow.failureWorkflow || settings.failureWorkflow) {
+    result.failureWorkflow = workflow.failureWorkflow || settings.failureWorkflow || '';
+  }
+  
+  if (workflow.variables || settings.variables) {
+    result.variables = workflow.variables || settings.variables || {};
+  }
+
+  return result as WorkflowDefinition;
 }

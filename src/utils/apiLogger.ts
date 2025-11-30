@@ -293,6 +293,51 @@ export class APILogger {
   }
 
   /**
+   * Parse response body safely, handling JSON and text content
+   */
+  private static async parseResponseBody(response: Response): Promise<{ data: unknown; contentType: string }> {
+    const contentType = response.headers.get('content-type') || '';
+    
+    try {
+      if (contentType.includes('application/json')) {
+        const data = await response.json();
+        return { data, contentType };
+      } else {
+        const text = await response.text();
+        return { data: { text, contentType }, contentType };
+      }
+    } catch (parseError) {
+      console.error('[APILogger] Failed to parse response body:', parseError);
+      const text = await response.clone().text().catch(() => '');
+      return { data: { parseError: String(parseError), text }, contentType };
+    }
+  }
+
+  /**
+   * Extract error message from various response formats
+   */
+  private static extractErrorMessage(responseData: unknown): string {
+    if (!responseData || typeof responseData !== 'object') {
+      return 'Unknown error';
+    }
+
+    // Try direct message property
+    if ('message' in responseData) {
+      return String((responseData as { message: unknown }).message);
+    }
+
+    // Try GraphQL errors array
+    if ('errors' in responseData && Array.isArray((responseData as { errors?: unknown[] }).errors)) {
+      const errors = (responseData as { errors: unknown[] }).errors;
+      if (errors.length > 0 && typeof errors[0] === 'object' && errors[0] !== null && 'message' in errors[0]) {
+        return String(((errors[0] as { message: unknown }).message));
+      }
+    }
+
+    return 'Unknown error';
+  }
+
+  /**
    * Handle successful HTTP response
    */
   private static async handleSuccessResponse(
@@ -303,23 +348,23 @@ export class APILogger {
     _headers: Record<string, string>
   ): Promise<void> {
     const clonedResponse = response.clone();
-    const responseData = await clonedResponse.json().catch(() => ({}));
-    const responseHeaders: Record<string, string> = {};
+    const { data: responseData } = await APILogger.parseResponseBody(clonedResponse);
 
+    const responseHeaders: Record<string, string> = {};
     for (const [key, value] of response.headers.entries()) {
       responseHeaders[key] = value;
     }
 
     if (response.ok) {
       // Check if it's a successful GraphQL response but with errors in the data
-      if (responseData?.errors && Array.isArray(responseData.errors) && responseData.errors.length > 0) {
+      if (responseData && typeof responseData === 'object' && 'errors' in responseData && Array.isArray((responseData as { errors?: unknown[] }).errors) && (responseData as { errors?: unknown[] }).errors!.length > 0) {
         // GraphQL errors in a 200 response
-        const firstError = responseData.errors[0];
-        const errorMessage = firstError?.message || 'GraphQL error';
+        const errors = (responseData as { errors: unknown[] }).errors;
+        const errorMessage = APILogger.extractErrorMessage(responseData);
         const errorDetails: ErrorDetails = { 
           message: errorMessage,
           code: response.status,
-          errors: responseData.errors
+          errors: errors
         };
         APILogger.logRestError(method, url, errorDetails, response.status, duration, responseData);
       } else {
@@ -328,25 +373,22 @@ export class APILogger {
       }
     } else {
       // HTTP error response (4xx, 5xx)
-      // Check if it's a GraphQL error wrapped in HTTP error
-      let errorMessage = responseData?.message || response.statusText || 'Unknown error';
-      
-      // For GraphQL errors, extract the actual error message
-      if (responseData?.errors && Array.isArray(responseData.errors) && responseData.errors.length > 0) {
-        const graphqlError = responseData.errors[0];
-        errorMessage = graphqlError?.message || errorMessage;
-        
-        // Try to extract nested Conductor error if present
-        if (errorMessage.includes('JSON parse error:') || errorMessage.includes('Cannot deserialize')) {
-          // The full error message is already in the GraphQL error message
-          // Keep it as is for detailed logging
-        }
-      }
-      
+      const errorMessage = APILogger.extractErrorMessage(responseData) || response.statusText || `HTTP ${response.status}`;
+
+      console.error(`[APILogger] HTTP Error (${response.status}) from ${method} ${url}:`, {
+        statusCode: response.status,
+        statusText: response.statusText,
+        errorMessage,
+        responseData,
+        headers: responseHeaders
+      });
+
       const errorDetails: ErrorDetails = { 
         message: errorMessage,
-        code: responseData?.status || response.status,
-        errors: responseData?.errors || [responseData]
+        code: response.status,
+        errors: (responseData && typeof responseData === 'object' && 'errors' in responseData) 
+          ? (responseData as { errors: unknown[] }).errors
+          : [responseData]
       };
       APILogger.logRestError(method, url, errorDetails, response.status, duration, responseData);
     }

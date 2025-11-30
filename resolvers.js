@@ -30,6 +30,14 @@ function updateConductorConfig(serverUrl, apiKey) {
   console.log(`Updated Conductor Config - URL: ${conductorConfig.serverUrl}, Has API Key: ${!!conductorConfig.apiKey}`);
 }
 
+// Helper function to extract error message from various response formats
+function extractErrorMessage(data) {
+  if (data?.message) return data.message;
+  if (Array.isArray(data?.errors)) return data.errors[0] || 'Unknown error';
+  if (data?.errors) return String(data.errors);
+  return null;
+}
+
 const resolvers = {
   JSON: GraphQLJSON,
   Query: {
@@ -250,24 +258,54 @@ const resolvers = {
       });
       
       try {
-        // Wrap workflow in array as expected by Conductor backend
-        const workflowArray = Array.isArray(workflow) ? workflow : [workflow];
-        console.log('Creating new workflow in Conductor (POST):', JSON.stringify(workflowArray, null, 2));
+        // Normalize workflow to ensure all required fields are present
+        const normalizedWorkflow = {
+          name: workflow.name || 'Unnamed Workflow',
+          version: workflow.version ?? 1,
+          description: workflow.description || '',
+          ...workflow,
+          tasks: Array.isArray(workflow.tasks) ? workflow.tasks : [],
+          inputParameters: Array.isArray(workflow.inputParameters) ? workflow.inputParameters : [],
+          outputParameters: workflow.outputParameters || {},
+          inputTemplate: workflow.inputTemplate || {},
+          variables: workflow.variables || {},
+          accessPolicy: workflow.accessPolicy || {},
+          restartable: workflow.restartable ?? true,
+          workflowStatusListenerEnabled: workflow.workflowStatusListenerEnabled ?? false,
+          schemaVersion: workflow.schemaVersion || 2,
+          timeoutSeconds: workflow.timeoutSeconds || 3600,
+          timeoutPolicy: workflow.timeoutPolicy || 'TIME_OUT_WF',
+        };
+        
+        // Wrap in array as required by Conductor backend
+        const workflowArray = [normalizedWorkflow];
+        console.log('Creating new workflow in Conductor (POST) - Array wrapped:', JSON.stringify(workflowArray, null, 2));
         const response = await client.post('/api/metadata/workflow', workflowArray);
         
         if (response.status >= 200 && response.status < 300) {
           // Success - return name and version
+          console.log('Workflow created successfully:', response.data);
           return {
-            name: workflow.name,
-            version: workflow.version || 1,
+            name: normalizedWorkflow.name,
+            version: normalizedWorkflow.version || 1,
           };
-        } else {
-          // Error response
-          console.error('Failed to create workflow:', response.status, response.data);
-          throw new Error(response.data?.message || `HTTP ${response.status}: ${response.statusText}`);
         }
+        
+        // Error response - extract and log detailed error from Conductor
+        const errorData = response.data;
+        const errorMsg = extractErrorMessage(errorData) || `HTTP ${response.status}: ${response.statusText}`;
+        
+        console.error('[Resolvers] Conductor returned error creating workflow:', {
+          status: response.status,
+          statusText: response.statusText,
+          errorMessage: errorMsg,
+          fullResponse: errorData,
+          requestBody: workflowArray
+        });
+        
+        throw new Error(`Conductor Error: ${errorMsg}`);
       } catch (error) {
-        console.error('Error creating workflow:', error);
+        console.error('[Resolvers] Error creating workflow:', error);
         throw error;
       }
     },
@@ -298,24 +336,54 @@ const resolvers = {
       });
       
       try {
-        // Wrap workflow in array as expected by Conductor backend
-        const workflowArray = Array.isArray(workflow) ? workflow : [workflow];
-        console.log('Updating existing workflow in Conductor (PUT):', JSON.stringify(workflowArray, null, 2));
+        // Normalize workflow to ensure all required fields are present
+        const normalizedWorkflow = {
+          name: workflow.name || 'Unnamed Workflow',
+          version: workflow.version ?? 1,
+          description: workflow.description || '',
+          ...workflow,
+          tasks: Array.isArray(workflow.tasks) ? workflow.tasks : [],
+          inputParameters: Array.isArray(workflow.inputParameters) ? workflow.inputParameters : [],
+          outputParameters: workflow.outputParameters || {},
+          inputTemplate: workflow.inputTemplate || {},
+          variables: workflow.variables || {},
+          accessPolicy: workflow.accessPolicy || {},
+          restartable: workflow.restartable ?? true,
+          workflowStatusListenerEnabled: workflow.workflowStatusListenerEnabled ?? false,
+          schemaVersion: workflow.schemaVersion || 2,
+          timeoutSeconds: workflow.timeoutSeconds || 3600,
+          timeoutPolicy: workflow.timeoutPolicy || 'TIME_OUT_WF',
+        };
+        
+        // Wrap in array as required by Conductor backend
+        const workflowArray = [normalizedWorkflow];
+        console.log('Updating existing workflow in Conductor (PUT) - Array wrapped:', JSON.stringify(workflowArray, null, 2));
         const response = await client.put('/api/metadata/workflow', workflowArray);
         
         if (response.status >= 200 && response.status < 300) {
-          // Success - return name and version (or try to extract from response)
+          // Success - return name and version
+          console.log('Workflow updated successfully:', response.data);
           return {
-            name: workflow.name || (Array.isArray(workflow) ? workflow[0]?.name : 'unknown'),
-            version: workflow.version || (Array.isArray(workflow) ? workflow[0]?.version : 1) || 1,
+            name: normalizedWorkflow.name || 'unknown',
+            version: normalizedWorkflow.version || 1,
           };
-        } else {
-          // Error response - log the actual error from Conductor
-          console.error('Conductor returned error:', response.status, response.statusText, response.data);
-          throw new Error(`Failed to save workflow: ${response.status} ${response.statusText}. Details: ${JSON.stringify(response.data)}`);
         }
+        
+        // Error response - extract and log detailed error from Conductor
+        const errorData = response.data;
+        const errorMsg = extractErrorMessage(errorData) || `HTTP ${response.status}: ${response.statusText}`;
+        
+        console.error('[Resolvers] Conductor returned error updating workflow:', {
+          status: response.status,
+          statusText: response.statusText,
+          errorMessage: errorMsg,
+          fullResponse: errorData,
+          requestBody: workflowArray
+        });
+        
+        throw new Error(`Conductor Error: ${errorMsg}`);
       } catch (error) {
-        console.error('Error saving workflow:', error);
+        console.error('[Resolvers] Error saving workflow:', error);
         throw error;
       }
     },
