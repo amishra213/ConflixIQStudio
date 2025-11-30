@@ -9,7 +9,7 @@ lerna-debug.log*
 node_modules
 # cache files
 .filestore/*
-.filestore
+/.filestore
 # Build temp directory (local electron-builder cache)
 .build-temp
 .build-temp/*
@@ -34,5 +34,4 @@ dist-ssr
 *.sw?
 *.ps1
 QUICK-START.ps1
-.build-metadata.json
 .build-metadata.json

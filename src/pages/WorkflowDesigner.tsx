@@ -976,7 +976,8 @@ export function WorkflowDesigner() {
           };
         });
 
-        setNodes(newNodes);
+        // Auto-arrange nodes immediately after creating them from JSON
+        const arrangedNodes = performAutoArrange(newNodes);
         
         // Update workflow with tasks if we have an active workflow
         if (workflow) {
@@ -987,9 +988,14 @@ export function WorkflowDesigner() {
           });
         }
 
+        // Trigger auto-fit after a short delay to allow DOM to update
+        setTimeout(() => {
+          globalThis.dispatchEvent(new CustomEvent('fitView'));
+        }, 100);
+
         toast({
           title: 'JSON Saved & Imported',
-          description: `Workflow updated with ${newNodes.length} tasks. Click "Auto Arrange" to organize them on the canvas.`,
+          description: `Workflow updated with ${arrangedNodes.length} tasks and auto-arranged on canvas.`,
         });
         setJsonError('');
         setActiveTab('design');
