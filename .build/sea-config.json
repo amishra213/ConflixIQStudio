@@ -1,6 +1,0 @@
-{
-  "main": "sea-entry.js",
-  "output": "D:\\Projects\\ConductorDesigner\\.build\\sea-bundle.blob",
-  "disableExperimentalSEAWarning": true,
-  "useSnapshot": false
-}

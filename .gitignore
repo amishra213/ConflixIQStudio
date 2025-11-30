@@ -13,6 +13,10 @@ node_modules
 # Build temp directory (local electron-builder cache)
 .build-temp
 .build-temp/*
+# Node.js SEA build directory
+.build
+.build/*
+.build-metadata.json
 # Distribution files
 distribution
 distribution/*
@@ -34,6 +38,3 @@ dist-ssr
 *.sw?
 *.ps1
 QUICK-START.ps1
-.build-metadata.json
-
-

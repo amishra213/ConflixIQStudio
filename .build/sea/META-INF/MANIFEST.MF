@@ -1,5 +1,0 @@
-Manifest-Version: 1.0
-Created-By: Conductor Designer SEA Builder
-Main-Class: conductor.App
-Bundle-Version: 1.0.0
-Bundle-Name: Conductor Designer Portable
