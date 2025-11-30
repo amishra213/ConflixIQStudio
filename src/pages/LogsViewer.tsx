@@ -27,8 +27,7 @@ import { format } from 'date-fns';
 export default function LogsViewer() {
   const { toast } = useToast();
   const navigate = useNavigate();
-  
-  // Subscribe to the store
+  // Subscribe to the store with proper selectors
   const logs = useLoggingStore((state) => state.logs);
   const clearLogs = useLoggingStore((state) => state.clearLogs);
   const exportLogs = useLoggingStore((state) => state.exportLogs);
@@ -91,26 +90,15 @@ export default function LogsViewer() {
     });
   };
 
-  const handleClear = async () => {
-    try {
-      await clearLogs();
-      // Force a small delay to ensure state update is processed
-      await new Promise(resolve => setTimeout(resolve, 100));
-      setExpandedLog(null);
-      setSearchQuery('');
-      setSelectedType('all');
-      toast({
-        title: 'Logs Cleared',
-        description: 'All log entries have been deleted.',
-      });
-    } catch (error) {
-      console.error('Failed to clear logs:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to clear logs. Please try again.',
-        variant: 'destructive',
-      });
-    }
+  const handleClear = () => {
+    clearLogs();
+    setExpandedLog(null);
+    setSearchQuery('');
+    setSelectedType('all');
+    toast({
+      title: 'Logs Cleared',
+      description: 'All log entries have been deleted.',
+    });
   };
 
   const formatTimestamp = (timestamp: string) => {
@@ -128,9 +116,9 @@ export default function LogsViewer() {
           <Button
             variant="ghost"
             size="icon"
-            onClick={() => navigate('/')}
+            onClick={() => navigate(-1)}
             className="text-foreground hover:bg-accent"
-            title="Back to dashboard"
+            title="Go back to previous page"
           >
             <ChevronLeftIcon className="h-5 w-5" strokeWidth={1.5} />
           </Button>

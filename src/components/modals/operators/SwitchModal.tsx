@@ -27,23 +27,22 @@ import {
   HumanSystemTaskModal,
 } from '../system-tasks';
 import { SimpleTaskModal } from '../SimpleTaskModal';
-import { StartWorkflowModal } from './StartWorkflowModal';
-import { SubWorkflowModal } from './SubWorkflowModal';
-import { SetVariableModal } from './SetVariableModal';
 import { ForkJoinModal } from './ForkJoinModal';
 import { DynamicForkModal } from './DynamicForkModal';
 import { DoWhileModal } from './DoWhileModal';
 import { JoinModal } from './JoinModal';
 import { DynamicModal } from './DynamicModal';
+import { SubWorkflowModal } from './SubWorkflowModal';
+import { StartWorkflowModal } from './StartWorkflowModal';
 
 export interface SwitchConfig extends BaseTaskConfig {
   taskRefId: string;
   taskType: 'SWITCH';
   evaluatorType: 'value-param' | 'javascript';
   expression: string;
-  inputParameters?: Record<string, unknown>;
-  decisionCases?: Record<string, BaseTaskConfig[]>;
-  defaultCase?: BaseTaskConfig[];
+  inputParameters?: Record<string, any>;
+  decisionCases?: Record<string, any[]>;
+  defaultCase?: any[];
 }
 
 interface SwitchModalProps {
@@ -80,7 +79,7 @@ interface TaskModalState {
   taskType: string | null;
   caseName: string | null;
   taskIndex: number;
-  initialConfig: BaseTaskConfig | null | undefined;
+  initialConfig: any;
 }
 
 export function SwitchModal({ open, onOpenChange, onSave, initialConfig }: SwitchModalProps) {
@@ -115,29 +114,14 @@ export function SwitchModal({ open, onOpenChange, onSave, initialConfig }: Switc
   useEffect(() => {
     if (open) {
       if (initialConfig) {
-        // Deep load of existing configuration to ensure all properties are correctly set
-        const loadedConfig: SwitchConfig = {
-          taskRefId: initialConfig.taskRefId || `switch-${Date.now()}`,
-          name: initialConfig.name || 'Switch',
-          taskType: 'SWITCH',
-          evaluatorType: initialConfig.evaluatorType || 'value-param',
-          expression: initialConfig.expression || 'switchCaseValue',
-          inputParameters: initialConfig.inputParameters ? { ...initialConfig.inputParameters } : { switchCaseValue: '${workflow.input}' },
-          decisionCases: initialConfig.decisionCases ? { ...initialConfig.decisionCases } : {},
-          defaultCase: initialConfig.defaultCase ? [...initialConfig.defaultCase] : [],
-        };
-        
-        setConfig(loadedConfig);
-        
-        // Expand all cases by default when editing to show the configuration
-        const caseNames = Object.keys(loadedConfig.decisionCases || {});
+        // Load existing configuration including ALL properties, nested decision cases and default case
+        setConfig({ ...initialConfig });
+        // Expand all cases by default when editing
+        const caseNames = Object.keys(initialConfig.decisionCases || {});
         setExpandedCases(new Set(caseNames));
-        
-        console.log('SwitchModal loaded with config:', loadedConfig);
       } else {
-        // Create new configuration with fresh defaults
         const timestamp = Date.now();
-        const newConfig: SwitchConfig = {
+        setConfig({
           taskRefId: `switch-${timestamp}`,
           name: 'Switch',
           taskType: 'SWITCH',
@@ -148,15 +132,9 @@ export function SwitchModal({ open, onOpenChange, onSave, initialConfig }: Switc
           },
           decisionCases: {},
           defaultCase: [],
-        };
-        
-        setConfig(newConfig);
+        });
         setExpandedCases(new Set());
-        
-        console.log('SwitchModal created with new config:', newConfig);
       }
-      
-      // Always reset task modal state and select values when opening
       setTaskModalState({
         isOpen: false,
         taskType: null,
@@ -198,14 +176,14 @@ export function SwitchModal({ open, onOpenChange, onSave, initialConfig }: Switc
     taskType: string,
     caseName: string | null,
     taskIndex: number = -1,
-    initialConfig: BaseTaskConfig | null | undefined = undefined
+    initialConfig: any = null
   ) => {
     setTaskModalState({
       isOpen: true,
       taskType,
       caseName,
       taskIndex,
-      initialConfig: initialConfig || undefined,
+      initialConfig,
     });
   };
 
@@ -219,7 +197,7 @@ export function SwitchModal({ open, onOpenChange, onSave, initialConfig }: Switc
     });
   };
 
-  const handleSaveTaskConfig = async (taskConfig: BaseTaskConfig) => {
+  const handleSaveTaskConfig = async (taskConfig: any) => {
     const { caseName, taskIndex } = taskModalState;
 
     if (caseName === null) {
@@ -293,7 +271,7 @@ export function SwitchModal({ open, onOpenChange, onSave, initialConfig }: Switc
     setExpandedCases(newExpanded);
   };
 
-  const renderTaskCard = (task: BaseTaskConfig, index: number, caseName: string | null) => {
+  const renderTaskCard = (task: any, index: number, caseName: string | null) => {
     return (
       <Card key={index} className="p-4 bg-[#0f1419] border-[#2a3142] mb-2">
         <div className="flex justify-between items-start">
@@ -313,7 +291,7 @@ export function SwitchModal({ open, onOpenChange, onSave, initialConfig }: Switc
               size="sm"
               onClick={() =>
                 handleOpenTaskModal(
-                  task.type || task.taskType || 'SIMPLE',
+                  task.type || task.taskType,
                   caseName,
                   index,
                   task
@@ -349,49 +327,47 @@ export function SwitchModal({ open, onOpenChange, onSave, initialConfig }: Switc
       onOpenChange: (open: boolean) => {
         if (!open) handleCloseTaskModal();
       },
-      onSave: handleSaveTaskConfig as never,
+      onSave: handleSaveTaskConfig,
       initialConfig: taskModalState.initialConfig,
     };
 
     switch (taskModalState.taskType) {
       case 'SIMPLE':
-        return <SimpleTaskModal {...(commonProps as React.ComponentProps<typeof SimpleTaskModal>)} />;
+        return <SimpleTaskModal {...commonProps} />;
       case 'HTTP':
-        return <HttpTaskModal {...(commonProps as React.ComponentProps<typeof HttpTaskModal>)} />;
+        return <HttpTaskModal {...commonProps} />;
       case 'KAFKA_PUBLISH':
-        return <KafkaPublishTaskModal {...(commonProps as React.ComponentProps<typeof KafkaPublishTaskModal>)} />;
+        return <KafkaPublishTaskModal {...commonProps} />;
       case 'JSON_JQ_TRANSFORM':
-        return <JsonJqTransformTaskModal {...(commonProps as React.ComponentProps<typeof JsonJqTransformTaskModal>)} />;
+        return <JsonJqTransformTaskModal {...commonProps} />;
       case 'NOOP':
-        return <NoopSystemTaskModal {...(commonProps as React.ComponentProps<typeof NoopSystemTaskModal>)} />;
+        return <NoopSystemTaskModal {...commonProps} />;
       case 'EVENT':
-        return <EventSystemTaskModal {...(commonProps as React.ComponentProps<typeof EventSystemTaskModal>)} />;
+        return <EventSystemTaskModal {...commonProps} />;
       case 'WAIT':
-        return <WaitSystemTaskModal {...(commonProps as React.ComponentProps<typeof WaitSystemTaskModal>)} />;
+        return <WaitSystemTaskModal {...commonProps} />;
       case 'TERMINATE':
-        return <TerminateSystemTaskModal {...(commonProps as React.ComponentProps<typeof TerminateSystemTaskModal>)} />;
+        return <TerminateSystemTaskModal {...commonProps} />;
       case 'INLINE':
-        return <InlineSystemTaskModal {...(commonProps as React.ComponentProps<typeof InlineSystemTaskModal>)} />;
+        return <InlineSystemTaskModal {...commonProps} />;
       case 'HUMAN':
-        return <HumanSystemTaskModal {...(commonProps as React.ComponentProps<typeof HumanSystemTaskModal>)} />;
-      case 'SET_VARIABLE':
-        return <SetVariableModal {...(commonProps as React.ComponentProps<typeof SetVariableModal>)} />;
-      case 'SUB_WORKFLOW':
-        return <SubWorkflowModal {...(commonProps as React.ComponentProps<typeof SubWorkflowModal>)} />;
-      case 'START_WORKFLOW':
-        return <StartWorkflowModal {...(commonProps as React.ComponentProps<typeof StartWorkflowModal>)} />;
+        return <HumanSystemTaskModal {...commonProps} />;
       case 'FORK_JOIN':
-        return <ForkJoinModal {...(commonProps as React.ComponentProps<typeof ForkJoinModal>)} />;
+        return <ForkJoinModal {...commonProps} />;
       case 'FORK_JOIN_DYNAMIC':
-        return <DynamicForkModal {...(commonProps as React.ComponentProps<typeof DynamicForkModal>)} />;
+        return <DynamicForkModal {...commonProps} />;
       case 'SWITCH':
-        return <SwitchModal {...(commonProps as React.ComponentProps<typeof SwitchModal>)} />;
+        return <SwitchModal {...commonProps} />;
       case 'DO_WHILE':
-        return <DoWhileModal {...(commonProps as React.ComponentProps<typeof DoWhileModal>)} />;
+        return <DoWhileModal {...commonProps} />;
       case 'DYNAMIC':
-        return <DynamicModal {...(commonProps as React.ComponentProps<typeof DynamicModal>)} />;
+        return <DynamicModal {...commonProps} />;
       case 'JOIN':
-        return <JoinModal {...(commonProps as React.ComponentProps<typeof JoinModal>)} />;
+        return <JoinModal {...commonProps} />;
+      case 'SUB_WORKFLOW':
+        return <SubWorkflowModal {...commonProps} />;
+      case 'START_WORKFLOW':
+        return <StartWorkflowModal {...commonProps} />;
       default:
         return null;
     }
