@@ -119,12 +119,8 @@ function getBuildEnvironment(localTempDir: string): NodeJS.ProcessEnv {
     ELECTRON_CACHE: path.join(localTempDir, 'electron-cache'),
     ELECTRON_BUILDER_CACHE: path.join(localTempDir, 'electron-builder-cache'),
     npm_config_cache: path.join(localTempDir, 'npm-cache'),
-    CSC_LINK: '',
-    WIN_CSC_LINK: '',
     SKIP_NOTARIZATION: 'true',
     ELECTRON_BUILDER_ALLOW_UNRESOLVED_DEPENDENCIES: 'true',
-    DISABLE_CODE_SIGNING: 'true',
-    NO_CODE_SIGNING: 'true',
   };
 }
 

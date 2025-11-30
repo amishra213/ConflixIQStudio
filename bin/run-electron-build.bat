@@ -55,15 +55,9 @@ set "ELECTRON_BUILDER_CACHE=%LOCAL_TEMP_DIR%\electron-builder-cache"
 set "npm_config_cache=%LOCAL_TEMP_DIR%\npm-cache"
 set "APPDATA=%LOCAL_TEMP_DIR%\appdata"
 set "LOCALAPPDATA=%LOCAL_TEMP_DIR%\localappdata"
-REM Disable all code signing to avoid symbolic link privilege errors and winCodeSign downloads
-set "CSC_LINK="
-set "WIN_CSC_LINK="
+REM Code signing is already disabled in package.json config
 set "SKIP_NOTARIZATION=true"
 set "ELECTRON_BUILDER_ALLOW_UNRESOLVED_DEPENDENCIES=true"
-set "DISABLE_CODE_SIGNING=true"
-set "NO_CODE_SIGNING=true"
-REM Force disable code signing in electron-builder
-set "SKIP_CODESIGNTOOL=true"
 
 echo.
 echo Building Windows executable with Electron Builder...

@@ -50,12 +50,8 @@ jobs:
           ELECTRON_CACHE: ${{ runner.temp }}\conductor-build-temp\electron-cache
           ELECTRON_BUILDER_CACHE: ${{ runner.temp }}\conductor-build-temp\electron-builder-cache
           npm_config_cache: ${{ runner.temp }}\conductor-build-temp\npm-cache
-          CSC_LINK: ''
-          WIN_CSC_LINK: ''
           SKIP_NOTARIZATION: 'true'
           ELECTRON_BUILDER_ALLOW_UNRESOLVED_DEPENDENCIES: 'true'
-          DISABLE_CODE_SIGNING: 'true'
-          NO_CODE_SIGNING: 'true'
 
       - name: Upload distribution artifacts
         uses: actions/upload-artifact@v4
