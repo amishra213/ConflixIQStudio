@@ -626,6 +626,113 @@ export function Workflows() {
                     className="w-full px-3 py-2 bg-[#0f1419] border border-[#2a3142] rounded text-white placeholder-gray-500 text-sm focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500"
                   />
                 </div>
+        <Card className="bg-[#1a1f2e] border-[#2a3142] overflow-hidden shadow-sm">
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-[#0f1419]">
+                <tr>
+                  <th className="px-6 py-4 text-left text-sm font-semibold text-white">Name</th>
+                  <th className="px-6 py-4 text-left text-sm font-semibold text-white">Description</th>
+                  <th className="px-6 py-4 text-left text-sm font-semibold text-white">Status</th>
+                  <th className="px-6 py-4 text-left text-sm font-semibold text-white">Created</th>
+                  <th className="px-6 py-4 text-left text-sm font-semibold text-white">Version</th>
+                  <th className="px-6 py-4 text-left text-sm font-semibold text-white">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[#2a3142]">
+                {workflows.map((workflow) => (
+                  <tr 
+                    key={workflow.id} 
+                    className="hover:bg-[#2a3142]/30 transition-colors duration-150 cursor-pointer"
+                    onClick={() => navigate(`/workflows/${workflow.id}`)}
+                  >
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 bg-cyan-500/10 rounded flex items-center justify-center flex-shrink-0">
+                          <svg className="w-4 h-4 text-cyan-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                          </svg>
+                        </div>
+                        <span className="text-sm font-medium text-white">{workflow.name}</span>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <span className="text-sm text-gray-400 line-clamp-1">{workflow.description}</span>
+                    </td>
+                    <td className="px-6 py-4">
+                      <Badge
+                        className={getStatusBadgeClass(workflow.status)}
+                      >
+                        {workflow.status ? workflow.status.toUpperCase() : ''}
+                      </Badge>
+                    </td>
+                    <td className="px-6 py-4">
+                      <span className="text-sm text-gray-400">
+                        {new Date(workflow.createdAt).toLocaleDateString()}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4">
+                      <span className="text-sm text-gray-400">v1</span>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-2" role="toolbar" aria-label="Workflow actions">
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => navigate(`/workflows/${workflow.id}`)}
+                          className="text-cyan-500 hover:bg-cyan-500/10 hover:text-cyan-400"
+                          title="Edit Workflow"
+                        >
+                          <EditIcon className="w-4 h-4" />
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => navigate(`/workflows/${workflow.id}/diagram`)}
+                          className="text-purple-500 hover:bg-purple-500/10 hover:text-purple-400"
+                          title="View Diagram"
+                        >
+                          <NetworkIcon className="w-4 h-4" />
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={handleValidateClick}
+                          className="text-blue-500 hover:bg-blue-500/10 hover:text-blue-400"
+                          title="Validate Workflow"
+                        >
+                          <CheckCircleIcon className="w-4 h-4" />
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={(e) => handleExecuteClick(workflow, e)}
+                          className="text-green-500 hover:bg-green-500/10 hover:text-green-400"
+                          title="Execute Workflow"
+                        >
+                          <PlayIcon className="w-4 h-4" />
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDelete(workflow.id, workflow.name);
+                          }}
+                          className="text-red-500 hover:bg-red-500/10 hover:text-red-400"
+                          title="Delete Workflow"
+                        >
+                          <Trash2Icon className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </Card>
+      )}
 
                 {/* Description Filter */}
                 <div>

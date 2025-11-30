@@ -1,5 +1,27 @@
 import { create } from 'zustand';
 import { fileStoreClient } from '@/utils/fileStore';
+import { persist, createJSONStorage } from 'zustand/middleware';
+
+/**
+ * Workflow Store with Zustand Persist Middleware
+ * 
+ * CACHING STRATEGY:
+ * - PRIMARY: Zustand + localStorage for WIP (Work In Progress) workflows and tasks
+ *   - Automatically persists workflows, nodes, edges, and tasks to browser localStorage
+ *   - Survives page refreshes and browser restarts
+ *   - Fast read/write operations
+ * 
+ * - SECONDARY: FileStore backend service (optional)
+ *   - Used for backup, export, and import operations
+ *   - Enables sharing workflows across devices/users
+ *   - Falls back gracefully if backend is unavailable
+ * 
+ * This dual-layer approach ensures:
+ * 1. WIP workflows are never lost (localStorage persistence)
+ * 2. Workflows can be backed up to server (filestore)
+ * 3. Workflows can be exported/imported as JSON files
+ * 4. System works offline (localStorage only)
+ */
 
 export interface Task {
   id: string;
@@ -157,7 +179,9 @@ interface WorkflowStore {
   clearWorkflows: () => void;
 }
 
-export const useWorkflowStore = create<WorkflowStore>((set) => {
+export const useWorkflowStore = create<WorkflowStore>()(
+  persist(
+    (set) => {
   // Helper function to get task status
   const getTaskStatus = (isSuccess: boolean, taskIndex: number): 'completed' | 'failed' => {
     if (isSuccess) {
@@ -406,4 +430,17 @@ export const useWorkflowStore = create<WorkflowStore>((set) => {
     }
   },
   };
-});
+},
+    {
+      name: 'conductor-workflow-store', // unique name for localStorage key
+      storage: createJSONStorage(() => localStorage),
+      // Persist workflows, nodes, edges, and tasks for WIP caching
+      partialize: (state) => ({
+        workflows: state.workflows,
+        tasks: state.tasks,
+        canvasNodes: state.canvasNodes,
+        canvasEdges: state.canvasEdges,
+      }),
+    }
+  )
+);

@@ -202,6 +202,7 @@ export function HumanSystemTaskModal({
       buttonLabel="Save Configuration"
       customTabs={[inputParametersTab]}
       validateConfig={validateConfig}
+      description="Human tasks pause the workflow and wait for external signals (COMPLETED or FAILED)"
     />
   );
 }

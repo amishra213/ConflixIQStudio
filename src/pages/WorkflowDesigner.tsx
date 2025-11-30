@@ -602,6 +602,9 @@ export function WorkflowDesigner() {
   }, [fetchWorkflowByVersion]);
 
   // Initialize/Load workflow on component mount or when ID changes
+  // Load workflow data on mount or when workflow changes
+  // NOTE: Workflows are automatically persisted to localStorage via Zustand persist middleware
+  // This ensures WIP workflows survive page refreshes and browser restarts
   useEffect(() => {
     const loadWorkflow = async () => {
       if (!id) {
@@ -635,6 +638,15 @@ export function WorkflowDesigner() {
           if (apiWorkflow) {
             foundWorkflow = apiWorkflow;
             console.log(`[WorkflowDesigner.loadWorkflow] Successfully fetched latest from server`);
+      // Load nodes and edges from the workflow (restored from localStorage if available)
+      if (workflow.nodes && workflow.nodes.length > 0) {
+        setNodes(workflow.nodes.map(node => ({ 
+          ...node, 
+          draggable: false,
+          data: {
+            ...node.data,
+            onEdit: handleEditNode,
+            onDelete: handleDeleteNode,
           }
         }
         
@@ -794,7 +806,10 @@ export function WorkflowDesigner() {
   //   // This effect has been disabled to fix drag-drop disappearing nodes issue
   // }, [nodes.length]);
 
-  // Auto-save nodes and edges whenever they change
+  // Auto-save nodes and edges whenever they change (real-time, no debounce)
+  // NOTE: This triggers Zustand persist middleware which saves to localStorage automatically
+  // WIP workflows are cached in browser and survive page refreshes
+  // Removed debounce to ensure real-time updates to workflow JSON and cache
   useEffect(() => {
     if (workflow && (nodes.length > 0 || edges.length > 0)) {
       // Debounce the save to avoid too frequent updates
@@ -826,6 +841,14 @@ export function WorkflowDesigner() {
       }, 500);
 
       return () => clearTimeout(timeoutId);
+      // Extract and save the tasks array along with nodes and edges
+      // No debounce - save immediately for real-time persistence
+      const workflowTasks = extractWorkflowTasks(nodes);
+      updateWorkflow(workflow.id, {
+        nodes: nodes,
+        edges: edges,
+        tasks: workflowTasks, // Real-time auto-save tasks JSON
+      });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [nodes, edges, workflow?.id, workflowName]); // Include workflowName for cache
@@ -847,7 +870,7 @@ export function WorkflowDesigner() {
     prevNodeCountRef.current = nodes.length;
   }, [nodes.length]);
 
-  // Sync JSON text when nodes, settings, or workflowName change
+  // Sync JSON text when workflow tasks, settings, or workflowName change
   useEffect(() => {
     const workflowJson = {
       name: workflowName,
@@ -877,6 +900,9 @@ export function WorkflowDesigner() {
                 optional: false,
               };
             }),
+      // Read tasks from workflow.tasks (auto-saved) instead of extracting from nodes
+      // This ensures the JSON always reflects the saved state
+      tasks: workflow?.tasks || [],
       inputParameters: workflowSettings.inputParameters,
       inputTemplate: workflowSettings.inputTemplate,
       outputParameters: workflowSettings.outputParameters,
@@ -891,6 +917,7 @@ export function WorkflowDesigner() {
     };
     setJsonText(JSON.stringify(workflowJson, null, 2));
   }, [nodes, workflowSettings, workflowName, workflow?.tasks]);
+  }, [workflow?.tasks, workflowSettings, workflowName]);
 
   const handleJsonChange = (value: string) => {
     setJsonText(value);
@@ -1629,6 +1656,27 @@ export function WorkflowDesigner() {
     }
     
     // For auto-config during creation - return the pending node's config
+    // For editing existing node - read latest config from workflow.tasks (source of truth)
+    if (selectedNodeForConfig?.id && selectedNodeForConfig?.data?.taskType === taskType) {
+      // First, try to find the task in workflow.tasks by taskReferenceName
+      if (workflow?.tasks) {
+        const taskRefName = selectedNodeForConfig.data.config?.taskReferenceName;
+        const taskInWorkflow = workflow.tasks.find(
+          (t: any) => t.taskReferenceName === taskRefName
+        );
+        if (taskInWorkflow) {
+          return taskInWorkflow;
+        }
+      }
+      
+      // Fallback to node.data.config if not found in workflow.tasks
+      const currentNode = nodes.find(n => n.id === selectedNodeForConfig.id);
+      if (currentNode?.data?.config) {
+        return currentNode.data.config;
+      }
+    }
+    
+    // For auto-config during creation
     if (pendingNodeForAutoConfig?.data?.taskType === taskType) {
       const config = pendingNodeForAutoConfig.data.config;
       

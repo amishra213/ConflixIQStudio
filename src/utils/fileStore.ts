@@ -1,6 +1,17 @@
 /**
  * FileStore Client - Handles communication with backend filestore service
  * Provides persistent server-side caching for task sync status and workflows
+ * 
+ * PURPOSE: Secondary/Backup storage layer
+ * - BACKUP: Server-side persistence for workflow backups
+ * - EXPORT: Export workflows as JSON files
+ * - IMPORT: Import workflows from JSON files
+ * - SHARING: Share workflows across devices/users
+ * 
+ * NOTE: This is OPTIONAL and gracefully falls back if unavailable.
+ * Primary WIP caching is handled by Zustand + localStorage (see workflowStore.ts)
+ * 
+ * Provides persistent server-side caching for task sync status
  */
 
 export interface FileStoreTaskCache {
