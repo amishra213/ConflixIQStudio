@@ -6,31 +6,24 @@ import { useSettingsStore } from '@/stores/settingsStore';
 export const useTaskDefinitions = () => {
   const { proxyServer, conductorApi } = useSettingsStore();
   
-  // Determine if connected: either proxy is enabled or Conductor API endpoint is configured
-  const isConnected = proxyServer.enabled || !!conductorApi.endpoint;
-  
-  // Return early if not connected to avoid Apollo hook call outside of provider
-  if (!isConnected) {
-    return {
-      taskDefinitions: [],
-      loading: false,
-      error: { message: 'Not connected to Conductor server. Please configure connection in Settings.' },
-      refetch: async () => ({ data: undefined }),
-    };
-  }
-  
   interface TaskDefinitionsData {
-    taskDefinitions: any[]; // Replace 'any' with your actual TaskDefinition type if available
+    taskDefinitions: Record<string, unknown>[]; // Replace with your actual TaskDefinition type if available
   }
 
   const { data, loading, error, refetch } = useQuery<TaskDefinitionsData>(GET_TASK_DEFINITIONS, {
     fetchPolicy: 'network-only',
+    skip: !proxyServer.enabled && !conductorApi.endpoint,
   });
 
+  // Determine if connected: either proxy is enabled or Conductor API endpoint is configured
+  const isConnected = proxyServer.enabled || !!conductorApi.endpoint;
+
   return {
-    taskDefinitions: data?.taskDefinitions || [],
-    loading,
-    error,
+    taskDefinitions: isConnected ? (data?.taskDefinitions || []) : [],
+    loading: isConnected ? loading : false,
+    error: isConnected 
+      ? error 
+      : { message: 'Not connected to Conductor server. Please configure connection in Settings.' },
     refetch,
   };
 };
@@ -38,23 +31,16 @@ export const useTaskDefinitions = () => {
 export const useRegisterTask = () => {
   const { proxyServer, conductorApi } = useSettingsStore();
   
-  // Determine if connected: either proxy is enabled or Conductor API endpoint is configured
-  const isConnected = proxyServer.enabled || !!conductorApi.endpoint;
-  
-  // Return early if not connected to avoid Apollo hook call outside of provider  
-  if (!isConnected) {
-    return {
-      registerTask: async () => ({ data: undefined }),
-      loading: false,
-      error: { message: 'Not connected to Conductor server. Please configure connection in Settings.' },
-    };
-  }
-  
   const [registerTask, { loading, error }] = useMutation(REGISTER_TASK);
 
+  // Determine if connected: either proxy is enabled or Conductor API endpoint is configured
+  const isConnected = proxyServer.enabled || !!conductorApi.endpoint;
+
   return {
-    registerTask,
-    loading,
-    error,
+    registerTask: isConnected ? registerTask : async () => ({ data: undefined }),
+    loading: isConnected ? loading : false,
+    error: isConnected 
+      ? error 
+      : { message: 'Not connected to Conductor server. Please configure connection in Settings.' },
   };
 };

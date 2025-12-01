@@ -14,12 +14,13 @@ export interface WorkflowTaskConfig {
   name: string;
   taskReferenceName: string;
   type: "SIMPLE";
-  inputParameters: Record<string, any>;
+  inputParameters: Record<string, unknown>;
   rateLimitPerFrequency: number;
   rateLimitFrequencyInSeconds: number;
   optional: boolean;
   startDelay: number;
   asyncComplete: boolean;
+  [key: string]: unknown;
 }
 
 export interface SimpleTaskModalProps {
@@ -105,7 +106,7 @@ export function SimpleTaskModal({
   };
 
   const buildInputParameters = () => {
-    const inputParameters: Record<string, any> = {};
+    const inputParameters: Record<string, unknown> = {};
     for (const param of inputParams) {
       if (param.key.trim()) {
         try {

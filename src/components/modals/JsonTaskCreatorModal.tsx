@@ -11,7 +11,7 @@ import { useToast } from '@/hooks/use-toast';
 interface JsonTaskCreatorModalProps {
   open: boolean;
   onClose: () => void;
-  onSave: (taskJson: any) => void;
+  onSave: (taskJson: Record<string, unknown>) => void;
 }
 
 const TASK_TEMPLATE = {

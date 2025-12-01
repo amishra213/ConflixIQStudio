@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useConductorApi } from '@/hooks/useConductorApi';
 import { TaskDefinitionsTable } from '@/components/TaskDefinitionsTable';
 import { Card } from '@/components/ui/card';
@@ -12,7 +12,7 @@ export function TaskDefinitionsList() {
   const [error, setError] = useState<Error | null>(null);
   const { fetchAllTaskDefinitions } = useConductorApi({ enableFallback: false });
 
-  const loadTasks = async () => {
+  const loadTasks = useCallback(async () => {
     setIsLoading(true);
     setError(null);
     try {
@@ -23,11 +23,11 @@ export function TaskDefinitionsList() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [fetchAllTaskDefinitions]);
 
   useEffect(() => {
     loadTasks();
-  }, []);
+  }, [loadTasks]);
 
   if (error && tasks.length === 0) {
     return (

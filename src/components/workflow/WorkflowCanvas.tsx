@@ -1,19 +1,8 @@
-import { useEffect, useRef, useState } from 'react';
-import { useWorkflowStore } from '../../stores/workflowStore';
+import { useEffect, useRef, useState, useCallback } from 'react';
+import { useWorkflowStore, CanvasNode } from '../../stores/workflowStore';
 import { Trash2Icon, SettingsIcon, AlignCenterIcon, MaximizeIcon } from 'lucide-react';
 import { Button } from '../ui/button';
 import { cn } from '@/lib/utils';
-
-interface CanvasNode {
-  id: string;
-  type: string;
-  name: string;
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-  config?: any;
-}
 
 interface CanvasEdge {
   from: string;
@@ -40,9 +29,9 @@ export default function WorkflowCanvas() {
       setNodes(canvasNodes);
     }
     if (canvasEdges.length > 0) {
-      setEdges(canvasEdges);
+      setEdges(canvasEdges as CanvasEdge[]);
     }
-  }, []);
+  }, [canvasNodes, canvasEdges]);
 
   // Persist nodes and edges to store whenever they change
   useEffect(() => {
@@ -53,12 +42,7 @@ export default function WorkflowCanvas() {
     setCanvasEdges(edges);
   }, [edges, setCanvasEdges]);
 
-  useEffect(() => {
-    drawCanvas();
-  }, [nodes, edges, selectedNode, connectingFrom]);
-
-
-  const drawCanvas = () => {
+  const drawCanvas = useCallback(() => {
     if (!svgRef.current) return;
 
     const svg = svgRef.current;
@@ -99,7 +83,11 @@ export default function WorkflowCanvas() {
     marker.appendChild(polygon);
     defs.appendChild(marker);
     svg.insertBefore(defs, svg.firstChild);
-  };
+  }, [nodes, edges]);
+
+  useEffect(() => {
+    drawCanvas();
+  }, [drawCanvas]);
 
   const autoArrangeNodes = (nodesToArrange: CanvasNode[]) => {
     const startX = 100;

@@ -19,7 +19,7 @@ export interface TaskDefinition {
   retryDelaySeconds?: number;
   responseTimeoutSeconds?: number;
   concurrentExecLimit?: number;
-  inputTemplate?: Record<string, any>;
+  inputTemplate?: Record<string, unknown>;
   rateLimitPerFrequency?: number;
   rateLimitFrequencyInSeconds?: number;
   isolationGroupId?: string;

@@ -10,7 +10,7 @@ export interface DynamicConfig extends BaseTaskConfig {
   taskType: 'DYNAMIC';
   dynamicTaskNameParam: string;
   inputParameters: {
-    [key: string]: any;
+    [key: string]: unknown;
   };
   description?: string;
 }
@@ -90,7 +90,7 @@ export function DynamicModal({
   );
 
   const handleSaveWithInputParameters = (finalConfig: DynamicConfig) => {
-    let inputParameters: any = {};
+    let inputParameters: Record<string, unknown> = {};
     if (inputParametersText.trim()) {
       try {
         inputParameters = JSON.parse(inputParametersText);
@@ -111,7 +111,7 @@ export function DynamicModal({
     }
 
     // Parse input parameters
-    let inputParams: any = {};
+    let inputParams: Record<string, unknown> = {};
     if (inputParametersText.trim()) {
       try {
         inputParams = JSON.parse(inputParametersText);

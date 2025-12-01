@@ -20,7 +20,7 @@ export interface LLMConfig {
 }
 
 interface SettingsStore {
-  conductorSettings: any;
+  conductorSettings: Record<string, unknown>;
   conductorApi: ConductorApiConfig;
   proxyServer: ProxyServerConfig;
   openAiLlm: LLMConfig;

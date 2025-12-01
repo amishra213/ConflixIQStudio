@@ -24,8 +24,8 @@ export default function WorkflowProperties() {
   const [workflowStatusListenerEnabled, setWorkflowStatusListenerEnabled] = useState(currentWorkflow?.workflowStatusListenerEnabled ?? false);
   const [failureWorkflow, setFailureWorkflow] = useState(currentWorkflow?.failureWorkflow || '');
   const [inputParameters, setInputParameters] = useState<string[]>(currentWorkflow?.inputParameters || []);
-  const [outputParameters, setOutputParameters] = useState<Record<string, any>>(currentWorkflow?.outputParameters || {});
-  const [inputTemplate, setInputTemplate] = useState<Record<string, any>>(currentWorkflow?.inputTemplate || {});
+  const [outputParameters, setOutputParameters] = useState<Record<string, unknown>>(currentWorkflow?.outputParameters || {});
+  const [inputTemplate, setInputTemplate] = useState<Record<string, unknown>>(currentWorkflow?.inputTemplate || {});
   const [newInputParam, setNewInputParam] = useState('');
   const [newOutputKey, setNewOutputKey] = useState('');
   const [newOutputValue, setNewOutputValue] = useState('');

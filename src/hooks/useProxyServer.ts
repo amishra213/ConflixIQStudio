@@ -66,7 +66,7 @@ export function useProxyServer() {
    * Make a GraphQL query through the proxy
    */
   const executeGraphQL = useCallback(
-    async <T = any>(query: string, variables?: Record<string, any>): Promise<T | null> => {
+    async <T = Record<string, unknown>>(query: string, variables?: Record<string, unknown>): Promise<T | null> => {
       try {
         const response = await fetch(proxyServer.proxyEndpoint, {
           method: 'POST',

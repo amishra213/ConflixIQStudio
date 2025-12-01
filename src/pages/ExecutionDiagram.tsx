@@ -1,5 +1,5 @@
 import { useParams, useNavigate } from 'react-router-dom';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { useWorkflowStore } from '@/stores/workflowStore';
@@ -17,13 +17,7 @@ export function ExecutionDiagram() {
 
   const execution = executions.find((e) => e.id === id);
 
-  useEffect(() => {
-    if (execution) {
-      convertToWorkflowExecution();
-    }
-  }, [execution]);
-
-  const convertToWorkflowExecution = () => {
+  const convertToWorkflowExecution = useCallback(() => {
     if (!execution) return;
 
     // Map execution status to valid WorkflowTask status
@@ -77,8 +71,8 @@ export function ExecutionDiagram() {
         status: string;
         startTime?: number;
         endTime?: number;
-        inputData?: any;
-        outputData?: any;
+        inputData?: Record<string, unknown>;
+        outputData?: Record<string, unknown>;
       }>,
       status: execution.status.toUpperCase(),
       startTime: new Date(execution.startTime).getTime(),
@@ -86,7 +80,13 @@ export function ExecutionDiagram() {
     };
 
     setWorkflowExecution(converted);
-  };
+  }, [execution]);
+
+  useEffect(() => {
+    if (execution) {
+      convertToWorkflowExecution();
+    }
+  }, [execution, convertToWorkflowExecution]);
 
   const handleRefresh = () => {
     convertToWorkflowExecution();

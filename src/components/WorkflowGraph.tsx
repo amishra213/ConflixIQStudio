@@ -59,7 +59,7 @@ export default function WorkflowGraph() {
       circle.setAttribute('cy', node.y.toString());
       circle.setAttribute('r', '30');
       
-      let fillColor = 'hsl(220, 13%, 20%)';
+      const fillColor = 'hsl(220, 13%, 20%)';
       let strokeColor = 'hsl(187, 72%, 42%)';
       
       if (node.status === 'completed') {

@@ -26,7 +26,7 @@ export interface ForkJoinDynamicConfig extends BaseTaskConfig {
   forkTaskWorkflow?: string;
   forkTaskWorkflowVersion?: number;
   inputParameters?: {
-    [key: string]: any;
+    [key: string]: unknown;
   };
 }
 
@@ -314,7 +314,7 @@ export function DynamicForkModal({
   );
 
   const handleSaveWithInputParameters = (finalConfig: ForkJoinDynamicConfig) => {
-    let inputParameters: any = {};
+    let inputParameters: Record<string, unknown> = {};
     if (inputParametersText.trim()) {
       try {
         inputParameters = JSON.parse(inputParametersText);
@@ -346,7 +346,7 @@ export function DynamicForkModal({
   };
 
   // Helper functions for validation
-  const validateDifferentTasks = (cfg: ForkJoinDynamicConfig, inputParams: any): string | null => {
+  const validateDifferentTasks = (cfg: ForkJoinDynamicConfig, inputParams: Record<string, unknown>): string | null => {
     if (!cfg.dynamicForkTasksParam || cfg.dynamicForkTasksParam.trim() === '') {
       return 'Dynamic Fork Tasks Parameter is required';
     }
@@ -362,7 +362,7 @@ export function DynamicForkModal({
     return null;
   };
 
-  const validateSameTask = (cfg: ForkJoinDynamicConfig, inputParams: any): string | null => {
+  const validateSameTask = (cfg: ForkJoinDynamicConfig, inputParams: Record<string, unknown>): string | null => {
     if (!inputParams.forkTaskType) {
       return 'Input Parameters must include "forkTaskType"';
     }
@@ -378,7 +378,7 @@ export function DynamicForkModal({
     return null;
   };
 
-  const validateSubworkflow = (_inputParams: any): string | null => {
+  const validateSubworkflow = (_inputParams: Record<string, unknown>): string | null => {
     if (!_inputParams.forkTaskWorkflow) {
       return 'Input Parameters must include "forkTaskWorkflow"';
     }
@@ -390,7 +390,7 @@ export function DynamicForkModal({
 
   const validateConfig = (cfg: ForkJoinDynamicConfig): string | null => {
     // Parse input parameters
-    let inputParams: any = {};
+    let inputParams: Record<string, unknown> = {};
     if (inputParametersText.trim()) {
       try {
         inputParams = JSON.parse(inputParametersText);

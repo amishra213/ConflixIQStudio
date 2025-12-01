@@ -5,9 +5,15 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useWorkflowStore } from '@/stores/workflowStore';
 import { ArrowLeftIcon, CheckCircle2Icon, XCircleIcon, ActivityIcon, ClockIcon, ChevronDownIcon, ChevronRightIcon, CopyIcon, DownloadIcon, MaximizeIcon, NetworkIcon } from 'lucide-react';
-import { useState, useMemo, memo, useCallback } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { JsonViewer } from '@/components/ui/json-viewer';
+
+interface TaskModalData {
+  type: 'input' | 'output';
+  data: Record<string, unknown>;
+  taskName: string;
+}
 
 export function ExecutionDetails() {
   const { id } = useParams();
@@ -15,7 +21,7 @@ export function ExecutionDetails() {
   const { executions } = useWorkflowStore();
   const { toast } = useToast();
   const [expandedTasks, setExpandedTasks] = useState<Set<number>>(new Set());
-  const [selectedTaskForModal, setSelectedTaskForModal] = useState<any>(null);
+  const [selectedTaskForModal, setSelectedTaskForModal] = useState<TaskModalData | null>(null);
 
   const execution = executions.find((e) => e.id === id);
 
@@ -31,7 +37,7 @@ export function ExecutionDetails() {
     });
   }, []);
 
-  const handleCopyJson = useCallback((data: any, label: string) => {
+  const handleCopyJson = useCallback((data: unknown, label: string) => {
     navigator.clipboard.writeText(JSON.stringify(data, null, 2));
     toast({
       title: 'Copied to clipboard',
@@ -39,7 +45,7 @@ export function ExecutionDetails() {
     });
   }, [toast]);
 
-  const handleDownloadJson = useCallback((data: any, filename: string) => {
+  const handleDownloadJson = useCallback((data: unknown, filename: string) => {
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -47,13 +53,26 @@ export function ExecutionDetails() {
     a.download = filename;
     document.body.appendChild(a);
     a.click();
-    document.body.removeChild(a);
+    a.remove();
     URL.revokeObjectURL(url);
     toast({
       title: 'Download started',
       description: `${filename} is being downloaded`,
     });
   }, [toast]);
+
+  const getStatusBadgeClass = useCallback((status: string) => {
+    if (status === 'completed') return 'bg-success text-white';
+    if (status === 'failed') return 'bg-destructive text-white';
+    if (status === 'running') return 'bg-primary text-primary-foreground';
+    return 'bg-muted text-muted-foreground';
+  }, []);
+
+  const getOutputMessage = useCallback((status: string) => {
+    if (status === 'pending') return 'Task has not started yet';
+    if (status === 'running') return 'Task is currently running...';
+    return 'No output data available for this task';
+  }, []);
 
   const taskStats = useMemo(() => {
     if (!execution) return { total: 0, completed: 0, failed: 0, running: 0, pending: 0 };
@@ -207,9 +226,10 @@ export function ExecutionDetails() {
                 const isExpanded = expandedTasks.has(index);
                 
                 return (
-                  <Card key={index} className="bg-background border-border overflow-hidden">
-                    <div 
-                      className="flex items-start gap-4 p-4 cursor-pointer hover:bg-muted/50 transition-colors"
+                  <Card key={task.taskName + index} className="bg-background border-border overflow-hidden">
+                    <button
+                      type="button"
+                      className="w-full flex items-start gap-4 p-4 cursor-pointer hover:bg-muted/50 transition-colors text-left"
                       onClick={() => toggleTaskExpansion(index)}
                     >
                       <div className="mt-1 flex-shrink-0">
@@ -223,17 +243,7 @@ export function ExecutionDetails() {
                         <div className="flex items-center justify-between mb-2">
                           <div className="flex items-center gap-3">
                             <h4 className="text-sm font-medium text-foreground">{task.taskName}</h4>
-                            <Badge
-                              className={
-                                task.status === 'completed'
-                                  ? 'bg-success text-white'
-                                  : task.status === 'failed'
-                                  ? 'bg-destructive text-white'
-                                  : task.status === 'running'
-                                  ? 'bg-primary text-primary-foreground'
-                                  : 'bg-muted text-muted-foreground'
-                              }
-                            >
+                            <Badge className={getStatusBadgeClass(task.status)}>
                               {task.status}
                             </Badge>
                             <span className="text-xs text-muted-foreground">Task #{index + 1}</span>
@@ -269,7 +279,7 @@ export function ExecutionDetails() {
                           )}
                         </div>
                       </div>
-                    </div>
+                    </button>
 
                     {isExpanded && (
                       <div className="border-t border-border bg-muted/30">
@@ -300,7 +310,11 @@ export function ExecutionDetails() {
                                   <Button
                                     variant="ghost"
                                     size="sm"
-                                    onClick={() => setSelectedTaskForModal({ type: 'input', data: task.input, taskName: task.taskName })}
+                                    onClick={() => setSelectedTaskForModal({ 
+                                      type: 'input', 
+                                      data: task.input as Record<string, unknown>, 
+                                      taskName: task.taskName 
+                                    })}
                                     className="h-7 px-2 text-xs"
                                   >
                                     <MaximizeIcon className="w-3 h-3 mr-1" />
@@ -349,7 +363,11 @@ export function ExecutionDetails() {
                                   <Button
                                     variant="ghost"
                                     size="sm"
-                                    onClick={() => setSelectedTaskForModal({ type: 'output', data: task.output, taskName: task.taskName })}
+                                    onClick={() => setSelectedTaskForModal({ 
+                                      type: 'output', 
+                                      data: task.output as Record<string, unknown>, 
+                                      taskName: task.taskName 
+                                    })}
                                     className="h-7 px-2 text-xs"
                                   >
                                     <MaximizeIcon className="w-3 h-3 mr-1" />
@@ -367,12 +385,7 @@ export function ExecutionDetails() {
                             <div>
                               <h5 className="text-sm font-semibold text-foreground mb-2">Output</h5>
                               <div className="bg-background border border-border rounded-lg p-4 text-xs text-muted-foreground">
-                                {task.status === 'pending' 
-                                  ? 'Task has not started yet'
-                                  : task.status === 'running'
-                                  ? 'Task is currently running...'
-                                  : 'No output data available for this task'
-                                }
+                                {getOutputMessage(task.status)}
                               </div>
                             </div>
                           )}
@@ -397,7 +410,7 @@ ${execution.tasks
       `[${task.startTime ? new Date(task.startTime).toISOString() : 'pending'}] Task ${task.taskName}: ${task.status}`
   )
   .join('\n')}
-${execution.endTime ? `[${new Date(execution.endTime).toISOString()}] Workflow execution completed` : '[...] Execution in progress'}`}
+${execution.endTime ? '[' + new Date(execution.endTime).toISOString() + '] Workflow execution completed' : '[...] Execution in progress'}`}
             </pre>
           </Card>
         </TabsContent>
@@ -425,17 +438,31 @@ ${execution.endTime ? `[${new Date(execution.endTime).toISOString()}] Workflow e
       </Tabs>
 
       {selectedTaskForModal && (
-        <div 
-          className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-8"
-          onClick={() => setSelectedTaskForModal(null)}
+        <dialog 
+          open
+          aria-labelledby="modal-title"
+          className="fixed inset-0 z-50 w-full h-full bg-transparent backdrop:bg-black/80 m-0 max-w-none max-h-none p-0"
         >
-          <Card 
-            className="w-full max-w-6xl h-full bg-card border-border flex flex-col"
-            onClick={(e) => e.stopPropagation()}
+          <button
+            type="button"
+            className="absolute inset-0 w-full h-full bg-transparent cursor-default"
+            onClick={() => setSelectedTaskForModal(null)}
+            onKeyDown={(e) => {
+              if (e.key === 'Escape') {
+                setSelectedTaskForModal(null);
+              }
+            }}
+            aria-label="Close modal"
           >
+            <span className="sr-only">Close modal</span>
+          </button>
+          <div className="flex items-center justify-center h-full p-8 relative pointer-events-none">
+            <Card 
+              className="w-full max-w-6xl h-full bg-card border-border flex flex-col pointer-events-auto"
+            >
             <div className="flex items-center justify-between p-6 border-b border-border">
               <div>
-                <h3 className="text-xl font-semibold text-foreground">
+                <h3 id="modal-title" className="text-xl font-semibold text-foreground">
                   {selectedTaskForModal.taskName} - {selectedTaskForModal.type === 'input' ? 'Input' : 'Output'}
                 </h3>
                 <p className="text-sm text-muted-foreground mt-1">Full JSON view</p>
@@ -454,7 +481,7 @@ ${execution.endTime ? `[${new Date(execution.endTime).toISOString()}] Workflow e
                   size="sm"
                   onClick={() => handleDownloadJson(
                     selectedTaskForModal.data, 
-                    `${selectedTaskForModal.taskName.replace(/\s+/g, '-')}-${selectedTaskForModal.type}.json`
+                    `${selectedTaskForModal.taskName.replaceAll(/\s+/g, '-')}-${selectedTaskForModal.type}.json`
                   )}
                 >
                   <DownloadIcon className="w-4 h-4 mr-2" />
@@ -477,7 +504,8 @@ ${execution.endTime ? `[${new Date(execution.endTime).toISOString()}] Workflow e
               />
             </div>
           </Card>
-        </div>
+          </div>
+        </dialog>
       )}
     </div>
   );

@@ -40,9 +40,9 @@ export interface SwitchConfig extends BaseTaskConfig {
   taskType: 'SWITCH';
   evaluatorType: 'value-param' | 'javascript';
   expression: string;
-  inputParameters?: Record<string, any>;
-  decisionCases?: Record<string, any[]>;
-  defaultCase?: any[];
+  inputParameters?: Record<string, unknown>;
+  decisionCases?: Record<string, unknown[]>;
+  defaultCase?: unknown[];
 }
 
 interface SwitchModalProps {
@@ -79,7 +79,7 @@ interface TaskModalState {
   taskType: string | null;
   caseName: string | null;
   taskIndex: number;
-  initialConfig: any;
+  initialConfig: Record<string, unknown> | null;
 }
 
 export function SwitchModal({ open, onOpenChange, onSave, initialConfig }: SwitchModalProps) {
@@ -176,7 +176,7 @@ export function SwitchModal({ open, onOpenChange, onSave, initialConfig }: Switc
     taskType: string,
     caseName: string | null,
     taskIndex: number = -1,
-    initialConfig: any = null
+    initialConfig: Record<string, unknown> | null = null
   ) => {
     setTaskModalState({
       isOpen: true,
@@ -197,7 +197,7 @@ export function SwitchModal({ open, onOpenChange, onSave, initialConfig }: Switc
     });
   };
 
-  const handleSaveTaskConfig = async (taskConfig: any) => {
+  const handleSaveTaskConfig = async (taskConfig: Record<string, unknown>) => {
     const { caseName, taskIndex } = taskModalState;
 
     if (caseName === null) {
@@ -271,18 +271,18 @@ export function SwitchModal({ open, onOpenChange, onSave, initialConfig }: Switc
     setExpandedCases(newExpanded);
   };
 
-  const renderTaskCard = (task: any, index: number, caseName: string | null) => {
+  const renderTaskCard = (task: Record<string, unknown>, index: number, caseName: string | null) => {
     return (
       <Card key={index} className="p-4 bg-[#0f1419] border-[#2a3142] mb-2">
         <div className="flex justify-between items-start">
           <div className="flex-1">
             <div className="flex items-center gap-2 mb-2">
-              <span className="text-sm font-semibold text-cyan-400">{task.type || task.taskType}</span>
+              <span className="text-sm font-semibold text-cyan-400">{(task.type as string) || (task.taskType as string)}</span>
               <span className="text-xs text-gray-400">•</span>
-              <span className="text-sm text-white">{task.name || task.taskReferenceName}</span>
+              <span className="text-sm text-white">{(task.name as string) || (task.taskReferenceName as string)}</span>
             </div>
             <p className="text-xs text-gray-400">
-              Ref: {task.taskReferenceName || 'N/A'}
+              Ref: {(task.taskReferenceName as string) || 'N/A'}
             </p>
           </div>
           <div className="flex gap-2">
@@ -291,7 +291,7 @@ export function SwitchModal({ open, onOpenChange, onSave, initialConfig }: Switc
               size="sm"
               onClick={() =>
                 handleOpenTaskModal(
-                  task.type || task.taskType,
+                  (task.type as string) || (task.taskType as string) || 'SIMPLE',
                   caseName,
                   index,
                   task
@@ -327,8 +327,10 @@ export function SwitchModal({ open, onOpenChange, onSave, initialConfig }: Switc
       onOpenChange: (open: boolean) => {
         if (!open) handleCloseTaskModal();
       },
-      onSave: handleSaveTaskConfig,
-      initialConfig: taskModalState.initialConfig,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      onSave: handleSaveTaskConfig as any,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      initialConfig: taskModalState.initialConfig as any,
     };
 
     switch (taskModalState.taskType) {
@@ -495,8 +497,8 @@ export function SwitchModal({ open, onOpenChange, onSave, initialConfig }: Switc
 
                 {expandedCases.has(caseName) && (
                   <div className="space-y-3">
-                    {(config.decisionCases?.[caseName] || []).map((task, idx) =>
-                      renderTaskCard(task, idx, caseName)
+                    {(config.decisionCases?.[caseName] as unknown[] || []).map((task, idx) =>
+                      renderTaskCard(task as Record<string, unknown>, idx, caseName)
                     )}
 
                     <div>
@@ -558,8 +560,8 @@ export function SwitchModal({ open, onOpenChange, onSave, initialConfig }: Switc
         </h3>
 
         <div className="space-y-3 mb-4">
-          {(config.defaultCase || []).map((task, idx) =>
-            renderTaskCard(task, idx, null)
+          {(config.defaultCase as unknown[] || []).map((task, idx) =>
+            renderTaskCard(task as Record<string, unknown>, idx, null)
           )}
         </div>
 

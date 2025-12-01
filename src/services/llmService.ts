@@ -9,28 +9,30 @@ export interface TestScenario {
   description: string;
   targetNode: string;
   testType: 'happy_path' | 'edge_case' | 'error_case' | 'boundary';
-  inputJson?: any;
+  inputJson?: Record<string, unknown>;
   status: 'pending' | 'generating' | 'ready' | 'testing' | 'passed' | 'failed';
-  executionResult?: any;
+  executionResult?: Record<string, unknown>;
   error?: string;
 }
 
 export interface WorkflowValidationRequest {
-  workflowDefinition: any;
-  inputJson: any;
+  workflowDefinition: Record<string, unknown>;
+  inputJson: Record<string, unknown>;
 }
 
 /**
  * Extract a concise summary of a task for LLM context
+ * This function is preserved for future LLM implementation
+ * @internal
  */
-function extractTaskSummary(task: any): string {
+export function extractTaskSummary(task: Record<string, unknown>): string {
   return JSON.stringify({
     name: task.name,
     taskReferenceName: task.taskReferenceName,
     type: task.type,
     description: task.description,
-    inputParameters: Object.keys(task.inputParameters || {}).length > 0 
-      ? `${Object.keys(task.inputParameters).length} parameters` 
+    inputParameters: Object.keys((task.inputParameters as Record<string, unknown>) || {}).length > 0 
+      ? `${Object.keys(task.inputParameters as Record<string, unknown>).length} parameters` 
       : 'none',
     optional: task.optional,
   }, null, 2);
@@ -40,15 +42,13 @@ function extractTaskSummary(task: any): string {
  * Generate test scenarios for a single task using LLM
  */
 async function generateScenariosForTask(
-  task: any,
+  task: Record<string, unknown>,
   taskIndex: number,
-  workflowContext: string,
-  additionalContext?: string,
+  _workflowContext: string,
+  _additionalContext?: string,
   onProgress?: (message: string) => void
 ): Promise<TestScenario[]> {
-  const taskSummary = extractTaskSummary(task);
-  
-  onProgress?.(`🤖 LLM Interaction #${taskIndex + 1}: Analyzing task "${task.name || task.taskReferenceName}"...`);
+  onProgress?.(`🤖 LLM Interaction #${taskIndex + 1}: Analyzing task "${(task.name as string) || (task.taskReferenceName as string)}"...`);
   
   console.log(`🤖 LLM Interaction #${taskIndex + 1}:`, {
     taskName: task.name,
@@ -56,7 +56,8 @@ async function generateScenariosForTask(
     taskRef: task.taskReferenceName,
   });
 
-  // TODO: Replace with actual LLM API call
+  // This would be replaced with actual LLM API call in production
+  // It's commented out here as a reference for future implementation
   // const contextSection = additionalContext 
   //   ? `\n\nAdditional Business Context:\n${additionalContext}`
   //   : '';
@@ -107,8 +108,8 @@ async function generateScenariosForTask(
 
   // SIMULATED LLM RESPONSE - Task-specific scenarios
   const scenarios: Partial<TestScenario>[] = [];
-  const taskType = task.type?.toUpperCase() || 'GENERIC';
-  const taskRef = task.taskReferenceName || task.name || `task_${taskIndex}`;
+  const taskType = String((task.type as string) || 'GENERIC').toUpperCase();
+  const taskRef = (task.taskReferenceName as string) || (task.name as string) || `task_${taskIndex}`;
 
   // Generate scenarios based on task type
   switch (taskType) {
@@ -260,7 +261,7 @@ async function generateScenariosForTask(
  * Recursively traverse workflow tasks and generate scenarios
  */
 async function traverseAndGenerateScenarios(
-  tasks: any[],
+  tasks: Record<string, unknown>[],
   workflowContext: string,
   additionalContext?: string,
   onProgress?: (message: string, current: number, total: number) => void
@@ -268,7 +269,43 @@ async function traverseAndGenerateScenarios(
   const allScenarios: TestScenario[] = [];
   let taskCounter = 0;
 
-  async function processTask(task: any, depth: number = 0): Promise<void> {
+  async function processDecisionCases(task: Record<string, unknown>, depth: number): Promise<void> {
+    // DECISION task - process each case
+    for (const [_caseName, caseTasks] of Object.entries(task.decisionCases as Record<string, unknown>)) {
+      if (Array.isArray(caseTasks)) {
+        for (const caseTask of caseTasks) {
+          await processTask(caseTask as Record<string, unknown>, depth + 1);
+        }
+      }
+    }
+    
+    // Process default case
+    if (task.defaultCase && Array.isArray(task.defaultCase)) {
+      for (const defaultTask of task.defaultCase) {
+        await processTask(defaultTask as Record<string, unknown>, depth + 1);
+      }
+    }
+  }
+
+  async function processForkTasks(task: Record<string, unknown>, depth: number): Promise<void> {
+    // FORK_JOIN task - process each parallel branch
+    for (const branch of task.forkTasks as unknown[]) {
+      if (Array.isArray(branch)) {
+        for (const branchTask of branch) {
+          await processTask(branchTask as Record<string, unknown>, depth + 1);
+        }
+      }
+    }
+  }
+
+  async function processLoopTasks(task: Record<string, unknown>, depth: number): Promise<void> {
+    // DO_WHILE task - process loop tasks
+    for (const loopTask of task.loopOver as unknown[]) {
+      await processTask(loopTask as Record<string, unknown>, depth + 1);
+    }
+  }
+
+  async function processTask(task: Record<string, unknown>, depth: number = 0): Promise<void> {
     taskCounter++;
     const currentCount = taskCounter;
     
@@ -285,39 +322,15 @@ async function traverseAndGenerateScenarios(
 
     // Recursively process nested tasks
     if (task.decisionCases) {
-      // DECISION task - process each case
-      for (const [caseName, caseTasks] of Object.entries(task.decisionCases)) {
-        if (Array.isArray(caseTasks)) {
-          for (const caseTask of caseTasks) {
-            await processTask(caseTask, depth + 1);
-          }
-        }
-      }
-      
-      // Process default case
-      if (task.defaultCase && Array.isArray(task.defaultCase)) {
-        for (const defaultTask of task.defaultCase) {
-          await processTask(defaultTask, depth + 1);
-        }
-      }
+      await processDecisionCases(task, depth);
     }
 
     if (task.forkTasks) {
-      // FORK_JOIN task - process each parallel branch
-      for (const branch of task.forkTasks) {
-        if (Array.isArray(branch)) {
-          for (const branchTask of branch) {
-            await processTask(branchTask, depth + 1);
-          }
-        }
-      }
+      await processForkTasks(task, depth);
     }
 
     if (task.loopOver && Array.isArray(task.loopOver)) {
-      // DO_WHILE task - process loop tasks
-      for (const loopTask of task.loopOver) {
-        await processTask(loopTask, depth + 1);
-      }
+      await processLoopTasks(task, depth);
     }
   }
 
@@ -334,32 +347,32 @@ async function traverseAndGenerateScenarios(
  * Uses recursive traversal to analyze each task individually
  */
 export async function generateTestScenarios(
-  workflowDefinition: any,
-  inputJson: any,
+  workflowDefinition: Record<string, unknown>,
+  inputJson: Record<string, unknown>,
   additionalContext?: string,
   onProgress?: (message: string, current: number, total: number) => void
 ): Promise<TestScenario[]> {
   console.log('🤖 Starting recursive workflow analysis...');
   console.log('Workflow:', workflowDefinition.name);
-  console.log('Total top-level tasks:', workflowDefinition.tasks?.length || 0);
+  console.log('Total top-level tasks:', (workflowDefinition.tasks as unknown[])?.length || 0);
 
   // Create a concise workflow context (avoid sending full JSON to LLM each time)
   const workflowContext = `
 Workflow Name: ${workflowDefinition.name}
-Description: ${workflowDefinition.description || 'N/A'}
-Total Tasks: ${workflowDefinition.tasks?.length || 0}
+Description: ${String((workflowDefinition.description as string) || 'N/A')}
+Total Tasks: ${(workflowDefinition.tasks as unknown[])?.length || 0}
 Input Parameters: ${JSON.stringify(workflowDefinition.inputParameters || [])}
 Sample Input: ${JSON.stringify(inputJson, null, 2).substring(0, 500)}...
   `.trim();
 
-  onProgress?.('🔍 Analyzing workflow structure...', 0, workflowDefinition.tasks?.length || 0);
+  onProgress?.('🔍 Analyzing workflow structure...', 0, (workflowDefinition.tasks as unknown[])?.length || 0);
   
   // Small delay to show initial message
   await new Promise(resolve => setTimeout(resolve, 500));
 
   // Recursively traverse and generate scenarios
   const scenarios = await traverseAndGenerateScenarios(
-    workflowDefinition.tasks || [],
+    (workflowDefinition.tasks as unknown[] || []) as Record<string, unknown>[],
     workflowContext,
     additionalContext,
     onProgress
@@ -369,25 +382,26 @@ Sample Input: ${JSON.stringify(inputJson, null, 2).substring(0, 500)}...
   onProgress?.('🎯 Generating end-to-end test scenarios...', scenarios.length, scenarios.length + 2);
   await new Promise(resolve => setTimeout(resolve, 1000));
 
-  scenarios.push({
-    id: 'llm-e2e-happy-path',
-    name: 'End-to-End Happy Path',
-    description: `Complete workflow execution with all tasks succeeding. Validates the entire ${workflowDefinition.name} workflow from start to finish.`,
-    targetNode: 'all',
-    testType: 'happy_path',
-    status: 'pending',
-  });
+  scenarios.push(
+    {
+      id: 'llm-e2e-happy-path',
+      name: 'End-to-End Happy Path',
+      description: `Complete workflow execution with all tasks succeeding. Validates the entire ${workflowDefinition.name} workflow from start to finish.`,
+      targetNode: 'all',
+      testType: 'happy_path',
+      status: 'pending',
+    },
+    {
+      id: 'llm-e2e-error-recovery',
+      name: 'End-to-End Error Recovery',
+      description: 'Tests workflow error handling and recovery mechanisms across multiple task failures.',
+      targetNode: 'all',
+      testType: 'error_case',
+      status: 'pending',
+    }
+  );
 
-  scenarios.push({
-    id: 'llm-e2e-error-recovery',
-    name: 'End-to-End Error Recovery',
-    description: 'Tests workflow error handling and recovery mechanisms across multiple task failures.',
-    targetNode: 'all',
-    testType: 'error_case',
-    status: 'pending',
-  });
-
-  console.log(`✅ Generated ${scenarios.length} test scenarios from ${workflowDefinition.tasks?.length || 0} tasks`);
+  console.log(`✅ Generated ${scenarios.length} test scenarios from ${(workflowDefinition.tasks as unknown[])?.length || 0} tasks`);
   
   return scenarios;
 }
@@ -397,9 +411,9 @@ Sample Input: ${JSON.stringify(inputJson, null, 2).substring(0, 500)}...
  */
 export async function generateTestInputForScenario(
   scenario: TestScenario,
-  originalInput: any,
-  workflowDefinition: any
-): Promise<any> {
+  originalInput: Record<string, unknown>,
+  _workflowDefinition: Record<string, unknown>
+): Promise<Record<string, unknown>> {
   // Simulate LLM API call to generate scenario-specific input
   await new Promise(resolve => setTimeout(resolve, 1500));
 
@@ -454,9 +468,10 @@ export async function generateTestInputForScenario(
 
     case 'boundary':
       if (scenario.name.includes('Large Payload')) {
+        const firstItem = (originalInput.items as unknown[])?.[0] || { itemId: 'ITEM001', quantity: 1, price: 10 };
         testInput = {
           ...originalInput,
-          items: Array(100).fill(originalInput.items?.[0] || { itemId: 'ITEM001', quantity: 1, price: 10 }),
+          items: new Array(100).fill(firstItem),
           _testScenario: scenario.name,
           _expectedOutcome: 'success',
         };
@@ -479,10 +494,10 @@ export async function generateTestInputForScenario(
  */
 export async function executeWorkflowOnConductor(
   workflowName: string,
-  inputJson: any,
+  inputJson: Record<string, unknown>,
   conductorUrl: string, // Now required, comes from settings
   conductorApiKey?: string // Now optional, comes from settings
-): Promise<any> {
+): Promise<Record<string, unknown>> {
   try {
     const headers: HeadersInit = {
       'Content-Type': 'application/json',

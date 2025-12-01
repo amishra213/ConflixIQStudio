@@ -93,7 +93,7 @@ export const createApolloClient = (conductorUrl?: string, apiKey?: string) => {
                 url: finalConductorUrl,
                 status: 200,
                 duration,
-                responseBody: result.data,
+                responseBody: result.data || undefined,
               });
             }
           } catch (logError) {
@@ -130,7 +130,7 @@ export const createApolloClient = (conductorUrl?: string, apiKey?: string) => {
     });
   });
 
-  const errorLink = new ErrorLink(({ error, operation }) => {
+  const errorLink = new ErrorLink(({ error }) => {
     // Just log to console - actual logging is handled by loggingLink to avoid duplicates
     if (CombinedGraphQLErrors.is(error)) {
       for (const { message, locations, path } of error.errors) {

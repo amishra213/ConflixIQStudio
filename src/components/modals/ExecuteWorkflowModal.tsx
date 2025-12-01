@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -18,7 +18,7 @@ interface ExecuteWorkflowModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   workflow: Workflow | null;
-  onExecute: (workflowId: string, input: any) => void;
+  onExecute: (workflowId: string, input: Record<string, unknown>) => void;
 }
 
 const defaultInputTemplate = {
@@ -63,19 +63,19 @@ export function ExecuteWorkflowModal({
     setErrorLine(result.errorLine);
   };
 
-  const handleInputChange = (value: string) => {
-    setInputJson(value);
-    updateLineNumbers(value);
-    validateJson(value);
-  };
-
   const [errorLine, setErrorLine] = useState<number | null>(null);
 
-  const updateLineNumbers = (text: string) => {
+  const updateLineNumbers = useCallback((text: string) => {
     const lines = text.split('\n').length;
     if (lineNumbersRef.current) {
       lineNumbersRef.current.innerHTML = generateLineNumbersHtml(lines, errorLine);
     }
+  }, [errorLine]);
+
+  const handleInputChange = (value: string) => {
+    setInputJson(value);
+    updateLineNumbers(value);
+    validateJson(value);
   };
 
   const handleScroll = () => {
@@ -88,7 +88,7 @@ export function ExecuteWorkflowModal({
     if (open && inputJson) {
       updateLineNumbers(inputJson);
     }
-  }, [open, inputJson, errorLine]);
+  }, [open, inputJson, errorLine, updateLineNumbers]);
 
   const handleExecute = () => {
     if (!workflow) return;

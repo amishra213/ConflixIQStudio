@@ -9,7 +9,7 @@ export interface SetVariableConfig extends BaseTaskConfig {
   taskRefId: string;
   name?: string;
   taskType: 'SET_VARIABLE';
-  variablesToSet?: Record<string, any>;
+  variablesToSet?: Record<string, unknown>;
   description?: string;
 }
 
@@ -98,7 +98,7 @@ export function SetVariableModal({ open, onOpenChange, onSave }: SetVariableModa
   );
 
   const handleSaveWithVariables = (finalConfig: SetVariableConfig) => {
-    const variablesToSet: Record<string, any> = {};
+    const variablesToSet: Record<string, unknown> = {};
     for (const v of variables) {
       if (v.key && v.value) {
         try {

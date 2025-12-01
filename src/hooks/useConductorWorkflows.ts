@@ -7,7 +7,7 @@ export const useConductorWorkflows = () => {
   const { proxyServer, conductorApi } = useSettingsStore();
   const isConnected = proxyServer.enabled || !!conductorApi.endpoint;
   
-  type WorkflowsQueryResult = { workflows: any[] }; // Replace 'any' with your actual workflow type if available
+  type WorkflowsQueryResult = { workflows: Record<string, unknown>[] };
   const { data: workflowsData, loading: workflowsLoading, error: workflowsError, refetch: refetchWorkflows } = useQuery<WorkflowsQueryResult>(GET_WORKFLOWS, {
     variables: { limit: 100, offset: 0 },
     skip: !isConnected,
@@ -35,7 +35,7 @@ export const useWorkflowDetails = (name: string, version?: number) => {
   const { proxyServer, conductorApi } = useSettingsStore();
   const isConnected = proxyServer.enabled || !!conductorApi.endpoint;
   
-  type WorkflowByNameQueryResult = { workflow: any }; // Replace 'any' with your actual workflow type if available
+  type WorkflowByNameQueryResult = { workflow: Record<string, unknown> };
   const { data, loading, error, refetch } = useQuery<WorkflowByNameQueryResult>(GET_WORKFLOW_BY_NAME, {
     variables: { name, version },
     skip: !name || !isConnected,
@@ -53,7 +53,7 @@ export const useWorkflowExecutions = (workflowName: string, limit: number = 50) 
   const { proxyServer, conductorApi } = useSettingsStore();
   const isConnected = proxyServer.enabled || !!conductorApi.endpoint;
   
-  type WorkflowExecutionsQueryResult = { workflowExecutions: any[] }; // Replace 'any' with your actual execution type if available
+  type WorkflowExecutionsQueryResult = { workflowExecutions: Record<string, unknown>[] };
   const { data, loading, error, refetch } = useQuery<WorkflowExecutionsQueryResult>(GET_WORKFLOW_EXECUTIONS, {
     variables: { workflowName, limit },
     skip: !workflowName || !isConnected,

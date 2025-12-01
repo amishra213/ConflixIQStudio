@@ -124,7 +124,7 @@ export interface CanvasNode {
   y: number;
   width: number;
   height: number;
-  config?: unknown;
+  config?: Record<string, unknown>;
 }
 
 export interface CanvasEdge {

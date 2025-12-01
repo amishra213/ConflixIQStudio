@@ -44,7 +44,7 @@ interface SimpleTaskCreateModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSave: (config: SimpleTaskDefinitionConfig) => void;
-  initialConfig?: any;
+  initialConfig?: SimpleTaskDefinitionConfig;
 }
 
 export function SimpleTaskCreateModal({

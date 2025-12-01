@@ -76,7 +76,7 @@ import { Node } from 'reactflow';
       filterConditions: FilterConditions;
       validationConditions: ValidationConditions[];
       customEvaluation?: boolean;
-      customEvaluatorParams?: Record<string, any>;
+      customEvaluatorParams?: Record<string, unknown>;
     }
 
     // Union type for all possible configurations
@@ -89,7 +89,7 @@ import { Node } from 'reactflow';
       taskName: string;
       color?: string;
       sequenceNo?: number;
-      config?: any;
+      config?: Record<string, unknown>;
       onEdit?: (nodeId: string) => void;
       onDelete?: (nodeId: string) => void;
     }

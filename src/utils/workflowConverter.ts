@@ -306,7 +306,7 @@ function createTaskObject(
   finalCleanConfig: Record<string, unknown>
 ): Record<string, unknown> {
   // Extract the task type from either taskType or type field
-  let taskType = (node.data?.taskType || node.data?.type || finalCleanConfig.type) as string;
+  const taskType = (node.data?.taskType || node.data?.type || finalCleanConfig.type) as string;
   
   // Ensure we have a valid type - Conductor requires this field
   if (!taskType) {

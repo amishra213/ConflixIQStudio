@@ -31,12 +31,12 @@ export default function Tasks() { // Default export
 
   const { createTaskDefinition } = useConductorApi();
 
-  const handleSaveHttpTask = async (config: any) => {
+  const handleSaveHttpTask = async (config: Record<string, unknown>) => {
     try {
       // Create task definition in Conductor
       const success = await createTaskDefinition(config);
       if (success) {
-        addTask({ id: `task-${Date.now()}`, name: config.name || config.taskId, type: 'HTTP', description: 'HTTP worker task' });
+        addTask({ id: `task-${Date.now()}`, name: (config.name as string) || (config.taskId as string), type: 'HTTP', description: 'HTTP worker task' });
         toast({ title: 'Success', description: 'HTTP task created successfully.' });
       } else {
         toast({ 

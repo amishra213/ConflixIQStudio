@@ -46,7 +46,7 @@ interface DashboardState {
   executionStats: ExecutionStats;
   totalTasks: number;
   metricsData: MetricsData;
-  workflowNodes: any[];
+  workflowNodes: Record<string, unknown>[];
   fetchDashboardData: () => void;
 }
 

@@ -15,9 +15,9 @@ export interface StartWorkflowConfig extends BaseTaskConfig {
       name: string;
       version?: number;
       correlationId?: string;
-      input?: Record<string, any>;
+      input?: Record<string, unknown>;
       taskToDomain?: Record<string, string>;
-      workflowDef?: Record<string, any>;
+      workflowDef?: Record<string, unknown>;
     };
   };
 }
@@ -226,7 +226,7 @@ export function StartWorkflowModal({
 
   const handleSaveWithInputParameters = (finalConfig: StartWorkflowConfig) => {
     // Parse workflow input
-    let input: Record<string, any> = {};
+    let input: Record<string, unknown> = {};
     if (workflowInput.trim()) {
       try {
         input = JSON.parse(workflowInput);
@@ -246,7 +246,7 @@ export function StartWorkflowModal({
     }
 
     // Parse workflowDef if provided
-    let workflowDefObj: Record<string, any> | undefined = undefined;
+    let workflowDefObj: Record<string, unknown> | undefined = undefined;
     if (workflowDef.trim()) {
       try {
         workflowDefObj = JSON.parse(workflowDef);
