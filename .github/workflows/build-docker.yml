@@ -69,6 +69,9 @@ jobs:
     if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/tags/'))
     permissions:
       contents: read
+    strategy:
+      matrix:
+        platform: [linux/amd64, linux/arm64]
 
     steps:
       - name: Checkout code
@@ -77,13 +80,19 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Build Docker image
+      - name: Set platform name
+        id: platform
+        run: |
+          PLATFORM_NAME=$(echo "${{ matrix.platform }}" | sed 's/\//-/g')
+          echo "name=$PLATFORM_NAME" >> $GITHUB_OUTPUT
+
+      - name: Build Docker image for ${{ matrix.platform }}
         uses: docker/build-push-action@v5
         with:
           context: .
           push: false
-          outputs: type=docker,dest=/tmp/image.tar
-          platforms: linux/amd64,linux/arm64
+          outputs: type=docker,dest=/tmp/image-${{ steps.platform.outputs.name }}.tar
+          platforms: ${{ matrix.platform }}
 
       - name: Create version tag
         id: version
@@ -98,8 +107,8 @@ jobs:
       - name: Upload TAR artifact
         uses: actions/upload-artifact@v4
         with:
-          name: docker-image-${{ steps.version.outputs.version }}
-          path: /tmp/image.tar
+          name: docker-image-${{ steps.platform.outputs.name }}-${{ steps.version.outputs.version }}
+          path: /tmp/image-${{ steps.platform.outputs.name }}.tar
           if-no-files-found: warn
           retention-days: 30
 
@@ -107,7 +116,7 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v1
         with:
-          files: /tmp/image.tar
+          files: /tmp/image-${{ steps.platform.outputs.name }}.tar
           draft: false
           prerelease: false
           generate_release_notes: true
