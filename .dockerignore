@@ -41,5 +41,9 @@ coverage/
 # File store (local caches)
 .filestore/
 
+# Logs (will be created in container, don't copy local logs)
+logs/
+*.log
+
 # GitHub Actions and CI
 .github/

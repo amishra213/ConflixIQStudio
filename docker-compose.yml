@@ -12,9 +12,12 @@ services:
     environment:
       - NODE_ENV=production
       - LOG_LEVEL=info
+      - VITE_LOG_FOLDER=/app/logs
     volumes:
       # Mount file store for persistence
       - conductor-filestore:/app/.filestore
+      # Mount logs for persistence and external access
+      - conductor-logs:/app/logs
       # Optional: Mount for local development
       # - .:/app (uncomment for development with hot reload setup)
     networks:
@@ -43,6 +46,7 @@ services:
 
 volumes:
   conductor-filestore:
+  conductor-logs:
   # conductor-db:
 
 networks:

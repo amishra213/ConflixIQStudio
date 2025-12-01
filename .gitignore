@@ -17,9 +17,6 @@ node_modules
 .build
 .build/*
 .build-metadata.json
-# Distribution files
-distribution
-distribution/*
 dist
 dist-ssr
 *.local

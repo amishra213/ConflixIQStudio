@@ -22,6 +22,7 @@ const DIST_DIR = path.join(ROOT_DIR, 'dist');
 const BUILD_DIR = path.join(ROOT_DIR, '.build');
 const SEA_DIR = path.join(BUILD_DIR, 'sea');
 const RESOURCES_DIR = path.join(ROOT_DIR, 'resources');
+const LOGS_DIR = path.join(ROOT_DIR, 'logs');
 
 interface SEABuildOptions {
   outputName: string;
@@ -31,16 +32,50 @@ interface SEABuildOptions {
   compress: boolean;
 }
 
+// Initialize logs directory
+function _initLogsDirectory(): void {
+  if (!fs.existsSync(LOGS_DIR)) {
+    fs.mkdirSync(LOGS_DIR, { recursive: true });
+  }
+}
+
+// Get current build log file path
+function getBuildLogPath(): string {
+  const timestamp = new Date().toISOString().replaceAll(/[:.]/g, '-').slice(0, -4);
+  return path.join(LOGS_DIR, `sea-build-${timestamp}.log`);
+}
+
+let logFilePath: string = '';
+
+function writeToLogFile(message: string): void {
+  if (!logFilePath) {
+    logFilePath = getBuildLogPath();
+  }
+  
+  // Write to file immediately for real-time logging
+  try {
+    fs.appendFileSync(logFilePath, message + '\n');
+  } catch {
+    // Silently fail if we can't write to log file, logging is best-effort
+  }
+}
+
 function log(message: string) {
-  console.log(`[SEA Builder] ${message}`);
+  const formattedMessage = `[SEA Builder] ${message}`;
+  console.log(formattedMessage);
+  writeToLogFile(formattedMessage);
 }
 
 function error(message: string) {
-  console.error(`[SEA ERROR] ${message}`);
+  const formattedMessage = `[SEA ERROR] ${message}`;
+  console.error(formattedMessage);
+  writeToLogFile(formattedMessage);
 }
 
 function success(message: string) {
-  console.log(`[SEA ✓] ${message}`);
+  const formattedMessage = `[SEA ✓] ${message}`;
+  console.log(formattedMessage);
+  writeToLogFile(formattedMessage);
 }
 
 /**
@@ -108,6 +143,8 @@ function prepareBundle(options: SEABuildOptions): string {
     'resolvers.js',
     'schema.js',
     'package.json',
+    'Dockerfile',  // Add Dockerfile for Docker builds
+    '.dockerignore', // Add .dockerignore
   ];
 
   for (const file of backendFiles) {
@@ -130,130 +167,138 @@ function prepareBundle(options: SEABuildOptions): string {
     log('Copied UI distribution');
   }
 
-  // Create SEA entry point
-  const seaEntry = `#!/usr/bin/env node
-import('./index.js').catch(err => {
-  console.error('Failed to start application:', err);
-  process.exit(1);
-});
-`;
-
-  fs.writeFileSync(path.join(SEA_DIR, 'sea-entry.js'), seaEntry);
-  log('Created SEA entry point');
-
   return SEA_DIR;
 }
 
 /**
- * Create SEA config for bundling
+ * Copy dependencies to SEA bundle
  */
-function createSEAConfig(_bundleDir: string, _options: SEABuildOptions) {
+function copyDependenciesToBundle(bundleDir: string): void {
+  const sourceNodeModules = path.join(ROOT_DIR, 'node_modules');
+  const targetNodeModules = path.join(bundleDir, 'node_modules');
+  
+  if (!fs.existsSync(sourceNodeModules)) {
+    log('⚠️  node_modules not found in source directory, installing...');
+    try {
+      execSync('npm install --production', {
+        cwd: ROOT_DIR,
+        stdio: 'pipe',
+      });
+    } catch (err) {
+      error(`Failed to install dependencies: ${err}`);
+      throw err;
+    }
+  }
+  
+  if (fs.existsSync(targetNodeModules)) {
+    log('Removing existing node_modules in bundle...');
+    fs.rmSync(targetNodeModules, { recursive: true, force: true });
+  }
+  
+  log('Copying production dependencies to bundle (this may take a moment)...');
+  try {
+    // Copy node_modules
+    fs.cpSync(sourceNodeModules, targetNodeModules, { 
+      recursive: true,
+      force: true,
+    });
+    
+    const sizeInMB = (getDirectorySizeSync(targetNodeModules) / 1024 / 1024).toFixed(2);
+    success(`✅ Dependencies copied to bundle (${sizeInMB} MB)`);
+  } catch (err) {
+    error(`Failed to copy node_modules: ${err}`);
+    throw err;
+  }
+}
+
+/**
+ * Get directory size synchronously
+ */
+function getDirectorySizeSync(dirPath: string): number {
+  let size = 0;
+  const files = fs.readdirSync(dirPath, { withFileTypes: true });
+  
+  for (const file of files) {
+    const fullPath = path.join(dirPath, file.name);
+    if (file.isDirectory()) {
+      size += getDirectorySizeSync(fullPath);
+    } else {
+      size += fs.statSync(fullPath).size;
+    }
+  }
+  
+  return size;
+}
+
+/**
+ * Create SEA config for bundling with proper Node.js SEA format
+ */
+function createSEAConfig(bundleScriptPath: string): string {
   const configPath = path.join(BUILD_DIR, 'sea-config.json');
 
+  // Resolve to absolute path if not already
+  const absoluteBundlePath = path.isAbsolute(bundleScriptPath) 
+    ? bundleScriptPath 
+    : path.resolve(BUILD_DIR, bundleScriptPath);
+
   const config = {
-    main: 'sea-entry.js',
-    output: path.join(BUILD_DIR, 'sea-bundle.blob'),
+    main: absoluteBundlePath,
+    output: path.join(BUILD_DIR, 'sea-prep.blob'),
     disableExperimentalSEAWarning: true,
     useSnapshot: false,
+    useCodeCache: true,
   };
 
   fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
-  log(`Created SEA config: ${configPath}`);
+  log('✅ SEA configuration created');
+  log(`   Entry point: ${absoluteBundlePath}`);
 
   return configPath;
 }
 
 /**
- * Prepare Node.js for SEA building (copy necessary files)
+ * Generate SEA Blob using Node.js built-in SEA generation
  */
-function prepareNodeJS(): string {
-  log('Preparing Node.js for SEA...');
-
-  const nodeExePath = process.execPath;
-  log(`Using Node.js: ${nodeExePath}`);
-
-  // We'll use the current Node.js executable as the base
-  return nodeExePath;
-}
-
-/**
- * Generate SEA Blob - simplified approach without binary serialization
- */
-function generateSEABlob(bundleDir: string, _configPath: string): string {
-  log('Preparing SEA bundle...');
-
-  const blobPath = path.join(BUILD_DIR, 'sea-bundle.blob');
-
-  // Scan and record files
-  function scanDir(dir: string, files: string[], prefix = ''): void {
-    const entries = fs.readdirSync(dir, { withFileTypes: true });
-    for (const entry of entries) {
-      if (entry.isDirectory()) {
-        scanDir(path.join(dir, entry.name), files, prefix + entry.name + '/');
-      } else {
-        files.push(prefix + entry.name);
-      }
-    }
-  }
-
+function generateSEABlob(configPath: string): string {
   try {
-    // For Node.js SEA, we create a manifest of the bundled files
-    const files: string[] = [];
-    scanDir(bundleDir, files);
+    // Use Node.js built-in SEA generation with --experimental-sea-config
+    execSync(`node --experimental-sea-config "${configPath}"`, {
+      stdio: 'inherit',
+      cwd: BUILD_DIR,
+    });
 
-    const bundleManifest = {
-      timestamp: new Date().toISOString(),
-      bundleDir: bundleDir,
-      files: files
-    };
+    const blobPath = path.join(BUILD_DIR, 'sea-prep.blob');
+    
+    if (!fs.existsSync(blobPath)) {
+      throw new Error('SEA blob was not generated');
+    }
 
-    // Write manifest as JSON blob
-    fs.writeFileSync(blobPath, JSON.stringify(bundleManifest, null, 2));
-    success(`SEA bundle prepared: ${blobPath} (${bundleManifest.files.length} files)`);
+    success('✅ SEA blob generated');
     return blobPath;
   } catch (e) {
-    error(`Failed to prepare SEA bundle: ${e}`);
+    error(`Failed to generate SEA blob: ${e}`);
     throw e;
   }
 }
 
 /**
- * Inject SEA blob into Node.js executable (Windows)
+ * Inject SEA blob into Windows executable using postject
  */
-function injectSEAWindows(nodeExePath: string, blobPath: string, outputPath: string) {
-  log('Injecting SEA blob into Windows executable...');
+function injectSEABlobWindows(nodeExePath: string, blobPath: string, outputExePath: string): void {
+  log('🔧 Step 4: Injecting SEA blob (Windows)...');
 
   try {
-    // Copy Node.js executable as base
-    fs.copyFileSync(nodeExePath, outputPath);
-    log(`Created base executable: ${outputPath}`);
+    // Copy Node.js binary to output location
+    fs.copyFileSync(nodeExePath, outputExePath);
+    log(`Copied Node.js binary to: ${outputExePath}`);
+    
+    // Inject using postject via npx
+    execSync(
+      `npx postject "${outputExePath}" NODE_SEA_BLOB "${blobPath}" --sentinel-fuse NODE_SEA_FUSE_fce680ab2cc467b6e072b8b5df1996b2`,
+      { stdio: 'inherit' }
+    );
 
-    // In a real scenario, you would use nodeseautils or similar to inject the blob
-    // For now, we'll create a wrapper that runs with the blob
-    // This is a simplified approach - production would use:
-    // npm install -D nodeseautils
-    // then use: postject <executable> NODE_SEA_BLOB sea-bundle.blob
-
-    const wrapperCode = `
-@echo off
-setlocal enabledelayedexpansion
-
-REM Conductor Designer - Node.js SEA Executable
-REM This runs the embedded Node.js application
-
-set SCRIPT_DIR=%~dp0
-set NODE_PATH=%SCRIPT_DIR%node_modules
-set NODE_EXTRA_CA_CERTS=%SCRIPT_DIR%certs
-
-cd /d %SCRIPT_DIR%
-node index.js %*
-`;
-
-    const batWrapper = outputPath.replace('.exe', '-run.bat');
-    fs.writeFileSync(batWrapper, wrapperCode);
-
-    log(`Created batch wrapper: ${batWrapper}`);
-    success(`Windows executable prepared: ${outputPath}`);
+    success(`✅ SEA blob injected successfully: ${outputExePath}`);
   } catch (e) {
     error(`Failed to inject SEA blob: ${e}`);
     throw e;
@@ -364,34 +409,106 @@ function copyEssentialFiles(sourceDir: string, targetDir: string): void {
 /**
  * Copy dependencies and dist folders
  */
+/**
+ * Copy node_modules to target directory
+ */
+function copyNodeModulesToTarget(sourceDir: string, targetDir: string): void {
+  const nmPath = path.join(sourceDir, 'node_modules');
+  const targetNm = path.join(targetDir, 'node_modules');
+  
+  if (!fs.existsSync(nmPath)) {
+    log('Warning: node_modules not found in source directory');
+    return;
+  }
+  
+  log('Copying production dependencies to output directory...');
+  
+  if (fs.existsSync(targetNm)) {
+    log('Removing existing node_modules in target...');
+    fs.rmSync(targetNm, { recursive: true, force: true });
+  }
+  
+  try {
+    // Copy node_modules directly for faster distribution
+    fs.cpSync(nmPath, targetNm, { recursive: true, force: true });
+    const sizeInMB = (getDirectorySizeSync(targetNm) / 1024 / 1024).toFixed(2);
+    success(`Production dependencies copied to output (${sizeInMB} MB)`);
+  } catch (err_) {
+    error(`Failed to copy node_modules: ${err_ instanceof Error ? err_.message : 'unknown error'}`);
+    tryInstallVianpm(sourceDir, targetDir);
+  }
+}
+
+/**
+ * Attempt to install dependencies via npm
+ */
+function tryInstallVianpm(sourceDir: string, targetDir: string): void {
+  log('Attempting npm install as fallback...');
+  
+  try {
+    // Copy package.json and run npm install
+    const pkgJson = path.join(sourceDir, 'package.json');
+    const targetPkg = path.join(targetDir, 'package.json');
+    if (fs.existsSync(pkgJson)) {
+      fs.copyFileSync(pkgJson, targetPkg);
+    }
+    
+    execSync('npm install --omit=dev --production', {
+      cwd: targetDir,
+      stdio: 'pipe',
+    });
+    success('Production dependencies installed via npm');
+  } catch (error_) {
+    error(`npm install also failed: ${error_ instanceof Error ? error_.message : 'unknown error'}`);
+    log('Warning: node_modules may not be in output directory');
+  }
+}
+
 function copyLargeFolders(sourceDir: string, targetDir: string): void {
-  // Copy dist folder - but skip if target is already inside dist
+  // Copy dist folder contents (React UI build) to target
+  // Need to copy the UI files (index.html, assets) but not sea-build folders
   const distSrc = path.join(sourceDir, 'dist');
   const distDest = path.join(targetDir, 'dist');
   
-  // Check if target directory is already inside dist (avoid self-copy)
-  const isTargetInDist = targetDir.startsWith(distSrc);
-  
-  if (fs.existsSync(distSrc) && !isTargetInDist) {
-    if (fs.existsSync(distDest)) {
-      fs.rmSync(distDest, { recursive: true });
+  if (fs.existsSync(distSrc)) {
+    log('Copying React UI build (dist folder contents)...');
+    
+    // Create dist destination
+    if (!fs.existsSync(distDest)) {
+      fs.mkdirSync(distDest, { recursive: true });
     }
-    fs.cpSync(distSrc, distDest, { recursive: true });
-    log('Copied dist folder');
+    
+    // Copy only the UI files from dist root, not sea-build-* folders
+    const distContents = fs.readdirSync(distSrc);
+    for (const item of distContents) {
+      // Skip sea-build folders to avoid recursive copying
+      if (item.startsWith('sea-build-')) {
+        continue;
+      }
+      
+      const srcItem = path.join(distSrc, item);
+      const destItem = path.join(distDest, item);
+      
+      const stat = fs.statSync(srcItem);
+      if (stat.isDirectory()) {
+        fs.cpSync(srcItem, destItem, { recursive: true });
+      } else {
+        fs.copyFileSync(srcItem, destItem);
+      }
+    }
+    success('React UI copied to dist/ folder');
+  } else {
+    log('Warning: dist folder not found - UI may not be built yet');
   }
 
-  // Copy node_modules
-  const nmPath = path.join(sourceDir, 'node_modules');
-  if (fs.existsSync(nmPath)) {
-    log('Copying node_modules (this may take a moment)...');
-    fs.cpSync(nmPath, path.join(targetDir, 'node_modules'), { recursive: true });
-  }
+  // Copy node_modules to output directory for distribution
+  copyNodeModulesToTarget(sourceDir, targetDir);
 }
 
 /**
  * Create ZIP archive from output directory
  */
-function createZipArchive(sourceDir: string, targetDir: string, zipName: string): string {
+function createZipArchive(sourceDir: string, targetDir: string, zipName: string, buildNumber: string): string {
   const zipPath = path.join(targetDir, zipName);
   const tempZipDir = path.join(targetDir, 'temp-zip-content');
   
@@ -400,8 +517,32 @@ function createZipArchive(sourceDir: string, targetDir: string, zipName: string)
   }
   fs.mkdirSync(tempZipDir, { recursive: true });
   
-  // Copy all files from source to temp
-  fs.cpSync(sourceDir, tempZipDir, { recursive: true });
+  // Copy only specific files and folders to ZIP
+  const filesToZip = [
+    `conductor-designer-build-${buildNumber}.exe`,
+    'launcher.js',
+    'index.js',
+    'fileStoreServer.js',
+    'server-logger.js',
+    'resolvers.js',
+    'schema.js',
+    'package.json',
+    'dist',
+    'node_modules',
+  ];
+
+  for (const item of filesToZip) {
+    const srcItem = path.join(sourceDir, item);
+    if (fs.existsSync(srcItem)) {
+      const destItem = path.join(tempZipDir, item);
+      const stat = fs.statSync(srcItem);
+      if (stat.isDirectory()) {
+        fs.cpSync(srcItem, destItem, { recursive: true });
+      } else {
+        fs.copyFileSync(srcItem, destItem);
+      }
+    }
+  }
   
   const cmd = process.platform === 'win32'
     ? `powershell -Command "Add-Type -AssemblyName 'System.IO.Compression.FileSystem'; [System.IO.Compression.ZipFile]::CreateFromDirectory('${tempZipDir}', '${zipPath}')"` 
@@ -416,91 +557,95 @@ function createZipArchive(sourceDir: string, targetDir: string, zipName: string)
 /**
  * Clean up intermediate files from output directory
  */
-function cleanupIntermediateFiles(targetDir: string): void {
-  const filesToRemove = [
-    'index.js',
-    'fileStoreServer.js',
-    'server-logger.js',
-    'resolvers.js',
-    'schema.js',
-    'package.json',
-    'dist',
-    'node_modules',
-  ];
-
-  for (const file of filesToRemove) {
-    const filePath = path.join(targetDir, file);
-    if (fs.existsSync(filePath)) {
-      const stat = fs.statSync(filePath);
-      if (stat.isDirectory()) {
-        fs.rmSync(filePath, { recursive: true });
-      } else {
-        fs.unlinkSync(filePath);
-      }
-    }
-  }
+/**
+ * Clean up intermediate files from output directory (but keep distribution files)
+ */
+function cleanupIntermediateFiles(_targetDir: string): void {
+  // Don't remove anything - the EXE needs all the files to run
+  // The launcher loads index.js and other files from the filesystem
+  // Only the launcher itself is embedded in the SEA blob
+  
+  log('Distribution files preserved (all files needed for execution)');
+  
+  // Note: We could remove package.json as it's not needed at runtime,
+  // but keeping it helps with troubleshooting and doesn't take much space
 }
 
 function buildWindowsEXE(options: SEABuildOptions): string[] {
-  log('=== Building Windows EXE with Node.js SEA ===');
+  log('🚀 Building Windows EXE with Node.js SEA');
 
   try {
     // Get next build number
     const buildNumber = getNextBuildNumber();
     const buildPadded = String(buildNumber).padStart(3, '0');
-    log(`Build number: ${buildPadded}`);
+    log(`\n📋 Build number: ${buildPadded}`);
 
     // Prepare bundle
-    const bundleDir = prepareBundle(options);
-
+    prepareBundle(options);
+    
+    // Copy dependencies to bundle BEFORE generating SEA blob
+    log('\n📚 Step 1: Installing dependencies...');
+    copyDependenciesToBundle(SEA_DIR);
+    
+    // Create launcher script in the SEA bundle directory
+    const launcherPath = createLauncherScript(SEA_DIR);
+    const launcherRelPath = path.relative(BUILD_DIR, launcherPath);
+    
+    log('\n📋 Step 2: Creating SEA configuration...');
     // Create SEA config
-    const configPath = createSEAConfig(bundleDir, options);
-
-    // Prepare Node.js
-    const nodeExePath = prepareNodeJS();
-
-    // Generate SEA blob
-    const blobPath = generateSEABlob(bundleDir, configPath);
+    const configPath = createSEAConfig(launcherRelPath);
+    
+    log('\n📦 Step 3: Generating SEA blob...');
+    // Generate SEA blob using Node.js
+    const blobPath = generateSEABlob(configPath);
 
     // Create output directory
     if (!fs.existsSync(options.outputDir)) {
       fs.mkdirSync(options.outputDir, { recursive: true });
     }
 
+    // Get Node.js executable path
+    const nodeExePath = process.execPath;
+    
     // Create EXE with build number
     const exeName = `${options.outputName}-build-${buildPadded}.exe`;
     const exePath = path.join(options.outputDir, exeName);
-    injectSEAWindows(nodeExePath, blobPath, exePath);
-
-    // Create launcher script
-    const launcherPath = createLauncherScript(options.outputDir);
-    log(`Created launcher script: ${launcherPath}`);
+    
+    // Inject SEA blob into Node.js binary
+    injectSEABlobWindows(nodeExePath, blobPath, exePath);
+    
+    log(`\n📦 Packaging application files...`);
 
     // Copy files to output
     copyEssentialFiles(ROOT_DIR, options.outputDir);
     copyLargeFolders(ROOT_DIR, options.outputDir);
 
-    // Create batch wrapper for easy execution
-    const batName = `${options.outputName}-build-${buildPadded}.bat`;
-    const batPath = path.join(options.outputDir, batName);
-    const batContent = `@echo off
-cd /d "%~dp0"
-node launcher.js %*
-`;
-    fs.writeFileSync(batPath, batContent);
-    log(`Created batch wrapper: ${batPath}`);
-
     // Create ZIP archive
     const zipName = `${options.outputName}-build-${buildPadded}.zip`;
-    const zipPath = createZipArchive(options.outputDir, options.outputDir, zipName);
+    const zipPath = createZipArchive(options.outputDir, options.outputDir, zipName, buildPadded);
 
-    // Clean up intermediate files
+    // Verify distribution contents before cleanup
+    log('\n📋 Distribution Contents:');
+    const outputContents = fs.readdirSync(options.outputDir);
+    for (const item of outputContents) {
+      const itemPath = path.join(options.outputDir, item);
+      const stat = fs.statSync(itemPath);
+      if (stat.isDirectory()) {
+        const sizeMB = (getDirectorySizeSync(itemPath) / 1024 / 1024).toFixed(2);
+        log(`  📁 ${item}/ (${sizeMB} MB)`);
+      } else {
+        const sizeMB = (stat.size / 1024 / 1024).toFixed(2);
+        log(`  📄 ${item} (${sizeMB} MB)`);
+      }
+    }
+
+    // Clean up intermediate files (but keep node_modules and dist for distribution)
     cleanupIntermediateFiles(options.outputDir);
 
-    success(`Windows EXE archive created: ${zipPath}`);
-    success(`Build number: ${buildNumber}`);
+    success(`\n✅ Windows EXE created: ${exeName}`);
+    success(`📦 Build number: ${buildNumber}`);
 
-    return [exePath, batPath, zipPath];
+    return [exePath, zipPath];
   } catch (e) {
     error(`Windows build failed: ${e}`);
     return [];
@@ -527,20 +672,33 @@ function buildDockerImage(options: SEABuildOptions): string[] {
 
     // Also build Docker image
     log('Building Docker image with docker build...');
-    execSync(`docker build -t conductor-designer:sea-${Date.now()} "${bundleDir}"`, { stdio: 'inherit' });
-
-    // Export Docker image
-    const tarPath = path.join(options.outputDir, 'conductor-designer-portable.tar');
-    const tarGzPath = path.join(options.outputDir, 'conductor-designer-portable.tar.gz');
-
+    
+    // Determine which container tool to use
+    let dockerCmd = 'docker';
     try {
-      execSync(`docker save -o "${tarPath}" conductor-designer:latest`, { stdio: 'inherit' });
-      success(`Docker TAR exported: ${tarPath}`);
-    } catch (e) {
-      log(`Warning: Docker TAR export failed: ${e}`);
+      execSync('docker --version', { stdio: 'pipe' });
+    } catch {
+      // Try nerdctl (Rancher Desktop)
+      try {
+        execSync('nerdctl --version', { stdio: 'pipe' });
+        dockerCmd = 'nerdctl';
+        log('Using nerdctl instead of docker (Rancher Desktop detected)');
+      } catch {
+        log('Warning: Neither docker nor nerdctl found, skipping Docker image build');
+        return [jarPath].filter(p => fs.existsSync(p));
+      }
     }
 
-    return [jarPath, tarPath, tarGzPath].filter(p => fs.existsSync(p));
+    try {
+      execSync(`${dockerCmd} build -t conductor-designer:sea-${Date.now()} "${bundleDir}"`, { stdio: 'inherit' });
+      success(`Docker image built successfully`);
+    } catch (error_) {
+      error(`Docker build failed: ${error_}`);
+      log('Note: You can still use the JAR file directly with Docker');
+      // Don't fail the entire build, JAR is still usable
+    }
+
+    return [jarPath].filter(p => fs.existsSync(p));
   } catch (e) {
     error(`Docker build failed: ${e}`);
     return [];
@@ -666,65 +824,133 @@ function getNextBuildNumber(): number {
 
 /**
  * Create a launcher script that opens the browser
+ * This is the SEA entry point - it runs inside the embedded Node.js context
  */
 function createLauncherScript(outputDir: string): string {
   const launcherPath = path.join(outputDir, 'launcher.js');
 
   const launcherCode = `#!/usr/bin/env node
-import fs from 'node:fs';
-import path from 'node:path';
-import { exec } from 'node:child_process';
-import { fileURLToPath } from 'node:url';
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
+// Get filesystem and path utilities
+const fs = require('fs');
+const path = require('path');
+const { exec } = require('child_process');
+
+// Determine application directory
+// In SEA context, __dirname is the bundle root where all files are embedded
 const appDir = __dirname;
+console.log('[Launcher] Application directory:', appDir);
+console.log('[Launcher] Current working directory:', process.cwd());
+console.log('[Launcher] Node.js executable:', process.execPath);
 
-// Create required directories
+// Create runtime directories in the application directory (makes it portable)
 const filestoreDir = path.join(appDir, '.filestore');
 const logsDir = path.join(appDir, 'logs');
 
-if (!fs.existsSync(filestoreDir)) {
-  fs.mkdirSync(filestoreDir, { recursive: true });
-  console.log('Created .filestore directory');
+try {
+  if (!fs.existsSync(filestoreDir)) {
+    fs.mkdirSync(filestoreDir, { recursive: true });
+    console.log('[Launcher] Created .filestore directory at', filestoreDir);
+  }
+  if (!fs.existsSync(logsDir)) {
+    fs.mkdirSync(logsDir, { recursive: true });
+    console.log('[Launcher] Created logs directory at', logsDir);
+  }
+} catch (e) {
+  console.error('[Launcher] Error creating directories:', e.message);
 }
 
-if (!fs.existsSync(logsDir)) {
-  fs.mkdirSync(logsDir, { recursive: true });
-  console.log('Created logs directory');
-}
-
-// Set up environment
+// Set up environment variables
 process.env.NODE_ENV = 'production';
 process.env.PORT = process.env.PORT || '4000';
+process.env.FILESTORE_PATH = filestoreDir;
+process.env.LOGS_PATH = logsDir;
 
-// Import and start the server
-console.log('Starting Conductor Designer...');
+console.log('[Launcher] Starting Conductor Designer...');
+console.log('[Launcher] File store:', filestoreDir);
+console.log('[Launcher] Logs directory:', logsDir);
 
-// Dynamic import of the main app
-import('./index.js').then(() => {
-  const port = process.env.PORT || 4000;
-  const url = \`http://localhost:\${port}\`;
-  
-  // Wait a moment for server to start, then open browser
-  setTimeout(() => {
-    console.log(\`Opening browser at \${url}\`);
+// In SEA context, we can directly require the embedded index.js
+// since it's compiled into the bundle
+(async () => {
+  try {
+    // For CommonJS modules (like index.js), we can require directly
+    // But since index.js uses ES modules (import statements),
+    // we need to use dynamic import with proper URL handling
     
-    if (process.platform === 'win32') {
-      exec(\`start \${url}\`);
-    } else if (process.platform === 'darwin') {
-      exec(\`open \${url}\`);
-    } else {
-      exec(\`xdg-open \${url}\`);
-    }
-  }, 2000);
-}).catch(err => {
-  console.error('Failed to start application:', err);
-  process.exit(1);
-});
+    // Method 1: Try to require index.js directly (works if it's bundled as CommonJS)
+    console.log('[Launcher] Attempting to load index module...');
+    
+    // Create a dynamic import using the embedded file URL
+    // In SEA context, require resolves relative to __dirname (the bundle root)
+    const indexPath = path.join(appDir, 'index.js');
+    const indexUrl = require('url').pathToFileURL(indexPath).href;
+    
+    console.log('[Launcher] Index path:', indexPath);
+    console.log('[Launcher] Index URL:', indexUrl);
+    
+    // Use dynamic import to handle ES modules
+    const indexModule = await import(indexUrl);
+    console.log('[Launcher] Successfully loaded index module');
+    
+    // Give the server time to start before opening browser
+    const port = process.env.PORT || 4000;
+    const url = \`http://localhost:\${port}\`;
+    
+    setTimeout(() => {
+      console.log('[Launcher] Opening browser at', url);
+      
+      if (process.platform === 'win32') {
+        exec(\`start \${url}\`).on('error', (e) => {
+          console.log('[Launcher] Could not open browser:', e.message);
+        });
+      } else if (process.platform === 'darwin') {
+        exec(\`open \${url}\`).on('error', (e) => {
+          console.log('[Launcher] Could not open browser:', e.message);
+        });
+      } else {
+        exec(\`xdg-open \${url}\`).on('error', (e) => {
+          console.log('[Launcher] Could not open browser:', e.message);
+        });
+      }
+    }, 2000);
+    
+  } catch (err) {
+    console.error('[Launcher] Failed to start application:', err);
+    console.error('[Launcher] Stack trace:', err.stack);
+    process.exit(1);
+  }
+})();
 `;
 
   fs.writeFileSync(launcherPath, launcherCode);
   return launcherPath;
+}
+
+/**
+ * Build UI if needed, with smart caching
+ */
+function buildUIIfNeeded(includeUI: boolean, skipUIBuild: boolean): void {
+  if (includeUI && !skipUIBuild) {
+    const distIndexPath = path.join(DIST_DIR, 'index.html');
+    
+    // Skip UI build if dist folder already exists with index.html
+    if (fs.existsSync(distIndexPath)) {
+      log('UI already built (dist/index.html found), skipping build step');
+      log('Run "npm run build" manually if you need to rebuild the UI');
+    } else {
+      log('Building React UI...');
+      try {
+        execSync('npm run build', { cwd: ROOT_DIR, stdio: 'inherit' });
+        success('UI build completed');
+      } catch (e) {
+        error(`UI build failed: ${e}`);
+        log('Continuing without UI...');
+      }
+    }
+  } else if (skipUIBuild) {
+    log('Skipping UI build (--skip-ui-build flag)');
+  }
 }
 
 /**
@@ -735,11 +961,20 @@ async function main() {
   const target = (args[0] || 'all') as 'windows' | 'docker' | 'all';
   const includeUI = !args.includes('--no-ui');
   const compress = !args.includes('--no-compress');
+  const skipUIBuild = args.includes('--skip-ui-build');
+
+  // Initialize logs directory
+  _initLogsDirectory();
 
   log(`Starting SEA build process`);
+  log(`Build started at: ${new Date().toISOString()}`);
+  log(`Log file: ${logFilePath || getBuildLogPath()}`);
   log(`Target: ${target}`);
   log(`Include UI: ${includeUI}`);
   log(`Compression: ${compress}`);
+
+  // Build UI if needed
+  buildUIIfNeeded(includeUI, skipUIBuild);
 
   // Clean up old build artifacts before starting
   log('Cleaning up previous build artifacts...');
@@ -747,6 +982,16 @@ async function main() {
 
   const timestamp = new Date().toISOString().replaceAll(/[:.]/g, '-');
   const outputDir = path.join(ROOT_DIR, 'dist', `sea-build-${timestamp}`);
+
+  log(`\n📁 Build Output Structure:`);
+  log(`   dist/                           (React UI build output from "npm run build")`);
+  log(`   dist/sea-build-${timestamp}/    (SEA Build output - final deliverables)`);
+  log(`      ├── conductor-designer-build-XXX.exe`);
+  log(`      ├── conductor-designer-build-XXX.zip`);
+  log(`      ├── launcher.js, index.js, etc.`);
+  log(`      ├── node_modules/`);
+  log(`      └── dist/                   (Web UI files)`);
+  log('');
 
   const options: SEABuildOptions = {
     outputName: 'conductor-designer',
@@ -786,11 +1031,12 @@ async function main() {
     log('╚════════════════════════════════════════════╝');
     log(`Output Directory: ${outputDir}`);
     log(`Artifacts Generated: ${artifacts.length}`);
+    log(`Log File: ${logFilePath}`);
     log('');
     success('Build ready for distribution!');
   } catch (e) {
     error(`Build failed: ${e}`);
-    process.exit(1);
+    error(`Build log: ${logFilePath}`);
   }
 }
 

@@ -278,6 +278,11 @@ const typeDefs = gql`
   type WorkflowResponse {
     name: String
     version: Int
+    success: Boolean
+    error: String
+    errorDetails: String
+    errorCode: String
+    errorSeverity: String
   }
 
   type StartWorkflowResponse {

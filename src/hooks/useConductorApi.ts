@@ -940,8 +940,16 @@ export function useConductorApi(options: UseConductorApiOptions = {}) {
     }
   }, [proxyServer, deleteTaskDefinitionViaGraphQL, deleteTaskDefinitionViaRest]);
 
+  // Helper function to extract error message from various response formats
+  const extractErrorMessage = (responseData: Record<string, unknown>, status: number, statusText: string): string => {
+    if (responseData?.message) return responseData.message as string;
+    if (responseData?.errors && Array.isArray(responseData.errors)) {
+      return (responseData.errors[0] as Record<string, unknown>)?.message as string || `Failed to save workflow (${status}): ${statusText}`;
+    }
+    return `Failed to save workflow (${status}): ${statusText}`;
+  };
+
   const saveWorkflow = useCallback(async (workflowDef: unknown, isNew: boolean = false): Promise<boolean> => {
-    // Use GraphQL proxy endpoint if enabled
     if (!proxyServer.enabled || !proxyServer.proxyEndpoint) {
       console.error('GraphQL proxy not enabled. Cannot save workflow.');
       setError(new Error('GraphQL proxy not enabled'));
@@ -951,100 +959,243 @@ export function useConductorApi(options: UseConductorApiOptions = {}) {
     setLoading(true);
     setError(null);
 
-    try {
-      // Dynamically import APILogger for logging
-      const { APILogger } = await import('@/utils/apiLogger');
+    // Helper function to log and add HTTP errors
+    const handleHttpError = async (
+      response: Response,
+      responseData: Record<string, unknown>,
+      mutationType: string,
+      proxyEndpoint: string
+    ): Promise<void> => {
+      const { useDashboardStore } = await import('@/stores/dashboardStore');
+      const { useLoggingStore } = await import('@/stores/loggingStore');
+
+      const errorMessage = extractErrorMessage(responseData, response.status, response.statusText);
       
-      // Use createWorkflow mutation for new workflows, saveWorkflow for updates
+      useLoggingStore.getState().addLog({
+        type: 'error',
+        operation: mutationType,
+        method: 'POST',
+        url: proxyEndpoint,
+        status: response.status,
+        duration: 0,
+        error: errorMessage,
+        requestBody: { workflow: workflowDef as Record<string, unknown> },
+        responseBody: responseData,
+      });
+      
+      const workflowName = (workflowDef as Record<string, unknown>)?.name as string || 'Unknown Workflow';
+      useDashboardStore.getState().addError({
+        id: `error_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`,
+        message: errorMessage,
+        workflow: workflowName,
+        severity: 'high',
+        details: JSON.stringify(responseData, null, 2),
+        timestamp: new Date().toISOString()
+      });
+      
+      setError(new Error(errorMessage));
+    };
+
+    // Helper function to log and add GraphQL errors
+    const handleGraphQLError = async (
+      responseData: Record<string, unknown>,
+      mutationType: string,
+      proxyEndpoint: string
+    ): Promise<void> => {
+      const { useDashboardStore } = await import('@/stores/dashboardStore');
+      const { useLoggingStore } = await import('@/stores/loggingStore');
+
+      const errors = responseData.errors as Array<Record<string, unknown>>;
+      const errorMessage = errors[0]?.message as string || 'GraphQL error';
+      
+      useLoggingStore.getState().addLog({
+        type: 'error',
+        operation: mutationType,
+        method: 'POST',
+        url: proxyEndpoint,
+        status: 200,
+        duration: 0,
+        error: errorMessage,
+        requestBody: { workflow: workflowDef as Record<string, unknown> },
+        responseBody: responseData,
+      });
+      
+      const workflowName = (workflowDef as Record<string, unknown>)?.name as string || 'Unknown Workflow';
+      useDashboardStore.getState().addError({
+        id: `error_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`,
+        message: errorMessage,
+        workflow: workflowName,
+        severity: 'high',
+        details: errors.map(e => e.message).join('\n'),
+        timestamp: new Date().toISOString()
+      });
+      
+      setError(new Error(errorMessage));
+    };
+
+    // Helper function to handle missing workflow data
+    const handleNoDataError = async (
+      responseData: Record<string, unknown>,
+      response: Response,
+      mutationType: string,
+      proxyEndpoint: string
+    ): Promise<void> => {
+      const { useLoggingStore } = await import('@/stores/loggingStore');
+      const { useDashboardStore } = await import('@/stores/dashboardStore');
+      
+      useLoggingStore.getState().addLog({
+        type: 'error',
+        operation: mutationType,
+        method: 'POST',
+        url: proxyEndpoint,
+        status: response.status,
+        duration: 0,
+        error: 'No data returned from server',
+        requestBody: { workflow: workflowDef as Record<string, unknown> },
+        responseBody: responseData,
+      });
+      
+      const workflowName = (workflowDef as Record<string, unknown>)?.name as string || 'Unknown Workflow';
+      useDashboardStore.getState().addError({
+        id: `error_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`,
+        message: 'No data returned from server',
+        workflow: workflowName,
+        severity: 'high',
+        details: 'The server did not return workflow data after save operation',
+        timestamp: new Date().toISOString()
+      });
+      
+      setError(new Error('Failed to save workflow - No data returned'));
+    };
+
+    // Helper function to handle resolver errors
+    const handleResolverError = async (
+      workflowData: Record<string, unknown>,
+      responseData: Record<string, unknown>,
+      response: Response,
+      mutationType: string,
+      proxyEndpoint: string
+    ): Promise<void> => {
+      const { useLoggingStore } = await import('@/stores/loggingStore');
+      const { useDashboardStore } = await import('@/stores/dashboardStore');
+      
+      const errorMessage = workflowData.error as string;
+      const errorDetails = (workflowData.errorDetails as string) || 'No additional details';
+      const errorSeverity = (workflowData.errorSeverity as string) || 'high';
+      
+      useLoggingStore.getState().addLog({
+        type: 'error',
+        operation: mutationType,
+        method: 'POST',
+        url: proxyEndpoint,
+        status: response.status,
+        duration: 0,
+        error: `${errorMessage}: ${errorDetails}`,
+        requestBody: { workflow: workflowDef as Record<string, unknown> },
+        responseBody: responseData,
+      });
+      
+      useDashboardStore.getState().addError({
+        id: `error_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`,
+        message: errorMessage,
+        workflow: workflowData.name as string,
+        severity: errorSeverity as 'critical' | 'high' | 'medium',
+        details: errorDetails,
+        timestamp: new Date().toISOString()
+      });
+      
+      setError(new Error(errorMessage));
+    };
+
+    try {
+      const { APILogger } = await import('@/utils/apiLogger');
       const mutationType = isNew ? 'createWorkflow' : 'saveWorkflow';
       const mutation = `
         mutation ${isNew ? 'Create' : 'Save'}Workflow($workflow: WorkflowInput!) {
           ${mutationType}(workflow: $workflow) {
             name
             version
+            success
+            error
+            errorDetails
+            errorCode
+            errorSeverity
           }
         }
       `;
       
-      const headers: HeadersInit = {
-        'Content-Type': 'application/json',
-      };
+      const headers: HeadersInit = { 'Content-Type': 'application/json' };
       if (apiKey) {
         headers['X-Conductor-API-Key'] = apiKey;
       }
 
-      // Log the GraphQL request manually since we're using direct fetch
-      const requestBody = {
-        query: mutation,
-        variables: { workflow: workflowDef },
-      };
+      const requestBody = { query: mutation, variables: { workflow: workflowDef } };
       APILogger.logGraphQLRequest(mutation, { workflow: workflowDef as Record<string, unknown> }, proxyServer.proxyEndpoint);
 
       const startTime = performance.now();
-      
-      // Fetch interceptor will handle logging automatically
       const response = await fetch(`${proxyServer.proxyEndpoint}`, {
         method: 'POST',
         headers,
         body: JSON.stringify(requestBody),
       });
 
-      const responseData = await response.json();
+      const responseData = await response.json() as Record<string, unknown>;
       const duration = Math.round(performance.now() - startTime);
       
-      // Handle HTTP-level errors (non-200 status codes)
       if (!response.ok) {
-        let errorMessage = `Failed to save workflow (${response.status}): ${response.statusText}`;
-        if (responseData?.message) {
-          errorMessage = responseData.message;
-        } else if (responseData?.errors && Array.isArray(responseData.errors)) {
-          errorMessage = responseData.errors[0]?.message || errorMessage;
-        }
-        
-        // Log the error response
-        const errorDetails = {
-          message: errorMessage,
-          code: response.status,
-          errors: responseData?.errors || [responseData]
-        };
-        APILogger.logGraphQLError(mutation, errorDetails, duration, response.status, proxyServer.proxyEndpoint);
-        
-        const error = new Error(errorMessage);
-        setError(error);
-        console.error('Failed to save workflow - Full error:', responseData);
-        throw error;
+        await handleHttpError(response, responseData, mutationType, proxyServer.proxyEndpoint);
+        return false;
       }
       
-      // Handle GraphQL errors (200 response but with GraphQL errors)
       if (responseData.errors) {
-        const errorMessage = responseData.errors[0]?.message || 'GraphQL error';
-        
-        // Log the GraphQL error response
-        APILogger.logGraphQLError(mutation, { message: errorMessage, errors: responseData.errors }, duration, 200, proxyServer.proxyEndpoint);
-        
-        const error = new Error(errorMessage);
-        setError(error);
-        console.error('Failed to save workflow - GraphQL errors:', responseData.errors);
-        throw error;
+        await handleGraphQLError(responseData, mutationType, proxyServer.proxyEndpoint);
+        return false;
       }
 
-      // Log successful response
       APILogger.logGraphQLResponse(mutation, responseData, duration, response.status, proxyServer.proxyEndpoint);
 
-      // Check for successful response based on mutation type
-      const workflowData = isNew ? responseData.data?.createWorkflow : responseData.data?.saveWorkflow;
+      const workflowData = (isNew 
+        ? (responseData.data as Record<string, unknown>)?.createWorkflow 
+        : (responseData.data as Record<string, unknown>)?.saveWorkflow) as Record<string, unknown> | undefined;
+      
       if (!workflowData?.name) {
-        const error = new Error('Failed to save workflow - No data returned');
-        setError(error);
-        throw error;
+        await handleNoDataError(responseData, response, mutationType, proxyServer.proxyEndpoint);
+        return false;
+      }
+
+      if (workflowData.success === false && workflowData.error) {
+        await handleResolverError(workflowData, responseData, response, mutationType, proxyServer.proxyEndpoint);
+        return false;
       }
 
       return true;
     } catch (err) {
       const error = err as Error;
       setError(error);
-      console.error('Error in saveWorkflow:', error);
-      throw error;
+      
+      const workflowName = (workflowDef as Record<string, unknown>)?.name as string || 'Unknown Workflow';
+      const { useDashboardStore } = await import('@/stores/dashboardStore');
+      const { useLoggingStore } = await import('@/stores/loggingStore');
+      
+      useLoggingStore.getState().addLog({
+        type: 'error',
+        operation: isNew ? 'createWorkflow' : 'saveWorkflow',
+        method: 'POST',
+        url: proxyServer.proxyEndpoint,
+        error: error.message || 'An unexpected error occurred',
+        requestBody: { workflow: workflowDef as Record<string, unknown> },
+      });
+      
+      useDashboardStore.getState().addError({
+        id: `error_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`,
+        message: error.message || 'An unexpected error occurred',
+        workflow: workflowName,
+        severity: 'critical',
+        details: error.stack || error.message,
+        timestamp: new Date().toISOString()
+      });
+      
+      return false;
     } finally {
       setLoading(false);
     }

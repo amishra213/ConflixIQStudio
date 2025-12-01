@@ -42,8 +42,8 @@ COPY server-logger.js ./
 COPY resolvers.js ./
 COPY schema.js ./
 
-# Create directory for file store
-RUN mkdir -p /app/.filestore
+# Create directories for file store and logs
+RUN mkdir -p /app/.filestore /app/logs
 
 # Expose ports
 # 4000: Backend API server

@@ -1482,6 +1482,13 @@ export function WorkflowDesigner() {
 
     try {
       const success = await saveWorkflow(conductorWorkflow);
+      
+      // If saveWorkflow returns false, it means there was an error
+      // The error details are already logged to dashboard and logging store
+      if (!success) {
+        throw new Error('Failed to save workflow to Conductor server');
+      }
+      
       return success;
     } catch (error) {
       console.error('Failed to sync workflow to Conductor:', error);
@@ -1564,14 +1571,29 @@ export function WorkflowDesigner() {
     } catch (error) {
       console.error('Error saving workflow:', error);
       
-      // Extract detailed error message
-      const errorMessage = error instanceof Error ? error.message : 'Failed to save workflow';
+      // Import dashboard store to check for recent errors
+      const { useDashboardStore } = await import('@/stores/dashboardStore');
+      const recentErrors = useDashboardStore.getState().recentErrors;
       
-      // Show detailed error to user
+      // Get the most recent error (should be the one we just encountered)
+      const latestError = recentErrors.at(-1);
+      
+      // Extract detailed error message
+      let errorTitle = 'Failed to save workflow';
+      let errorDescription = error instanceof Error ? error.message : 'An unexpected error occurred';
+      
+      // Use the detailed error from dashboard store if available
+      if (latestError?.workflow === workflowName) {
+        errorTitle = latestError.message;
+        errorDescription = latestError.details;
+      }
+      
+      // Show detailed error to user with all available information
       toast({
-        title: 'Failed to save workflow',
-        description: errorMessage,
+        title: errorTitle,
+        description: errorDescription,
         variant: 'destructive',
+        duration: 10000, // Show for 10 seconds so user has time to read
       });
       
       // Save to cache as fallback
