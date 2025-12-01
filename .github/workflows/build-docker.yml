@@ -1,4 +1,4 @@
-name: Build and Push Docker Image
+name: Build Docker & Windows
 
 on:
   push:
@@ -63,15 +63,86 @@ jobs:
           cache-to: type=gha,mode=max
           platforms: linux/amd64,linux/arm64
 
+  build-windows:
+    name: Build Windows Executable
+    runs-on: windows-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Type check
+        run: npm run type-check
+
+      - name: Build web application
+        run: npm run build
+
+      - name: Build Windows executable
+        run: npm run electron-build
+        env:
+          TEMP: ${{ runner.temp }}\conductor-build-temp
+          TMP: ${{ runner.temp }}\conductor-build-temp
+          ELECTRON_CACHE: ${{ runner.temp }}\conductor-build-temp\electron-cache
+          ELECTRON_BUILDER_CACHE: ${{ runner.temp }}\conductor-build-temp\electron-builder-cache
+          npm_config_cache: ${{ runner.temp }}\conductor-build-temp\npm-cache
+          SKIP_NOTARIZATION: 'true'
+          ELECTRON_BUILDER_ALLOW_UNRESOLVED_DEPENDENCIES: 'true'
+
+      - name: Create ZIP archive
+        shell: powershell
+        run: |
+          $exePath = "dist\Conductor Designer-1.0.0-portable.exe"
+          $zipPath = "dist\Conductor Designer-1.0.0.zip"
+          if (Test-Path $exePath) {
+            Compress-Archive -Path $exePath -DestinationPath $zipPath -Force
+            Write-Host "✓ ZIP archive created: $zipPath"
+          } else {
+            Write-Host "⚠ EXE not found: $exePath"
+          }
+
+      - name: Upload Windows artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-builds
+          path: dist/
+          if-no-files-found: warn
+          retention-days: 30
+
+      - name: Create Release (on main/master push)
+        if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            dist/**/*.exe
+            dist/**/*.zip
+          draft: true
+          prerelease: false
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
   export-tar:
     name: Export Docker Image as TAR
     runs-on: ubuntu-latest
-    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/tags/'))
+    if: github.event_name == 'push'
     permissions:
       contents: read
     strategy:
       matrix:
-        platform: [linux/amd64, linux/arm64]
+        platform:
+          - { name: 'amd64', value: 'linux/amd64' }
+          - { name: 'arm64', value: 'linux/arm64' }
 
     steps:
       - name: Checkout code
@@ -80,19 +151,13 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Set platform name
-        id: platform
-        run: |
-          PLATFORM_NAME=$(echo "${{ matrix.platform }}" | sed 's/\//-/g')
-          echo "name=$PLATFORM_NAME" >> $GITHUB_OUTPUT
-
-      - name: Build Docker image for ${{ matrix.platform }}
+      - name: Build Docker image for ${{ matrix.platform.name }}
         uses: docker/build-push-action@v5
         with:
           context: .
           push: false
-          outputs: type=docker,dest=/tmp/image-${{ steps.platform.outputs.name }}.tar
-          platforms: ${{ matrix.platform }}
+          outputs: type=docker,dest=/tmp/image-${{ matrix.platform.name }}.tar
+          platforms: ${{ matrix.platform.value }}
 
       - name: Create version tag
         id: version
@@ -107,16 +172,16 @@ jobs:
       - name: Upload TAR artifact
         uses: actions/upload-artifact@v4
         with:
-          name: docker-image-${{ steps.platform.outputs.name }}-${{ steps.version.outputs.version }}
-          path: /tmp/image-${{ steps.platform.outputs.name }}.tar
+          name: docker-image-${{ matrix.platform.name }}-${{ steps.version.outputs.version }}
+          path: /tmp/image-${{ matrix.platform.name }}.tar
           if-no-files-found: warn
           retention-days: 30
 
       - name: Create Release with Docker TAR (on tag)
-        if: startsWith(github.ref, 'refs/tags/')
+        if: startsWith(github.ref, 'refs/tags/') || github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
         uses: softprops/action-gh-release@v1
         with:
-          files: /tmp/image-${{ steps.platform.outputs.name }}.tar
+          files: /tmp/image-${{ matrix.platform.name }}.tar
           draft: false
           prerelease: false
           generate_release_notes: true
