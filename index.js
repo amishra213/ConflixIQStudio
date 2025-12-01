@@ -1,5 +1,7 @@
 import dotenv from 'dotenv';
 import express from 'express';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { ApolloServer } from '@apollo/server';
 import { expressMiddleware } from '@apollo/server/express4';
 import cors from 'cors';
@@ -9,12 +11,17 @@ import { fileStoreRoutes } from './fileStoreServer.js';
 
 dotenv.config();
 
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
 const PORT = process.env.PORT || 4000;
 
 // Enable CORS for all origins
 app.use(cors());
 app.use(express.json());
+
+// Serve static files from dist directory (built React app)
+const distPath = path.join(__dirname, 'dist');
+app.use(express.static(distPath));
 
 // Configuration endpoint - allows dynamic configuration updates
 app.post('/api/config', (req, res) => {
@@ -113,6 +120,11 @@ app.get('/api/metadata/workflow', async (req, res) => {
 // Register filestore routes
 fileStoreRoutes(app);
 
+// SPA fallback - serve index.html for all unmatched routes
+app.get('*', (req, res) => {
+  res.sendFile(path.join(distPath, 'index.html'));
+});
+
 async function startApolloServer() {
   const server = new ApolloServer({
     typeDefs,
@@ -125,6 +137,7 @@ async function startApolloServer() {
   app.use('/graphql', expressMiddleware(server));
 
   app.listen(PORT, () => {
+    console.log(`🚀 Server running at http://localhost:${PORT}`);
     console.log(`🚀 GraphQL proxy server ready at http://localhost:${PORT}/graphql`);
     console.log(`📁 FileStore API ready at http://localhost:${PORT}/api/filestore`);
     console.log(`⚙️  Configuration API ready at http://localhost:${PORT}/api/config`);

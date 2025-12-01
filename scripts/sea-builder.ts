@@ -44,14 +44,56 @@ function success(message: string) {
 }
 
 /**
+ * Synchronous sleep function for retries
+ */
+function sleepSync(ms: number): void {
+  const end = Date.now() + ms;
+  while (Date.now() < end) {
+    // Busy wait
+  }
+}
+
+/**
+ * Robustly remove a directory with retries for locked files
+ */
+function removeDirectoryWithRetry(dirPath: string, maxRetries: number = 3): void {
+  if (!fs.existsSync(dirPath)) {
+    return;
+  }
+
+  for (let i = 0; i < maxRetries; i++) {
+    try {
+      // On Windows, clear read-only attributes
+      if (process.platform === 'win32') {
+        try {
+          execSync(`attrib -r /s /d "${dirPath}"`, { stdio: 'pipe' });
+        } catch {
+          // Ignore errors
+        }
+      }
+      
+      fs.rmSync(dirPath, { recursive: true, force: true });
+      return;
+    } catch (e) {
+      const isLastRetry = i === maxRetries - 1;
+      if (isLastRetry) {
+        error(`Failed to remove directory: ${(e as Error).message}`);
+      } else {
+        const waitTime = 500 * (i + 1);
+        log(`Retry ${i + 1}/${maxRetries - 1}: Waiting ${waitTime}ms...`);
+        sleepSync(waitTime);
+      }
+    }
+  }
+}
+
+/**
  * Prepare the SEA bundle with all necessary files
  */
 function prepareBundle(options: SEABuildOptions): string {
   log(`Preparing SEA bundle in ${SEA_DIR}`);
 
-  if (fs.existsSync(SEA_DIR)) {
-    fs.rmSync(SEA_DIR, { recursive: true });
-  }
+  removeDirectoryWithRetry(SEA_DIR);
   fs.mkdirSync(SEA_DIR, { recursive: true });
 
   // Create bundle structure
@@ -135,59 +177,42 @@ function prepareNodeJS(): string {
 }
 
 /**
- * Generate SEA Blob using node --experimental-sea-assets
+ * Generate SEA Blob - simplified approach without binary serialization
  */
 function generateSEABlob(bundleDir: string, _configPath: string): string {
-  log('Generating SEA blob...');
+  log('Preparing SEA bundle...');
 
   const blobPath = path.join(BUILD_DIR, 'sea-bundle.blob');
 
-  try {
-    // Create a temporary Node.js initialization that bundles everything
-    const bundleScript = path.join(BUILD_DIR, 'bundle-sea.js');
-
-    const bundleCode = `
-const fs = require('fs');
-const path = require('path');
-const bundleDir = ${JSON.stringify(bundleDir)};
-const outputPath = ${JSON.stringify(blobPath)};
-
-// Simulate SEA bundling by creating a frozen file system
-const bundledFiles = {};
-
-function scanDir(dir, prefix = '') {
-  const entries = fs.readdirSync(dir, { withFileTypes: true });
-  for (const entry of entries) {
-    if (entry.isDirectory()) {
-      scanDir(path.join(dir, entry.name), prefix + entry.name + '/');
-    } else {
-      const filePath = path.join(dir, entry.name);
-      const content = fs.readFileSync(filePath);
-      bundledFiles[prefix + entry.name] = content;
+  // Scan and record files
+  function scanDir(dir: string, files: string[], prefix = ''): void {
+    const entries = fs.readdirSync(dir, { withFileTypes: true });
+    for (const entry of entries) {
+      if (entry.isDirectory()) {
+        scanDir(path.join(dir, entry.name), files, prefix + entry.name + '/');
+      } else {
+        files.push(prefix + entry.name);
+      }
     }
   }
-}
 
-scanDir(bundleDir);
+  try {
+    // For Node.js SEA, we create a manifest of the bundled files
+    const files: string[] = [];
+    scanDir(bundleDir, files);
 
-// Write bundle as binary blob
-const bundleBuffer = Buffer.from(JSON.stringify(bundledFiles));
-fs.writeFileSync(outputPath, bundleBuffer);
+    const bundleManifest = {
+      timestamp: new Date().toISOString(),
+      bundleDir: bundleDir,
+      files: files
+    };
 
-console.log(\`SEA Blob created: \${outputPath} (\${bundleBuffer.length} bytes)\`);
-`;
-
-    fs.writeFileSync(bundleScript, bundleCode);
-    execSync(`node "${bundleScript}"`, { stdio: 'inherit' });
-
-    if (!fs.existsSync(blobPath)) {
-      throw new Error('SEA blob generation failed');
-    }
-
-    success(`SEA blob created: ${blobPath}`);
+    // Write manifest as JSON blob
+    fs.writeFileSync(blobPath, JSON.stringify(bundleManifest, null, 2));
+    success(`SEA bundle prepared: ${blobPath} (${bundleManifest.files.length} files)`);
     return blobPath;
   } catch (e) {
-    error(`Failed to generate SEA blob: ${e}`);
+    error(`Failed to prepare SEA bundle: ${e}`);
     throw e;
   }
 }
@@ -281,11 +306,24 @@ Bundle-Name: Conductor Designer Portable
     fs.writeFileSync(path.join(manifestDir, 'MANIFEST.MF'), manifest);
 
     // Create JAR (which is just a ZIP with a specific structure)
+    // Create a temporary directory to avoid self-inclusion
+    const tempJarDir = path.join(outputDir, 'temp-jar-content');
+    if (fs.existsSync(tempJarDir)) {
+      fs.rmSync(tempJarDir, { recursive: true });
+    }
+    fs.mkdirSync(tempJarDir, { recursive: true });
+    
+    // Copy bundle contents to temp directory
+    fs.cpSync(bundleDir, tempJarDir, { recursive: true });
+    
     const cmd = process.platform === 'win32'
-      ? `powershell -Command "Add-Type -AssemblyName 'System.IO.Compression.FileSystem'; [System.IO.Compression.ZipFile]::CreateFromDirectory('${bundleDir}', '${jarPath}')"`
-      : `cd "${bundleDir}" && zip -r "${jarPath}" . -q`;
+      ? `powershell -Command "Add-Type -AssemblyName 'System.IO.Compression.FileSystem'; [System.IO.Compression.ZipFile]::CreateFromDirectory('${tempJarDir}', '${jarPath}')"` 
+      : `cd "${tempJarDir}" && zip -r "${jarPath}" . -q`;
 
     execSync(cmd, { stdio: 'inherit' });
+    
+    // Clean temp directory
+    fs.rmSync(tempJarDir, { recursive: true });
 
     if (fs.existsSync(jarPath)) {
       success(`Docker JAR created: ${jarPath}`);
@@ -302,10 +340,116 @@ Bundle-Name: Conductor Designer Portable
 /**
  * Build Windows EXE using SEA
  */
+/**
+ * Copy essential files to output directory
+ */
+function copyEssentialFiles(sourceDir: string, targetDir: string): void {
+  const filesToCopy = [
+    'index.js',
+    'fileStoreServer.js',
+    'server-logger.js',
+    'resolvers.js',
+    'schema.js',
+    'package.json',
+  ];
+
+  for (const file of filesToCopy) {
+    const src = path.join(sourceDir, file);
+    if (fs.existsSync(src)) {
+      fs.copyFileSync(src, path.join(targetDir, file));
+    }
+  }
+}
+
+/**
+ * Copy dependencies and dist folders
+ */
+function copyLargeFolders(sourceDir: string, targetDir: string): void {
+  // Copy dist folder - but skip if target is already inside dist
+  const distSrc = path.join(sourceDir, 'dist');
+  const distDest = path.join(targetDir, 'dist');
+  
+  // Check if target directory is already inside dist (avoid self-copy)
+  const isTargetInDist = targetDir.startsWith(distSrc);
+  
+  if (fs.existsSync(distSrc) && !isTargetInDist) {
+    if (fs.existsSync(distDest)) {
+      fs.rmSync(distDest, { recursive: true });
+    }
+    fs.cpSync(distSrc, distDest, { recursive: true });
+    log('Copied dist folder');
+  }
+
+  // Copy node_modules
+  const nmPath = path.join(sourceDir, 'node_modules');
+  if (fs.existsSync(nmPath)) {
+    log('Copying node_modules (this may take a moment)...');
+    fs.cpSync(nmPath, path.join(targetDir, 'node_modules'), { recursive: true });
+  }
+}
+
+/**
+ * Create ZIP archive from output directory
+ */
+function createZipArchive(sourceDir: string, targetDir: string, zipName: string): string {
+  const zipPath = path.join(targetDir, zipName);
+  const tempZipDir = path.join(targetDir, 'temp-zip-content');
+  
+  if (fs.existsSync(tempZipDir)) {
+    fs.rmSync(tempZipDir, { recursive: true });
+  }
+  fs.mkdirSync(tempZipDir, { recursive: true });
+  
+  // Copy all files from source to temp
+  fs.cpSync(sourceDir, tempZipDir, { recursive: true });
+  
+  const cmd = process.platform === 'win32'
+    ? `powershell -Command "Add-Type -AssemblyName 'System.IO.Compression.FileSystem'; [System.IO.Compression.ZipFile]::CreateFromDirectory('${tempZipDir}', '${zipPath}')"` 
+    : `cd "${tempZipDir}" && zip -r "${zipPath}" . -q`;
+
+  execSync(cmd, { stdio: 'inherit' });
+  fs.rmSync(tempZipDir, { recursive: true });
+  
+  return zipPath;
+}
+
+/**
+ * Clean up intermediate files from output directory
+ */
+function cleanupIntermediateFiles(targetDir: string): void {
+  const filesToRemove = [
+    'index.js',
+    'fileStoreServer.js',
+    'server-logger.js',
+    'resolvers.js',
+    'schema.js',
+    'package.json',
+    'dist',
+    'node_modules',
+  ];
+
+  for (const file of filesToRemove) {
+    const filePath = path.join(targetDir, file);
+    if (fs.existsSync(filePath)) {
+      const stat = fs.statSync(filePath);
+      if (stat.isDirectory()) {
+        fs.rmSync(filePath, { recursive: true });
+      } else {
+        fs.unlinkSync(filePath);
+      }
+    }
+  }
+}
+
 function buildWindowsEXE(options: SEABuildOptions): string[] {
   log('=== Building Windows EXE with Node.js SEA ===');
 
   try {
+    // Get next build number
+    const buildNumber = getNextBuildNumber();
+    const buildPadded = String(buildNumber).padStart(3, '0');
+    log(`Build number: ${buildPadded}`);
+
     // Prepare bundle
     const bundleDir = prepareBundle(options);
 
@@ -323,27 +467,40 @@ function buildWindowsEXE(options: SEABuildOptions): string[] {
       fs.mkdirSync(options.outputDir, { recursive: true });
     }
 
-    // Inject into executable
-    const exePath = path.join(options.outputDir, `${options.outputName}.exe`);
+    // Create EXE with build number
+    const exeName = `${options.outputName}-build-${buildPadded}.exe`;
+    const exePath = path.join(options.outputDir, exeName);
     injectSEAWindows(nodeExePath, blobPath, exePath);
 
-    // Copy node_modules to output (for runtime dependencies)
-    const nmPath = path.join(ROOT_DIR, 'node_modules');
-    if (fs.existsSync(nmPath)) {
-      log('Copying node_modules...');
-      fs.cpSync(nmPath, path.join(options.outputDir, 'node_modules'), { recursive: true });
-    }
+    // Create launcher script
+    const launcherPath = createLauncherScript(options.outputDir);
+    log(`Created launcher script: ${launcherPath}`);
+
+    // Copy files to output
+    copyEssentialFiles(ROOT_DIR, options.outputDir);
+    copyLargeFolders(ROOT_DIR, options.outputDir);
+
+    // Create batch wrapper for easy execution
+    const batName = `${options.outputName}-build-${buildPadded}.bat`;
+    const batPath = path.join(options.outputDir, batName);
+    const batContent = `@echo off
+cd /d "%~dp0"
+node launcher.js %*
+`;
+    fs.writeFileSync(batPath, batContent);
+    log(`Created batch wrapper: ${batPath}`);
 
     // Create ZIP archive
-    const zipPath = path.join(options.outputDir, `${options.outputName}.zip`);
-    const cmd = process.platform === 'win32'
-      ? `powershell -Command "Add-Type -AssemblyName 'System.IO.Compression.FileSystem'; [System.IO.Compression.ZipFile]::CreateFromDirectory('${options.outputDir}', '${zipPath}')"` 
-      : `cd "${options.outputDir}" && zip -r "${zipPath}" . -q`;
+    const zipName = `${options.outputName}-build-${buildPadded}.zip`;
+    const zipPath = createZipArchive(options.outputDir, options.outputDir, zipName);
 
-    execSync(cmd, { stdio: 'inherit' });
+    // Clean up intermediate files
+    cleanupIntermediateFiles(options.outputDir);
+
     success(`Windows EXE archive created: ${zipPath}`);
+    success(`Build number: ${buildNumber}`);
 
-    return [exePath, zipPath];
+    return [exePath, batPath, zipPath];
   } catch (e) {
     error(`Windows build failed: ${e}`);
     return [];
@@ -487,6 +644,90 @@ Generated by Conductor Designer SEA Builder
 }
 
 /**
+ * Get next build number and update metadata file
+ */
+function getNextBuildNumber(): number {
+  const metadataPath = path.join(ROOT_DIR, '.build-metadata.json');
+  let metadata = { buildNumber: 0 };
+
+  if (fs.existsSync(metadataPath)) {
+    try {
+      const content = fs.readFileSync(metadataPath, 'utf-8');
+      metadata = JSON.parse(content);
+    } catch {
+      log('Warning: Could not read metadata, starting fresh');
+    }
+  }
+
+  const nextBuild = (metadata.buildNumber || 0) + 1;
+  fs.writeFileSync(metadataPath, JSON.stringify({ buildNumber: nextBuild }, null, 2));
+  return nextBuild;
+}
+
+/**
+ * Create a launcher script that opens the browser
+ */
+function createLauncherScript(outputDir: string): string {
+  const launcherPath = path.join(outputDir, 'launcher.js');
+
+  const launcherCode = `#!/usr/bin/env node
+import fs from 'node:fs';
+import path from 'node:path';
+import { exec } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const appDir = __dirname;
+
+// Create required directories
+const filestoreDir = path.join(appDir, '.filestore');
+const logsDir = path.join(appDir, 'logs');
+
+if (!fs.existsSync(filestoreDir)) {
+  fs.mkdirSync(filestoreDir, { recursive: true });
+  console.log('Created .filestore directory');
+}
+
+if (!fs.existsSync(logsDir)) {
+  fs.mkdirSync(logsDir, { recursive: true });
+  console.log('Created logs directory');
+}
+
+// Set up environment
+process.env.NODE_ENV = 'production';
+process.env.PORT = process.env.PORT || '4000';
+
+// Import and start the server
+console.log('Starting Conductor Designer...');
+
+// Dynamic import of the main app
+import('./index.js').then(() => {
+  const port = process.env.PORT || 4000;
+  const url = \`http://localhost:\${port}\`;
+  
+  // Wait a moment for server to start, then open browser
+  setTimeout(() => {
+    console.log(\`Opening browser at \${url}\`);
+    
+    if (process.platform === 'win32') {
+      exec(\`start \${url}\`);
+    } else if (process.platform === 'darwin') {
+      exec(\`open \${url}\`);
+    } else {
+      exec(\`xdg-open \${url}\`);
+    }
+  }, 2000);
+}).catch(err => {
+  console.error('Failed to start application:', err);
+  process.exit(1);
+});
+`;
+
+  fs.writeFileSync(launcherPath, launcherCode);
+  return launcherPath;
+}
+
+/**
  * Main build process
  */
 async function main() {
@@ -499,6 +740,10 @@ async function main() {
   log(`Target: ${target}`);
   log(`Include UI: ${includeUI}`);
   log(`Compression: ${compress}`);
+
+  // Clean up old build artifacts before starting
+  log('Cleaning up previous build artifacts...');
+  removeDirectoryWithRetry(BUILD_DIR);
 
   const timestamp = new Date().toISOString().replaceAll(/[:.]/g, '-');
   const outputDir = path.join(ROOT_DIR, 'dist', `sea-build-${timestamp}`);

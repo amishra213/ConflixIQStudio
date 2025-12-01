@@ -18,24 +18,36 @@ npm run sea:build:docker
 After running the build, you'll find your artifacts in:
 ```
 dist/sea-build-[timestamp]/
-├── conductor-designer.exe           # Windows portable executable (60-80 MB)
-├── conductor-designer.zip           # Includes all dependencies
-├── conductor-designer-portable.tar  # Docker image
-└── BUILD-REPORT.md                  # Build details
+├── conductor-designer-build-001.exe     # Windows portable executable (numbered)
+├── conductor-designer-build-001.bat     # Quick launcher batch file
+├── launcher.js                          # Entry point script
+├── conductor-designer-build-001.zip     # Portable package with dependencies
+└── BUILD-REPORT.md                      # Build details
 ```
+
+**Build numbers increment automatically** - each build gets a new number (build-001, build-002, etc.)
 
 ## Running the Application
 
 ### Option 1: Windows EXE (Fastest & Easiest)
 
-```cmd
-cd dist\sea-build-YYYY-MM-DD-HH-MM-SS
-conductor-designer.exe
+**Method A: Double-click the batch file (recommended)**
+```
+dist\sea-build-YYYY-MM-DD-HH-MM-SS\conductor-designer-build-001.bat
 ```
 
-The app will open automatically in your browser at `http://localhost:4000`
+**Method B: Run the EXE directly**
+```cmd
+cd dist\sea-build-YYYY-MM-DD-HH-MM-SS
+conductor-designer-build-001.exe
+```
 
-**No installation required** - just run the EXE!
+The app will automatically:
+- ✅ Create `.filestore` and `logs` folders (first run)
+- ✅ Start the backend server
+- ✅ Open your browser at `http://localhost:4000`
+
+**No installation required** - just run and go! 🚀
 
 ### Option 2: Docker Container
 
@@ -120,6 +132,36 @@ npm --version     # Should be 8.x or higher
 
 ## Troubleshooting
 
+### Build Fails with EBUSY or "resource busy" Error
+
+This error occurs when Windows file locks prevent cleanup of build artifacts. Solutions:
+
+```bash
+# Option 1: Manual cleanup (most effective)
+# In PowerShell:
+Remove-Item -Path ".\.build" -Recurse -Force -ErrorAction SilentlyContinue
+npm run sea:build
+
+# Option 2: Run as Administrator
+# PowerShell as Admin:
+npm run sea:build
+
+# Option 3: Wait and retry (Windows releases locks after a few seconds)
+timeout /t 5 /nobreak
+npm run sea:build
+
+# Option 4: Disable antivirus temporarily
+# Some antivirus software locks files during scan
+```
+
+**Why this happens:**
+- Windows Defender or antivirus scanning build files
+- Node.js or npm process still holding file handles
+- Previous build not fully cleaned up
+- Write-locked files from IDE or Explorer
+
+The build system now includes automatic retry logic with 3 attempts and configurable wait times.
+
 ### Build Fails
 
 **Clean and retry:**
@@ -178,8 +220,12 @@ taskkill /PID [PID] /F
 ### For Windows Users
 
 1. Build: `npm run sea:build:windows`
-2. Share the `dist/sea-build-*/conductor-designer.zip`
-3. Users extract and run `conductor-designer.exe`
+2. Share the `dist/sea-build-*/conductor-designer-build-XXX.zip` file
+3. Users extract the ZIP file
+4. Users double-click `conductor-designer-build-XXX.bat` to run
+5. App opens automatically in their browser!
+
+Everything is included - no additional setup needed.
 
 ### For Docker Users
 
