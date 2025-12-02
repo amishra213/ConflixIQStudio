@@ -29,17 +29,6 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Node.js (build UI on runner for TAR export)
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'npm'
-
-      - name: Install dependencies and build UI
-        run: |
-          npm ci
-          npm run build
-
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
@@ -63,17 +52,6 @@ jobs:
             type=sha,prefix={{branch}}-
             type=raw,value=latest,enable={{is_default_branch}}
 
-      - name: Setup Node.js (build UI on runner)
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'npm'
-
-      - name: Install dependencies and build UI
-        run: |
-          npm ci
-          npm run build
-
       - name: Build and push Docker image
         uses: docker/build-push-action@v5
         with:
@@ -83,9 +61,7 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
-          platforms: linux/amd64,linux/arm64
-          build-args: |
-            SKIP_UI_BUILD=true
+          platforms: linux/amd64
 
   build-windows:
     name: Build Windows Executable
@@ -159,12 +135,7 @@ jobs:
     runs-on: ubuntu-latest
     if: github.event_name == 'push'
     permissions:
-      contents: read
-    strategy:
-      matrix:
-        platform:
-          - { name: 'amd64', value: 'linux/amd64' }
-          - { name: 'arm64', value: 'linux/arm64' }
+      contents: write
 
     steps:
       - name: Checkout code
@@ -173,13 +144,13 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Build Docker image for ${{ matrix.platform.name }}
+      - name: Build Docker image for amd64
         uses: docker/build-push-action@v5
         with:
           context: .
           push: false
-          outputs: type=docker,dest=/tmp/image-${{ matrix.platform.name }}.tar
-          platforms: ${{ matrix.platform.value }}
+          outputs: type=docker,dest=/tmp/conductor-designer-amd64.tar
+          platforms: linux/amd64
 
       - name: Create version tag
         id: version
@@ -194,8 +165,8 @@ jobs:
       - name: Upload TAR artifact
         uses: actions/upload-artifact@v4
         with:
-          name: docker-image-${{ matrix.platform.name }}-${{ steps.version.outputs.version }}
-          path: /tmp/image-${{ matrix.platform.name }}.tar
+          name: docker-image-amd64-${{ steps.version.outputs.version }}
+          path: /tmp/conductor-designer-amd64.tar
           if-no-files-found: warn
           retention-days: 30
 
@@ -203,7 +174,7 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v1
         with:
-          files: /tmp/image-${{ matrix.platform.name }}.tar
+          files: /tmp/conductor-designer-amd64.tar
           draft: false
           prerelease: false
           generate_release_notes: true
