@@ -696,23 +696,44 @@ function buildDockerImage(options: SEABuildOptions, buildNumber?: number): strin
     // Create Docker JAR
     const jarPath = createDockerJAR(bundleDir, options.outputDir);
 
-    // Also build Docker image
-    log('Building Docker image with docker build...');
+    // Also build Docker image (optional if Docker daemon is not running)
+    log('Checking for Docker/Rancher Desktop...');
 
     // Determine which container tool to use
     let dockerCmd = 'docker';
+    let dockerAvailable = false;
+
     try {
       execSync('docker --version', { stdio: 'pipe' });
+      // Also check if daemon is running
+      execSync('docker ps', { stdio: 'pipe' });
+      dockerAvailable = true;
+      log('✓ Docker daemon is running (using docker.exe from PATH)');
     } catch {
       // Try nerdctl (Rancher Desktop)
       try {
         execSync('nerdctl --version', { stdio: 'pipe' });
+        execSync('nerdctl ps', { stdio: 'pipe' });
         dockerCmd = 'nerdctl';
-        log('Using nerdctl instead of docker (Rancher Desktop detected)');
+        dockerAvailable = true;
+        log('✓ Rancher Desktop (nerdctl) is running');
       } catch {
-        log('Warning: Neither docker nor nerdctl found, skipping Docker image build and tar export');
+        log('\n⚠️  Docker daemon is not running');
+        log('   docker.exe is in PATH, but Docker Desktop service is not started.');
+        log('   Docker tar file will not be created locally.');
+        log('');
+        log('   Solutions:');
+        log('   1. Start Docker Desktop (recommended for local Docker tar builds)');
+        log('   2. Use Windows EXE only: npm run sea:build:windows');
+        log('   3. Let GitHub Actions build Docker tar automatically on push');
+        log('');
+        log('   The JAR file has been created and can be used with Docker.\n');
         return [jarPath].filter((p) => fs.existsSync(p));
       }
+    }
+
+    if (!dockerAvailable) {
+      return [jarPath].filter((p) => fs.existsSync(p));
     }
 
     const imageTag = `conflixiq-studio:build-${buildPadded}`;
@@ -751,37 +772,37 @@ function buildDockerImage(options: SEABuildOptions, buildNumber?: number): strin
  */
 function copyArtifactsToRelease(artifacts: string[], _buildNumber: number): string[] {
   log('\n📦 Copying artifacts to release folder...');
-  
+
   const releaseDir = path.join(ROOT_DIR, 'dist', 'release');
-  
+
   // Create release directory
   if (!fs.existsSync(releaseDir)) {
     fs.mkdirSync(releaseDir, { recursive: true });
     log(`Created release directory: ${releaseDir}`);
   }
-  
+
   const releaseArtifacts: string[] = [];
-  
+
   for (const artifact of artifacts) {
     try {
       const filename = path.basename(artifact);
       const destPath = path.join(releaseDir, filename);
-      
+
       fs.copyFileSync(artifact, destPath);
       releaseArtifacts.push(destPath);
-      
+
       const sizeMB = (fs.statSync(destPath).size / 1024 / 1024).toFixed(2);
       success(`✓ Copied: ${filename} (${sizeMB} MB)`);
     } catch (e) {
       error(`Failed to copy ${path.basename(artifact)}: ${e}`);
     }
   }
-  
+
   if (releaseArtifacts.length > 0) {
     success(`\n✅ ${releaseArtifacts.length} artifacts copied to: dist/release/`);
     log('These artifacts are ready for GitHub releases and distribution');
   }
-  
+
   return releaseArtifacts;
 }
 
@@ -1111,7 +1132,7 @@ async function main() {
     if (target === 'windows' || target === 'all') {
       const windowsArtifacts = buildWindowsEXE(options);
       artifacts.push(...windowsArtifacts);
-      
+
       // Get the build number from metadata (just incremented by buildWindowsEXE)
       const metadataPath = path.join(ROOT_DIR, '.build-metadata.json');
       if (fs.existsSync(metadataPath)) {

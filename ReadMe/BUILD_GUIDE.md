@@ -115,10 +115,12 @@ docker run -d -p 4000:4000 -e CONDUCTOR_API=https://conductor.example.com confli
 ### Using npm (Recommended)
 
 ```bash
-npm run sea:build              # All targets
-npm run sea:build:windows      # Windows EXE
-npm run sea:build:docker       # Docker
+npm run sea:build              # All targets (requires Docker for tar)
+npm run sea:build:windows      # Windows EXE (no Docker needed) ✅
+npm run sea:build:docker       # Docker tar (requires Docker)
 ```
+
+**💡 Tip**: If Docker isn't running, `sea:build:docker` will still create a JAR file that can be used with Docker, but won't create the tar file. GitHub Actions will create the tar automatically on Linux.
 
 ### Using Batch Files (Windows)
 
@@ -140,13 +142,17 @@ npm run sea:build:docker       # Docker
 
 - **Node.js**: 20.0.0 or higher
 - **npm**: 8.0.0 or higher
-- **Optional for Docker builds**: Docker or Rancher Desktop
+- **Optional for Docker builds**: Docker Desktop or Rancher Desktop
+  - **Note**: Only needed if you want to build Docker tar files locally
+  - **Not required**: GitHub Actions will build Docker images on Linux automatically
+  - Windows EXE builds work without Docker
 
 Check your versions:
 
 ```bash
 node --version    # Should be v20.x or higher
 npm --version     # Should be 8.x or higher
+docker --version  # Optional, only for local Docker tar builds
 ```
 
 ## Troubleshooting
@@ -217,6 +223,44 @@ docker load -i dist/release/conflixiq-studio-build-XXX.tar --verbose
 docker images | grep conflixiq
 ```
 
+### Docker Not Running / Docker Tar Not Created
+
+If you see this message when building:
+
+```
+⚠️  Docker daemon is not running
+   Docker tar file will not be created locally.
+```
+
+**This is OK!** You have several options:
+
+1. **Use Windows EXE only** (most common for local dev):
+
+   ```bash
+   npm run sea:build:windows
+   ```
+
+2. **Let GitHub Actions build Docker** (recommended for distribution):
+   - Push your code to GitHub
+   - GitHub Actions will build Docker tar on Linux automatically
+   - Download from GitHub Actions artifacts or releases
+
+3. **Start Docker and rebuild** (if you need tar locally):
+
+   ```bash
+   # Start Docker Desktop or Rancher Desktop
+   # Wait for it to fully start (whale icon steady in system tray)
+   npm run sea:build:docker
+   ```
+
+4. **Use the JAR file with Docker** (alternative):
+   ```bash
+   # The build creates a JAR file even without Docker
+   # Use it with docker build directly
+   cd dist/sea-build-[timestamp]
+   docker build -t conflixiq-studio:latest .
+   ```
+
 ### Port Already in Use
 
 ```cmd
@@ -267,6 +311,7 @@ dist/release/
 ```
 
 **GitHub Actions Integration:**
+
 - Automatically uploads artifacts from `dist/release/`
 - Build numbers ensure version tracking
 - Consistent naming across Windows EXE, ZIP, and Docker tar
@@ -405,6 +450,7 @@ docker tag conflixiq-studio:build-XXX conflixiq-studio:latest
 ### Artifact Locations
 
 **Build Output Directory:**
+
 ```
 dist/sea-build-[timestamp]/
 ├── conflixiq-studio-build-XXX.exe      # Windows executable
@@ -418,6 +464,7 @@ dist/sea-build-[timestamp]/
 ```
 
 **Release Directory (CI/CD Ready):**
+
 ```
 dist/release/
 ├── conflixiq-studio-build-XXX.exe      # Ready for GitHub releases
@@ -426,6 +473,7 @@ dist/release/
 ```
 
 All artifacts in `dist/release/` are automatically copied by the build system and ready for:
+
 - GitHub Actions uploads
 - GitHub Releases
 - Manual distribution
@@ -434,11 +482,13 @@ All artifacts in `dist/release/` are automatically copied by the build system an
 ### GitHub Actions Integration
 
 **Windows Build Job:**
+
 - Builds Windows executable using `npm run sea:build:windows`
 - Uploads artifacts from `dist/release/*.{exe,zip}`
 - Creates GitHub releases on tags from `dist/release/` artifacts
 
 **Docker Export Job:**
+
 - Builds Docker image using `npm run sea:build:docker`
 - Uploads Docker tar from `dist/release/*.tar`
 - Creates GitHub releases on tags from `dist/release/` artifacts
@@ -448,6 +498,7 @@ All artifacts in `dist/release/` are automatically copied by the build system an
 ### Loading Docker Images
 
 **From Build-Numbered Tar:**
+
 ```bash
 docker load -i dist/release/conflixiq-studio-build-030.tar
 docker images | grep conflixiq-studio
@@ -457,6 +508,7 @@ docker run -d -p 4000:4000 conflixiq-studio:build-030
 ```
 
 **From Latest Tar (npm scripts):**
+
 ```bash
 docker load -i dist/release/conflixiq-studio-latest.tar
 docker run -d -p 4000:4000 conflixiq-studio:latest
