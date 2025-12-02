@@ -54,7 +54,7 @@ EXPOSE 4000 5173
 ENV NODE_ENV=production
 
 # Use dumb-init to handle signals
-ENTRYPOINT ["/usr/sbin/dumb-init", "--"]
+ENTRYPOINT ["/usr/bin/dumb-init", "--"]
 
 # Start the application
 CMD ["node", "index.js"]

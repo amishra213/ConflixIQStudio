@@ -464,6 +464,41 @@ function tryInstallVianpm(sourceDir: string, targetDir: string): void {
   }
 }
 
+/**
+ * Copy a single file or directory item safely
+ */
+function copyItemSafely(srcItem: string, destItem: string, itemName: string): void {
+  try {
+    const stat = fs.statSync(srcItem);
+    if (stat.isDirectory()) {
+      fs.cpSync(srcItem, destItem, { recursive: true });
+    } else {
+      fs.copyFileSync(srcItem, destItem);
+    }
+  } catch (err) {
+    // Skip files/folders that can't be accessed (broken symlinks, permission issues)
+    log(`Warning: Could not copy ${itemName}: ${err instanceof Error ? err.message : 'unknown error'}`);
+  }
+}
+
+/**
+ * Copy dist folder contents excluding sea-build directories
+ */
+function copyDistContents(distSrc: string, distDest: string): void {
+  if (!fs.existsSync(distDest)) {
+    fs.mkdirSync(distDest, { recursive: true });
+  }
+  
+  const distContents = fs.readdirSync(distSrc);
+  for (const item of distContents) {
+    // Skip sea-build folders to avoid recursive copying
+    if (item.startsWith('sea-build-')) {
+      continue;
+    }
+    copyItemSafely(path.join(distSrc, item), path.join(distDest, item), item);
+  }
+}
+
 function copyLargeFolders(sourceDir: string, targetDir: string): void {
   // Copy dist folder contents (React UI build) to target
   // Need to copy the UI files (index.html, assets) but not sea-build folders
@@ -472,30 +507,7 @@ function copyLargeFolders(sourceDir: string, targetDir: string): void {
   
   if (fs.existsSync(distSrc)) {
     log('Copying React UI build (dist folder contents)...');
-    
-    // Create dist destination
-    if (!fs.existsSync(distDest)) {
-      fs.mkdirSync(distDest, { recursive: true });
-    }
-    
-    // Copy only the UI files from dist root, not sea-build-* folders
-    const distContents = fs.readdirSync(distSrc);
-    for (const item of distContents) {
-      // Skip sea-build folders to avoid recursive copying
-      if (item.startsWith('sea-build-')) {
-        continue;
-      }
-      
-      const srcItem = path.join(distSrc, item);
-      const destItem = path.join(distDest, item);
-      
-      const stat = fs.statSync(srcItem);
-      if (stat.isDirectory()) {
-        fs.cpSync(srcItem, destItem, { recursive: true });
-      } else {
-        fs.copyFileSync(srcItem, destItem);
-      }
-    }
+    copyDistContents(distSrc, distDest);
     success('React UI copied to dist/ folder');
   } else {
     log('Warning: dist folder not found - UI may not be built yet');
