@@ -676,10 +676,15 @@ function buildWindowsEXE(options: SEABuildOptions): string[] {
 /**
  * Build Docker portable image
  */
-function buildDockerImage(options: SEABuildOptions): string[] {
+function buildDockerImage(options: SEABuildOptions, buildNumber?: number): string[] {
   log('=== Building Docker portable image ===');
 
   try {
+    // Get build number if not provided
+    const actualBuildNumber = buildNumber || getNextBuildNumber();
+    const buildPadded = String(actualBuildNumber).padStart(3, '0');
+    log(`📋 Docker build number: ${buildPadded}`);
+
     // Prepare bundle
     const bundleDir = prepareBundle(options);
 
@@ -705,27 +710,79 @@ function buildDockerImage(options: SEABuildOptions): string[] {
         dockerCmd = 'nerdctl';
         log('Using nerdctl instead of docker (Rancher Desktop detected)');
       } catch {
-        log('Warning: Neither docker nor nerdctl found, skipping Docker image build');
+        log('Warning: Neither docker nor nerdctl found, skipping Docker image build and tar export');
         return [jarPath].filter((p) => fs.existsSync(p));
       }
     }
 
+    const imageTag = `conflixiq-studio:build-${buildPadded}`;
+    const tarFileName = `conflixiq-studio-build-${buildPadded}.tar`;
+    const tarPath = path.join(options.outputDir, tarFileName);
+
     try {
-      execSync(`${dockerCmd} build -t conflixiq-studio:sea-${Date.now()} "${bundleDir}"`, {
+      // Build Docker image
+      execSync(`${dockerCmd} build -t ${imageTag} "${bundleDir}"`, {
         stdio: 'inherit',
       });
-      success(`Docker image built successfully`);
+      success(`Docker image built successfully: ${imageTag}`);
+
+      // Save Docker image to tar
+      log(`Saving Docker image to ${tarFileName}...`);
+      execSync(`${dockerCmd} save -o "${tarPath}" ${imageTag}`, {
+        stdio: 'inherit',
+      });
+      success(`Docker image saved to tar: ${tarFileName}`);
+
+      return [jarPath, tarPath].filter((p) => fs.existsSync(p));
     } catch (error_) {
       error(`Docker build failed: ${error_}`);
       log('Note: You can still use the JAR file directly with Docker');
       // Don't fail the entire build, JAR is still usable
+      return [jarPath].filter((p) => fs.existsSync(p));
     }
-
-    return [jarPath].filter((p) => fs.existsSync(p));
   } catch (e) {
     error(`Docker build failed: ${e}`);
     return [];
   }
+}
+
+/**
+ * Copy artifacts to release folder for distribution
+ */
+function copyArtifactsToRelease(artifacts: string[], _buildNumber: number): string[] {
+  log('\n📦 Copying artifacts to release folder...');
+  
+  const releaseDir = path.join(ROOT_DIR, 'dist', 'release');
+  
+  // Create release directory
+  if (!fs.existsSync(releaseDir)) {
+    fs.mkdirSync(releaseDir, { recursive: true });
+    log(`Created release directory: ${releaseDir}`);
+  }
+  
+  const releaseArtifacts: string[] = [];
+  
+  for (const artifact of artifacts) {
+    try {
+      const filename = path.basename(artifact);
+      const destPath = path.join(releaseDir, filename);
+      
+      fs.copyFileSync(artifact, destPath);
+      releaseArtifacts.push(destPath);
+      
+      const sizeMB = (fs.statSync(destPath).size / 1024 / 1024).toFixed(2);
+      success(`✓ Copied: ${filename} (${sizeMB} MB)`);
+    } catch (e) {
+      error(`Failed to copy ${path.basename(artifact)}: ${e}`);
+    }
+  }
+  
+  if (releaseArtifacts.length > 0) {
+    success(`\n✅ ${releaseArtifacts.length} artifacts copied to: dist/release/`);
+    log('These artifacts are ready for GitHub releases and distribution');
+  }
+  
+  return releaseArtifacts;
 }
 
 /**
@@ -756,17 +813,22 @@ This build uses Node.js SEA to create portable, self-contained executables witho
 
 ${artifacts.map((a) => `- ${path.basename(a)} (${(fs.statSync(a).size / 1024 / 1024).toFixed(2)} MB)`).join('\n')}
 
+**Distribution Ready**: All artifacts have been copied to \`dist/release/\` for easy distribution and CI/CD integration.
+
 ## Installation & Usage
 
 ### Windows EXE
 \`\`\`cmd
-.\\conflixiq-studio.exe
+.\\conflixiq-studio-build-XXX.exe
 \`\`\`
 
 ### Docker
 \`\`\`bash
-docker load -i conflixiq-studio-portable.tar
-docker run -p 4000:4000 conflixiq-studio:latest
+# Load the image
+docker load -i conflixiq-studio-build-XXX.tar
+
+# Run the container
+docker run -d -p 4000:4000 conflixiq-studio:build-XXX
 \`\`\`
 
 ### Docker JAR
@@ -775,21 +837,33 @@ The JAR file contains all necessary files to run in a containerized environment.
 ## Technical Details
 
 ### SEA Configuration
-- **Entry Point**: sea-entry.js
+- **Entry Point**: launcher.js
 - **Bundled Files**: All application code and resources
 - **Node.js Runtime**: Embedded in executable
-- **Compression**: Enabled for JAR
+- **Compression**: Enabled for archive distributions
+- **Build Numbering**: Automatic incremental build numbers
 
 ### File Structure
 \`\`\`
 conflixiq-studio/
-├── index.js                    # Main entry point
-├── package.json               # Dependencies
-├── dist/                       # Web UI (if included)
-├── resources/                 # Static resources
-├── node_modules/              # Runtime dependencies
-└── sea-entry.js              # SEA bootstrap
+├── conflixiq-studio-build-XXX.exe  # Windows executable (with build number)
+├── conflixiq-studio-build-XXX.zip  # Portable package (with build number)
+├── conflixiq-studio-build-XXX.tar  # Docker image tar (with build number)
+├── launcher.js                     # SEA entry point
+├── index.js                        # Main entry point
+├── package.json                    # Dependencies
+├── dist/                           # Web UI (if included)
+├── resources/                      # Static resources
+└── node_modules/                   # Runtime dependencies
 \`\`\`
+
+## Distribution
+
+### For CI/CD and GitHub Releases
+All artifacts are copied to \`dist/release/\` for easy integration with CI/CD pipelines:
+- GitHub Actions can upload from \`dist/release/\`
+- Build numbers ensure version tracking
+- Consistent naming across all artifacts
 
 ## Troubleshooting
 
@@ -798,9 +872,9 @@ Ensure the build completed all stages successfully.
 
 ### Docker image not loading
 \`\`\`bash
-docker load -i <tar_file>
-docker images | grep conductor
-docker run -d conflixiq-studio:latest
+docker load -i conflixiq-studio-build-XXX.tar
+docker images | grep conflixiq
+docker run -d conflixiq-studio:build-XXX
 \`\`\`
 
 ### Permission errors on Linux/macOS
@@ -813,8 +887,8 @@ chmod +x conflixiq-studio
 
 1. Test the executable on target platform
 2. Verify all features work as expected
-3. Update distribution documentation
-4. Tag release with build artifacts
+3. Upload \`dist/release/\` artifacts to GitHub releases
+4. Tag release with version number
 
 ---
 Generated by ConflixIQ Studio SEA Builder
@@ -1030,17 +1104,38 @@ async function main() {
   }
 
   const artifacts: string[] = [];
+  let buildNumber = 0;
 
   try {
     // Build requested targets
     if (target === 'windows' || target === 'all') {
       const windowsArtifacts = buildWindowsEXE(options);
       artifacts.push(...windowsArtifacts);
+      
+      // Get the build number from metadata (just incremented by buildWindowsEXE)
+      const metadataPath = path.join(ROOT_DIR, '.build-metadata.json');
+      if (fs.existsSync(metadataPath)) {
+        const metadata = JSON.parse(fs.readFileSync(metadataPath, 'utf-8'));
+        buildNumber = metadata.buildNumber;
+      }
     }
 
     if (target === 'docker' || target === 'all') {
-      const dockerArtifacts = buildDockerImage(options);
+      // Pass the same build number to Docker build if Windows was built, otherwise get next number
+      if (buildNumber === 0) {
+        buildNumber = getNextBuildNumber();
+      }
+      const dockerArtifacts = buildDockerImage(options, buildNumber);
       artifacts.push(...dockerArtifacts);
+    }
+
+    // Copy all artifacts to release folder
+    if (artifacts.length > 0) {
+      const releaseArtifacts = copyArtifactsToRelease(artifacts, buildNumber);
+      log(`\n📂 Release artifacts available at: dist/release/`);
+      for (const artifact of releaseArtifacts) {
+        log(`   - ${path.basename(artifact)}`);
+      }
     }
 
     // Generate report

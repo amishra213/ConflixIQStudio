@@ -23,10 +23,18 @@ dist/sea-build-[timestamp]/
 ├── conflixiq-studio-build-001.bat     # Quick launcher batch file
 ├── launcher.js                          # Entry point script
 ├── conflixiq-studio-build-001.zip     # Portable package with dependencies
+├── conflixiq-studio-build-001.tar     # Docker image tar (numbered)
 └── BUILD-REPORT.md                      # Build details
+
+dist/release/                            # Ready for distribution & CI/CD
+├── conflixiq-studio-build-001.exe     # Windows EXE (copied here)
+├── conflixiq-studio-build-001.zip     # Windows ZIP (copied here)
+└── conflixiq-studio-build-001.tar     # Docker tar (copied here)
 ```
 
 **Build numbers increment automatically** - each build gets a new number (build-001, build-002, etc.)
+
+**Release folder** - All artifacts are automatically copied to `dist/release/` for easy distribution and CI/CD integration.
 
 ## Running the Application
 
@@ -56,11 +64,11 @@ The app will automatically:
 ### Option 2: Docker Container
 
 ```bash
-# Load the Docker image
-docker load -i conflixiq-studio-portable.tar
+# Load the Docker image (use build number from your build)
+docker load -i dist/release/conflixiq-studio-build-XXX.tar
 
 # Run the container
-docker run -d -p 4000:4000 conflixiq-studio:latest
+docker run -d -p 4000:4000 conflixiq-studio:build-XXX
 
 # Access at http://localhost:4000
 ```
@@ -69,7 +77,10 @@ docker run -d -p 4000:4000 conflixiq-studio:latest
 
 ```bash
 # Load the image first
-docker load -i conflixiq-studio-portable.tar
+docker load -i dist/release/conflixiq-studio-build-XXX.tar
+
+# Tag as latest for docker-compose compatibility
+docker tag conflixiq-studio:build-XXX conflixiq-studio:latest
 
 # Then run
 docker-compose up -d
@@ -200,10 +211,10 @@ npm run sea:build
 
 ```bash
 # Try loading with verbose output
-docker load -i conflixiq-studio-portable.tar --verbose
+docker load -i dist/release/conflixiq-studio-build-XXX.tar --verbose
 
 # Verify image loaded
-docker images | grep conductor
+docker images | grep conflixiq
 ```
 
 ### Port Already in Use
@@ -230,7 +241,7 @@ taskkill /PID [PID] /F
 ### For Windows Users
 
 1. Build: `npm run sea:build:windows`
-2. Share the `dist/sea-build-*/conflixiq-studio-build-XXX.zip` file
+2. Share the `dist/release/conflixiq-studio-build-XXX.zip` file
 3. Users extract the ZIP file
 4. Users double-click `conflixiq-studio-build-XXX.bat` to run
 5. App opens automatically in their browser!
@@ -240,16 +251,34 @@ Everything is included - no additional setup needed.
 ### For Docker Users
 
 1. Build: `npm run sea:build:docker`
-2. Load the image: `docker load -i conflixiq-studio-portable.tar`
-3. Run: `docker run -d -p 4000:4000 conflixiq-studio:latest`
+2. Load the image: `docker load -i dist/release/conflixiq-studio-build-XXX.tar`
+3. Run: `docker run -d -p 4000:4000 conflixiq-studio:build-XXX`
+
+### For GitHub Releases (CI/CD)
+
+The build process automatically creates a `dist/release/` folder containing all artifacts with build numbers:
+
+```bash
+# After running builds, these files are ready for release:
+dist/release/
+├── conflixiq-studio-build-XXX.exe
+├── conflixiq-studio-build-XXX.zip
+└── conflixiq-studio-build-XXX.tar
+```
+
+**GitHub Actions Integration:**
+- Automatically uploads artifacts from `dist/release/`
+- Build numbers ensure version tracking
+- Consistent naming across Windows EXE, ZIP, and Docker tar
+- See `.github/workflows/build-docker.yml` for implementation
 
 ### For Server Deployment
 
 Upload Docker image to your registry:
 
 ```bash
-docker load -i conflixiq-studio-portable.tar
-docker tag conflixiq-studio:latest myregistry/conflixiq-studio:latest
+docker load -i dist/release/conflixiq-studio-build-XXX.tar
+docker tag conflixiq-studio:build-XXX myregistry/conflixiq-studio:latest
 docker push myregistry/conflixiq-studio:latest
 ```
 
@@ -361,8 +390,85 @@ docker-compose down
 Make sure the Docker image is loaded first:
 
 ```bash
-docker load -i conflixiq-studio-portable.tar
+docker load -i dist/release/conflixiq-studio-build-XXX.tar
+docker tag conflixiq-studio:build-XXX conflixiq-studio:latest
 ```
+
+## Release Artifacts & CI/CD
+
+### Build Numbering
+
+- **Automatic Incremental Build Numbers**: Each build increments the build number (stored in `.build-metadata.json`)
+- **Format**: `build-XXX` where XXX is a zero-padded 3-digit number (e.g., `build-001`, `build-030`)
+- **Applied To**: Windows EXE, Windows ZIP, and Docker TAR files
+
+### Artifact Locations
+
+**Build Output Directory:**
+```
+dist/sea-build-[timestamp]/
+├── conflixiq-studio-build-XXX.exe      # Windows executable
+├── conflixiq-studio-build-XXX.zip      # Windows portable package
+├── conflixiq-studio-build-XXX.tar      # Docker image tar
+├── conflixiq-studio-portable.jar       # Docker JAR (legacy)
+├── BUILD-REPORT.md                      # Build details
+├── launcher.js, index.js, etc.         # Application files
+├── dist/                                # Web UI files
+└── node_modules/                        # Dependencies
+```
+
+**Release Directory (CI/CD Ready):**
+```
+dist/release/
+├── conflixiq-studio-build-XXX.exe      # Ready for GitHub releases
+├── conflixiq-studio-build-XXX.zip      # Ready for distribution
+└── conflixiq-studio-build-XXX.tar      # Ready for Docker deployment
+```
+
+All artifacts in `dist/release/` are automatically copied by the build system and ready for:
+- GitHub Actions uploads
+- GitHub Releases
+- Manual distribution
+- Docker deployments
+
+### GitHub Actions Integration
+
+**Windows Build Job:**
+- Builds Windows executable using `npm run sea:build:windows`
+- Uploads artifacts from `dist/release/*.{exe,zip}`
+- Creates GitHub releases on tags from `dist/release/` artifacts
+
+**Docker Export Job:**
+- Builds Docker image using `npm run sea:build:docker`
+- Uploads Docker tar from `dist/release/*.tar`
+- Creates GitHub releases on tags from `dist/release/` artifacts
+
+**Workflow File:** See `.github/workflows/build-docker.yml` for full implementation.
+
+### Loading Docker Images
+
+**From Build-Numbered Tar:**
+```bash
+docker load -i dist/release/conflixiq-studio-build-030.tar
+docker images | grep conflixiq-studio
+# Shows: conflixiq-studio:build-030
+
+docker run -d -p 4000:4000 conflixiq-studio:build-030
+```
+
+**From Latest Tar (npm scripts):**
+```bash
+docker load -i dist/release/conflixiq-studio-latest.tar
+docker run -d -p 4000:4000 conflixiq-studio:latest
+```
+
+### Release Benefits
+
+✅ **Consistent Versioning**: Same build number across Windows and Docker  
+✅ **CI/CD Ready**: `dist/release/` folder integrates seamlessly with GitHub Actions  
+✅ **Easy Distribution**: Single folder contains all release artifacts  
+✅ **Automatic Copying**: Build system handles artifact preparation  
+✅ **Version Tracking**: Build numbers stored in `.build-metadata.json`
 
 ## Next Steps
 
