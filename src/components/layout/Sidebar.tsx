@@ -1,5 +1,19 @@
 import { Link, useLocation } from 'react-router-dom';
-import { LayoutDashboardIcon, WorkflowIcon, ListChecksIcon, ActivityIcon, SettingsIcon, MoonIcon, SunIcon, LogOutIcon, ChevronLeftIcon, ChevronRightIcon, PenToolIcon, CheckCircleIcon, FileTextIcon } from 'lucide-react';
+import {
+  LayoutDashboardIcon,
+  WorkflowIcon,
+  ListChecksIcon,
+  ActivityIcon,
+  SettingsIcon,
+  MoonIcon,
+  SunIcon,
+  LogOutIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
+  PenToolIcon,
+  CheckCircleIcon,
+  FileTextIcon,
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Avatar } from '@/components/ui/avatar';
 import { Separator } from '@/components/ui/separator';
@@ -41,15 +55,22 @@ export function Sidebar() {
           onClick={() => setIsCollapsed(!isCollapsed)}
           className="bg-transparent text-gray-400 hover:bg-[#2a3142] hover:text-white"
         >
-          {isCollapsed ? <ChevronRightIcon className="w-5 h-5" /> : <ChevronLeftIcon className="w-5 h-5" />}
+          {isCollapsed ? (
+            <ChevronRightIcon className="w-5 h-5" />
+          ) : (
+            <ChevronLeftIcon className="w-5 h-5" />
+          )}
         </Button>
       </div>
 
       <nav className="flex-1 px-3 py-6 space-y-1">
         {navItems.map((item, index) => {
           const Icon = item.icon;
-          const isInWorkflowDesigner = location.pathname.startsWith('/workflows/') || location.pathname === '/workflow-designer';
-          const isActive = location.pathname === item.path || 
+          const isInWorkflowDesigner =
+            location.pathname.startsWith('/workflows/') ||
+            location.pathname === '/workflow-designer';
+          const isActive =
+            location.pathname === item.path ||
             (item.path === '/workflow-designer' && isInWorkflowDesigner) ||
             (item.path === '/workflows' && location.pathname === '/workflows') ||
             (item.path === '/validation' && location.pathname.includes('/validate'));
@@ -78,7 +99,9 @@ export function Sidebar() {
           {!isCollapsed && (
             <>
               <Avatar className="w-10 h-10 bg-cyan-500">
-                <div className="flex items-center justify-center w-full h-full text-white font-semibold">JD</div>
+                <div className="flex items-center justify-center w-full h-full text-white font-semibold">
+                  JD
+                </div>
               </Avatar>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium text-white truncate">John Doe</p>
@@ -88,7 +111,9 @@ export function Sidebar() {
           )}
           {isCollapsed && (
             <Avatar className="w-10 h-10 bg-cyan-500">
-              <div className="flex items-center justify-center w-full h-full text-white font-semibold">JD</div>
+              <div className="flex items-center justify-center w-full h-full text-white font-semibold">
+                JD
+              </div>
             </Avatar>
           )}
         </div>

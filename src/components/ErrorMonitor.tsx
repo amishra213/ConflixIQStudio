@@ -45,7 +45,10 @@ export default function ErrorMonitor() {
           >
             <div className="flex items-start justify-between gap-3">
               <div className="flex items-start gap-3 flex-1">
-                <AlertCircleIcon className="h-5 w-5 flex-shrink-0 text-destructive" strokeWidth={1.5} />
+                <AlertCircleIcon
+                  className="h-5 w-5 flex-shrink-0 text-destructive"
+                  strokeWidth={1.5}
+                />
                 <div className="flex-1 space-y-1">
                   <p className="text-sm font-medium text-foreground">{error.message}</p>
                   <p className="text-xs text-muted-foreground">{error.workflow}</p>

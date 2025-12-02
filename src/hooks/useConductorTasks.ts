@@ -5,7 +5,7 @@ import { useSettingsStore } from '@/stores/settingsStore';
 
 export const useTaskDefinitions = () => {
   const { proxyServer, conductorApi } = useSettingsStore();
-  
+
   interface TaskDefinitionsData {
     taskDefinitions: Record<string, unknown>[]; // Replace with your actual TaskDefinition type if available
   }
@@ -19,10 +19,10 @@ export const useTaskDefinitions = () => {
   const isConnected = proxyServer.enabled || !!conductorApi.endpoint;
 
   return {
-    taskDefinitions: isConnected ? (data?.taskDefinitions || []) : [],
+    taskDefinitions: isConnected ? data?.taskDefinitions || [] : [],
     loading: isConnected ? loading : false,
-    error: isConnected 
-      ? error 
+    error: isConnected
+      ? error
       : { message: 'Not connected to Conductor server. Please configure connection in Settings.' },
     refetch,
   };
@@ -30,7 +30,7 @@ export const useTaskDefinitions = () => {
 
 export const useRegisterTask = () => {
   const { proxyServer, conductorApi } = useSettingsStore();
-  
+
   const [registerTask, { loading, error }] = useMutation(REGISTER_TASK);
 
   // Determine if connected: either proxy is enabled or Conductor API endpoint is configured
@@ -39,8 +39,8 @@ export const useRegisterTask = () => {
   return {
     registerTask: isConnected ? registerTask : async () => ({ data: undefined }),
     loading: isConnected ? loading : false,
-    error: isConnected 
-      ? error 
+    error: isConnected
+      ? error
       : { message: 'Not connected to Conductor server. Please configure connection in Settings.' },
   };
 };

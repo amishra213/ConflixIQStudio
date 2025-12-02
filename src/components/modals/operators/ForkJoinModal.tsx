@@ -97,16 +97,14 @@ export function ForkJoinModal({ open, onOpenChange, onSave, initialConfig }: For
       if (initialConfig) {
         // Normalize forkTasks to ensure it's an array of arrays
         const normalizedForkTasks = Array.isArray(initialConfig.forkTasks)
-          ? initialConfig.forkTasks.map(branch => 
-              Array.isArray(branch) ? branch : []
-            )
+          ? initialConfig.forkTasks.map((branch) => (Array.isArray(branch) ? branch : []))
           : [];
-        
+
         const normalizedConfig: ForkJoinConfig = {
           ...initialConfig,
           forkTasks: normalizedForkTasks,
         };
-        
+
         setConfig(normalizedConfig);
         const branchIndices = new Set<number>();
         for (let i = 0; i < normalizedForkTasks.length; i++) {
@@ -247,7 +245,11 @@ export function ForkJoinModal({ open, onOpenChange, onSave, initialConfig }: For
     onOpenChange(false);
   };
 
-  const renderTaskCard = (task: Record<string, unknown>, branchIndex: number, taskIndex: number) => {
+  const renderTaskCard = (
+    task: Record<string, unknown>,
+    branchIndex: number,
+    taskIndex: number
+  ) => {
     return (
       <Card key={taskIndex} className="p-3 bg-[#1a1f2e] border-[#2a3142]">
         <div className="flex justify-between items-start gap-2">

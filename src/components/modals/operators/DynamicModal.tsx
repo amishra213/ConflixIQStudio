@@ -22,12 +22,7 @@ interface DynamicModalProps {
   readonly initialConfig?: DynamicConfig | null;
 }
 
-export function DynamicModal({
-  open,
-  onOpenChange,
-  onSave,
-  initialConfig,
-}: DynamicModalProps) {
+export function DynamicModal({ open, onOpenChange, onSave, initialConfig }: DynamicModalProps) {
   const [config, setConfig] = useState<DynamicConfig>({
     taskRefId: 'dynamic-1',
     name: 'Dynamic',
@@ -71,7 +66,8 @@ export function DynamicModal({
           className="mt-1 bg-[#1a1f2e] text-white border-[#2a3142]"
         />
         <p className="text-xs text-gray-400 mt-1">
-          The parameter name in inputParameters whose value is used to determine which task to execute
+          The parameter name in inputParameters whose value is used to determine which task to
+          execute
         </p>
       </div>
       <div>
@@ -83,7 +79,8 @@ export function DynamicModal({
           className="mt-1 bg-[#1a1f2e] text-white border-[#2a3142] font-mono text-sm min-h-[120px]"
         />
         <p className="text-xs text-gray-400 mt-1">
-          JSON object with input parameters. Must include a parameter matching dynamicTaskNameParam with the task name to execute
+          JSON object with input parameters. Must include a parameter matching dynamicTaskNameParam
+          with the task name to execute
         </p>
       </div>
     </>

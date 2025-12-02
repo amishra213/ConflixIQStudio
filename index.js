@@ -59,23 +59,23 @@ app.get('/api/health', (req, res) => {
 // Proxy GET /api/metadata/taskdefs to Conductor server
 app.get('/api/metadata/taskdefs', async (req, res) => {
   try {
-    const axios = await import('axios').then(m => m.default);
-    
+    const axios = await import('axios').then((m) => m.default);
+
     // Get Conductor config from environment or stored config
     const conductorServerUrl = process.env.VITE_CONDUCTOR_SERVER_URL || 'http://localhost:8080';
     const conductorApiKey = process.env.VITE_CONDUCTOR_API_KEY || '';
-    
+
     const headers = {
       'Content-Type': 'application/json',
     };
-    
+
     if (conductorApiKey) {
       headers['X-Conductor-API-Key'] = conductorApiKey;
     }
-    
+
     // Forward request to Conductor server
     const response = await axios.get(`${conductorServerUrl}/api/metadata/taskdefs`, { headers });
-    
+
     res.json(response.data);
   } catch (error) {
     console.error('Error fetching task definitions from Conductor:', error.message);
@@ -89,24 +89,27 @@ app.get('/api/metadata/taskdefs', async (req, res) => {
 // Proxy GET /api/metadata/workflow to Conductor server
 app.get('/api/metadata/workflow', async (req, res) => {
   try {
-    const axios = await import('axios').then(m => m.default);
-    
+    const axios = await import('axios').then((m) => m.default);
+
     // Get Conductor config from environment or stored config
     const conductorServerUrl = process.env.VITE_CONDUCTOR_SERVER_URL || 'http://localhost:8080';
     const conductorApiKey = process.env.VITE_CONDUCTOR_API_KEY || '';
-    
+
     const headers = {
       'Content-Type': 'application/json',
     };
-    
+
     if (conductorApiKey) {
       headers['X-Conductor-API-Key'] = conductorApiKey;
     }
-    
+
     // Forward request to Conductor server (with query parameters if any)
-    const queryString = Object.keys(req.query).length > 0 ? `?${new URLSearchParams(req.query).toString()}` : '';
-    const response = await axios.get(`${conductorServerUrl}/api/metadata/workflow${queryString}`, { headers });
-    
+    const queryString =
+      Object.keys(req.query).length > 0 ? `?${new URLSearchParams(req.query).toString()}` : '';
+    const response = await axios.get(`${conductorServerUrl}/api/metadata/workflow${queryString}`, {
+      headers,
+    });
+
     res.json(response.data);
   } catch (error) {
     console.error('Error fetching workflows from Conductor:', error.message);
@@ -133,7 +136,7 @@ async function startApolloServer() {
   });
 
   await server.start();
-  
+
   app.use('/graphql', expressMiddleware(server));
 
   app.listen(PORT, () => {
@@ -142,7 +145,9 @@ async function startApolloServer() {
     console.log(`📁 FileStore API ready at http://localhost:${PORT}/api/filestore`);
     console.log(`⚙️  Configuration API ready at http://localhost:${PORT}/api/config`);
     console.log(`💚 Health check ready at http://localhost:${PORT}/api/health`);
-    console.log(`Conductor Server URL: ${process.env.VITE_CONDUCTOR_SERVER_URL || 'http://localhost:8080'}`);
+    console.log(
+      `Conductor Server URL: ${process.env.VITE_CONDUCTOR_SERVER_URL || 'http://localhost:8080'}`
+    );
   });
 }
 

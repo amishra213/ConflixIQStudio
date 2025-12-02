@@ -2,7 +2,13 @@ import { useState, useEffect } from 'react';
 import { BaseTaskModal, BaseTaskConfig } from '../BaseTaskModal';
 import { Label } from '@/components/ui/label';
 import { JsonTextarea } from '@/components/ui/json-textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 
 export interface InlineSystemTaskConfig extends BaseTaskConfig {
   type: 'INLINE';
@@ -19,7 +25,12 @@ interface InlineSystemTaskModalProps {
   readonly initialConfig?: InlineSystemTaskConfig | null;
 }
 
-export function InlineSystemTaskModal({ open, onOpenChange, onSave, initialConfig }: InlineSystemTaskModalProps) {
+export function InlineSystemTaskModal({
+  open,
+  onOpenChange,
+  onSave,
+  initialConfig,
+}: InlineSystemTaskModalProps) {
   const [config, setConfig] = useState<InlineSystemTaskConfig>({
     type: 'INLINE',
     name: '',
@@ -76,7 +87,7 @@ export function InlineSystemTaskModal({ open, onOpenChange, onSave, initialConfi
         <JsonTextarea
           value={config.expression}
           onChange={(value) => setConfig({ ...config, expression: value })}
-          placeholder='function() { return { result: $.input + 1 }; }'
+          placeholder="function() { return { result: $.input + 1 }; }"
           className="mt-1 bg-[#1a1f2e] text-white font-mono text-sm min-h-[120px]"
         />
         <p className="text-xs text-gray-400 mt-1">JavaScript expression to evaluate inline</p>

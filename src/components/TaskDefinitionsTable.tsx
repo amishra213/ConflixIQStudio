@@ -40,7 +40,10 @@ export function TaskDefinitionsTable({ tasks, error = null }: TaskDefinitionsTab
       if (filters.name && !task.name.toLowerCase().includes(filters.name.toLowerCase())) {
         return false;
       }
-      if (filters.description && !task.description?.toLowerCase().includes(filters.description.toLowerCase())) {
+      if (
+        filters.description &&
+        !task.description?.toLowerCase().includes(filters.description.toLowerCase())
+      ) {
         return false;
       }
       if (filters.timeoutPolicy && task.timeoutPolicy !== filters.timeoutPolicy) {
@@ -66,12 +69,12 @@ export function TaskDefinitionsTable({ tasks, error = null }: TaskDefinitionsTab
   }, [filters]);
 
   const uniqueTimeoutPolicies = useMemo(() => {
-    const policies = new Set(tasks.map(t => t.timeoutPolicy).filter(Boolean));
+    const policies = new Set(tasks.map((t) => t.timeoutPolicy).filter(Boolean));
     return Array.from(policies);
   }, [tasks]);
 
   const uniqueRetryLogics = useMemo(() => {
-    const logics = new Set(tasks.map(t => t.retryLogic).filter(Boolean));
+    const logics = new Set(tasks.map((t) => t.retryLogic).filter(Boolean));
     return Array.from(logics);
   }, [tasks]);
 
@@ -122,25 +125,39 @@ export function TaskDefinitionsTable({ tasks, error = null }: TaskDefinitionsTab
                   <th className="px-4 py-3 text-left text-xs font-semibold text-gray-400">Name</th>
                 )}
                 {visibleColumns.description && (
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-400">Description</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-400">
+                    Description
+                  </th>
                 )}
                 {visibleColumns.retryCount && (
-                  <th className="px-4 py-3 text-center text-xs font-semibold text-gray-400">Retry Count</th>
+                  <th className="px-4 py-3 text-center text-xs font-semibold text-gray-400">
+                    Retry Count
+                  </th>
                 )}
                 {visibleColumns.timeoutSeconds && (
-                  <th className="px-4 py-3 text-center text-xs font-semibold text-gray-400">Timeout (s)</th>
+                  <th className="px-4 py-3 text-center text-xs font-semibold text-gray-400">
+                    Timeout (s)
+                  </th>
                 )}
                 {visibleColumns.timeoutPolicy && (
-                  <th className="px-4 py-3 text-center text-xs font-semibold text-gray-400">Timeout Policy</th>
+                  <th className="px-4 py-3 text-center text-xs font-semibold text-gray-400">
+                    Timeout Policy
+                  </th>
                 )}
                 {visibleColumns.retryLogic && (
-                  <th className="px-4 py-3 text-center text-xs font-semibold text-gray-400">Retry Logic</th>
+                  <th className="px-4 py-3 text-center text-xs font-semibold text-gray-400">
+                    Retry Logic
+                  </th>
                 )}
                 {visibleColumns.concurrentExecLimit && (
-                  <th className="px-4 py-3 text-center text-xs font-semibold text-gray-400">Concurrent Limit</th>
+                  <th className="px-4 py-3 text-center text-xs font-semibold text-gray-400">
+                    Concurrent Limit
+                  </th>
                 )}
                 {visibleColumns.createdBy && (
-                  <th className="px-4 py-3 text-center text-xs font-semibold text-gray-400">Created By</th>
+                  <th className="px-4 py-3 text-center text-xs font-semibold text-gray-400">
+                    Created By
+                  </th>
                 )}
               </tr>
             </thead>
@@ -156,15 +173,22 @@ export function TaskDefinitionsTable({ tasks, error = null }: TaskDefinitionsTab
                     <td className="px-4 py-3 text-white font-medium">{task.name}</td>
                   )}
                   {visibleColumns.description && (
-                    <td className="px-4 py-3 text-gray-300 max-w-xs truncate" title={task.description}>
+                    <td
+                      className="px-4 py-3 text-gray-300 max-w-xs truncate"
+                      title={task.description}
+                    >
                       {task.description || '-'}
                     </td>
                   )}
                   {visibleColumns.retryCount && (
-                    <td className="px-4 py-3 text-center text-gray-300">{task.retryCount ?? '-'}</td>
+                    <td className="px-4 py-3 text-center text-gray-300">
+                      {task.retryCount ?? '-'}
+                    </td>
                   )}
                   {visibleColumns.timeoutSeconds && (
-                    <td className="px-4 py-3 text-center text-gray-300">{task.timeoutSeconds ?? '-'}</td>
+                    <td className="px-4 py-3 text-center text-gray-300">
+                      {task.timeoutSeconds ?? '-'}
+                    </td>
                   )}
                   {visibleColumns.timeoutPolicy && (
                     <td className="px-4 py-3 text-center">
@@ -194,7 +218,9 @@ export function TaskDefinitionsTable({ tasks, error = null }: TaskDefinitionsTab
                     </td>
                   )}
                   {visibleColumns.createdBy && (
-                    <td className="px-4 py-3 text-center text-gray-300 text-xs">{task.createdBy ?? '-'}</td>
+                    <td className="px-4 py-3 text-center text-gray-300 text-xs">
+                      {task.createdBy ?? '-'}
+                    </td>
                   )}
                 </tr>
               ))}
@@ -206,7 +232,8 @@ export function TaskDefinitionsTable({ tasks, error = null }: TaskDefinitionsTab
           <div className="flex items-center justify-between px-4 py-3 border-t border-[#2a3142] bg-[#0f1419]/50">
             <div className="text-xs text-gray-400">
               Showing {(currentPage - 1) * ITEMS_PER_PAGE + 1} to{' '}
-              {Math.min(currentPage * ITEMS_PER_PAGE, filteredTasks.length)} of {filteredTasks.length}
+              {Math.min(currentPage * ITEMS_PER_PAGE, filteredTasks.length)} of{' '}
+              {filteredTasks.length}
             </div>
             <div className="flex gap-2">
               <Button
@@ -265,12 +292,7 @@ export function TaskDefinitionsTable({ tasks, error = null }: TaskDefinitionsTab
         <div className="flex items-center justify-between">
           <h3 className="text-sm font-semibold text-white">Filters</h3>
           {Object.keys(filters).length > 0 && (
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={handleClearFilters}
-              className="text-xs"
-            >
+            <Button size="sm" variant="outline" onClick={handleClearFilters} className="text-xs">
               <X className="w-3 h-3 mr-1" />
               Clear Filters
             </Button>
@@ -279,7 +301,9 @@ export function TaskDefinitionsTable({ tasks, error = null }: TaskDefinitionsTab
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
           <div className="space-y-1">
-            <label htmlFor="name-filter" className="text-xs font-medium text-gray-400">Name</label>
+            <label htmlFor="name-filter" className="text-xs font-medium text-gray-400">
+              Name
+            </label>
             <div className="relative">
               <Search className="absolute left-2 top-2.5 w-4 h-4 text-gray-500" />
               <Input
@@ -293,7 +317,9 @@ export function TaskDefinitionsTable({ tasks, error = null }: TaskDefinitionsTab
           </div>
 
           <div className="space-y-1">
-            <label htmlFor="description-filter" className="text-xs font-medium text-gray-400">Description</label>
+            <label htmlFor="description-filter" className="text-xs font-medium text-gray-400">
+              Description
+            </label>
             <div className="relative">
               <Search className="absolute left-2 top-2.5 w-4 h-4 text-gray-500" />
               <Input
@@ -307,9 +333,17 @@ export function TaskDefinitionsTable({ tasks, error = null }: TaskDefinitionsTab
           </div>
 
           <div className="space-y-1">
-            <label htmlFor="timeout-policy-filter" className="text-xs font-medium text-gray-400">Timeout Policy</label>
-            <Select value={filters.timeoutPolicy || ''} onValueChange={(value) => handleFilterChange('timeoutPolicy', value)}>
-              <SelectTrigger id="timeout-policy-filter" className="h-8 text-sm bg-[#0f1419] border-[#2a3142] text-white">
+            <label htmlFor="timeout-policy-filter" className="text-xs font-medium text-gray-400">
+              Timeout Policy
+            </label>
+            <Select
+              value={filters.timeoutPolicy || ''}
+              onValueChange={(value) => handleFilterChange('timeoutPolicy', value)}
+            >
+              <SelectTrigger
+                id="timeout-policy-filter"
+                className="h-8 text-sm bg-[#0f1419] border-[#2a3142] text-white"
+              >
                 <SelectValue placeholder="All policies" />
               </SelectTrigger>
               <SelectContent className="bg-[#1a1f2e] border-[#2a3142]">
@@ -324,9 +358,17 @@ export function TaskDefinitionsTable({ tasks, error = null }: TaskDefinitionsTab
           </div>
 
           <div className="space-y-1">
-            <label htmlFor="retry-logic-filter" className="text-xs font-medium text-gray-400">Retry Logic</label>
-            <Select value={filters.retryLogic || ''} onValueChange={(value) => handleFilterChange('retryLogic', value)}>
-              <SelectTrigger id="retry-logic-filter" className="h-8 text-sm bg-[#0f1419] border-[#2a3142] text-white">
+            <label htmlFor="retry-logic-filter" className="text-xs font-medium text-gray-400">
+              Retry Logic
+            </label>
+            <Select
+              value={filters.retryLogic || ''}
+              onValueChange={(value) => handleFilterChange('retryLogic', value)}
+            >
+              <SelectTrigger
+                id="retry-logic-filter"
+                className="h-8 text-sm bg-[#0f1419] border-[#2a3142] text-white"
+              >
                 <SelectValue placeholder="All logics" />
               </SelectTrigger>
               <SelectContent className="bg-[#1a1f2e] border-[#2a3142]">
@@ -360,9 +402,7 @@ export function TaskDefinitionsTable({ tasks, error = null }: TaskDefinitionsTab
       </Card>
 
       {/* Table */}
-      <Card className="bg-[#1a1f2e] border-[#2a3142] overflow-hidden">
-        {renderTableContent()}
-      </Card>
+      <Card className="bg-[#1a1f2e] border-[#2a3142] overflow-hidden">{renderTableContent()}</Card>
     </div>
   );
 }

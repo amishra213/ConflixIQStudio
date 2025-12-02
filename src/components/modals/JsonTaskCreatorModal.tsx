@@ -1,5 +1,12 @@
 import { useState } from 'react';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -85,7 +92,11 @@ const DECISION_TASK_EXAMPLE = `{
   }
 }`;
 
-export default function JsonTaskCreatorModal({ open, onClose, onSave }: Readonly<JsonTaskCreatorModalProps>) {
+export default function JsonTaskCreatorModal({
+  open,
+  onClose,
+  onSave,
+}: Readonly<JsonTaskCreatorModalProps>) {
   const { toast } = useToast();
   const [jsonInput, setJsonInput] = useState('');
   const [jsonError, setJsonError] = useState('');
@@ -150,7 +161,7 @@ export default function JsonTaskCreatorModal({ open, onClose, onSave }: Readonly
     link.click();
     link.remove();
     URL.revokeObjectURL(url);
-    
+
     toast({
       title: 'Template Downloaded',
       description: 'Task template has been downloaded.',
@@ -162,11 +173,14 @@ export default function JsonTaskCreatorModal({ open, onClose, onSave }: Readonly
   }
 
   return (
-    <Dialog open={open} onOpenChange={(isOpen) => {
-      if (!isOpen) {
-        onClose();
-      }
-    }}>
+    <Dialog
+      open={open}
+      onOpenChange={(isOpen) => {
+        if (!isOpen) {
+          onClose();
+        }
+      }}
+    >
       <DialogContent className="max-w-4xl max-h-[90vh] bg-card text-card-foreground border-border">
         <DialogHeader>
           <DialogTitle className="font-heading text-xl text-foreground">
@@ -179,13 +193,13 @@ export default function JsonTaskCreatorModal({ open, onClose, onSave }: Readonly
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1">
           <TabsList className="grid w-full grid-cols-2 bg-muted">
-            <TabsTrigger 
+            <TabsTrigger
               value="editor"
               className="text-foreground data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
             >
               JSON Editor
             </TabsTrigger>
-            <TabsTrigger 
+            <TabsTrigger
               value="examples"
               className="text-foreground data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
             >
@@ -222,7 +236,10 @@ export default function JsonTaskCreatorModal({ open, onClose, onSave }: Readonly
             {jsonError && (
               <div className="p-3 rounded-lg bg-destructive/10 border border-destructive/20">
                 <div className="flex items-start gap-2">
-                  <AlertCircleIcon className="h-4 w-4 text-destructive flex-shrink-0 mt-0.5" strokeWidth={1.5} />
+                  <AlertCircleIcon
+                    className="h-4 w-4 text-destructive flex-shrink-0 mt-0.5"
+                    strokeWidth={1.5}
+                  />
                   <div className="flex-1">
                     <p className="text-xs font-medium text-destructive">JSON Syntax Error</p>
                     <p className="text-xs text-destructive/80 mt-1">{jsonError}</p>
@@ -246,9 +263,24 @@ export default function JsonTaskCreatorModal({ open, onClose, onSave }: Readonly
                 <div className="flex-1">
                   <p className="text-xs font-medium text-foreground mb-2">JSON Editor Tips:</p>
                   <ul className="text-xs text-muted-foreground space-y-1 list-disc list-inside">
-                    <li>Use <code className="bg-background px-1 rounded">{'${workflow.input.fieldName}'}</code> for dynamic workflow input values</li>
-                    <li>Use <code className="bg-background px-1 rounded">{'${taskRefName.output.fieldName}'}</code> to reference previous task outputs</li>
-                    <li>Ensure all required fields are included: taskRefId, taskId, taskType, sequenceNo</li>
+                    <li>
+                      Use{' '}
+                      <code className="bg-background px-1 rounded">
+                        {'${workflow.input.fieldName}'}
+                      </code>{' '}
+                      for dynamic workflow input values
+                    </li>
+                    <li>
+                      Use{' '}
+                      <code className="bg-background px-1 rounded">
+                        {'${taskRefName.output.fieldName}'}
+                      </code>{' '}
+                      to reference previous task outputs
+                    </li>
+                    <li>
+                      Ensure all required fields are included: taskRefId, taskId, taskType,
+                      sequenceNo
+                    </li>
                     <li>Check the Examples tab for common task type configurations</li>
                   </ul>
                 </div>
@@ -262,7 +294,10 @@ export default function JsonTaskCreatorModal({ open, onClose, onSave }: Readonly
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      <Badge variant="outline" className="bg-primary/10 text-primary border-primary/20">
+                      <Badge
+                        variant="outline"
+                        className="bg-primary/10 text-primary border-primary/20"
+                      >
                         GENERIC
                       </Badge>
                       <h3 className="text-sm font-medium text-foreground">Generic Task</h3>
@@ -290,7 +325,10 @@ export default function JsonTaskCreatorModal({ open, onClose, onSave }: Readonly
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      <Badge variant="outline" className="bg-tertiary/10 text-tertiary border-tertiary/20">
+                      <Badge
+                        variant="outline"
+                        className="bg-tertiary/10 text-tertiary border-tertiary/20"
+                      >
                         HTTP
                       </Badge>
                       <h3 className="text-sm font-medium text-foreground">HTTP Task</h3>
@@ -318,7 +356,10 @@ export default function JsonTaskCreatorModal({ open, onClose, onSave }: Readonly
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      <Badge variant="outline" className="bg-warning/10 text-warning border-warning/20">
+                      <Badge
+                        variant="outline"
+                        className="bg-warning/10 text-warning border-warning/20"
+                      >
                         DECISION
                       </Badge>
                       <h3 className="text-sm font-medium text-foreground">Decision Task</h3>

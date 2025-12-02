@@ -21,7 +21,17 @@ export function ExecutionDiagram() {
     if (!execution) return;
 
     // Map execution status to valid WorkflowTask status
-    const mapStatus = (status: string): 'SCHEDULED' | 'IN_PROGRESS' | 'COMPLETED' | 'FAILED' | 'TIMED_OUT' | 'SKIPPED' | 'CANCELED' | undefined => {
+    const mapStatus = (
+      status: string
+    ):
+      | 'SCHEDULED'
+      | 'IN_PROGRESS'
+      | 'COMPLETED'
+      | 'FAILED'
+      | 'TIMED_OUT'
+      | 'SKIPPED'
+      | 'CANCELED'
+      | undefined => {
       const upperStatus = status.toUpperCase();
       switch (upperStatus) {
         case 'PENDING':
@@ -42,14 +52,14 @@ export function ExecutionDiagram() {
       workflowDefinition: {
         name: execution.workflowName,
         version: 1,
-        tasks: execution.tasks.map(task => ({
+        tasks: execution.tasks.map((task) => ({
           name: task.taskName,
           taskReferenceName: task.taskId,
           type: task.taskType || 'GENERIC',
           status: mapStatus(task.status),
         })),
       },
-      tasks: execution.tasks.map(task => ({
+      tasks: execution.tasks.map((task) => ({
         taskId: task.taskId,
         name: task.taskName,
         taskReferenceName: task.taskId,
@@ -65,15 +75,17 @@ export function ExecutionDiagram() {
         endTime: task.endTime ? new Date(task.endTime).getTime() : undefined,
         inputData: task.input,
         outputData: task.output,
-      })) as Array<WorkflowTask & {
-        taskId: string;
-        workflowTask: WorkflowTask;
-        status: string;
-        startTime?: number;
-        endTime?: number;
-        inputData?: Record<string, unknown>;
-        outputData?: Record<string, unknown>;
-      }>,
+      })) as Array<
+        WorkflowTask & {
+          taskId: string;
+          workflowTask: WorkflowTask;
+          status: string;
+          startTime?: number;
+          endTime?: number;
+          inputData?: Record<string, unknown>;
+          outputData?: Record<string, unknown>;
+        }
+      >,
       status: execution.status.toUpperCase(),
       startTime: new Date(execution.startTime).getTime(),
       endTime: execution.endTime ? new Date(execution.endTime).getTime() : undefined,
@@ -132,7 +144,11 @@ export function ExecutionDiagram() {
               variant={autoRefresh ? 'default' : 'outline'}
               size="sm"
               onClick={() => setAutoRefresh(!autoRefresh)}
-              className={autoRefresh ? 'bg-primary text-primary-foreground' : 'text-foreground border-border hover:bg-muted'}
+              className={
+                autoRefresh
+                  ? 'bg-primary text-primary-foreground'
+                  : 'text-foreground border-border hover:bg-muted'
+              }
             >
               <RefreshCwIcon className={`w-4 h-4 mr-2 ${autoRefresh ? 'animate-spin' : ''}`} />
               Auto Refresh

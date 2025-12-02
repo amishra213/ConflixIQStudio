@@ -22,16 +22,16 @@ interface ExecuteWorkflowModalProps {
 }
 
 const defaultInputTemplate = {
-  orderType: "BOPIS",
-  shipNode: "DC001",
-  customerId: "CUST123",
+  orderType: 'BOPIS',
+  shipNode: 'DC001',
+  customerId: 'CUST123',
   items: [
     {
-      itemId: "ITEM001",
+      itemId: 'ITEM001',
       quantity: 2,
-      price: 29.99
-    }
-  ]
+      price: 29.99,
+    },
+  ],
 };
 
 export function ExecuteWorkflowModal({
@@ -65,12 +65,15 @@ export function ExecuteWorkflowModal({
 
   const [errorLine, setErrorLine] = useState<number | null>(null);
 
-  const updateLineNumbers = useCallback((text: string) => {
-    const lines = text.split('\n').length;
-    if (lineNumbersRef.current) {
-      lineNumbersRef.current.innerHTML = generateLineNumbersHtml(lines, errorLine);
-    }
-  }, [errorLine]);
+  const updateLineNumbers = useCallback(
+    (text: string) => {
+      const lines = text.split('\n').length;
+      if (lineNumbersRef.current) {
+        lineNumbersRef.current.innerHTML = generateLineNumbersHtml(lines, errorLine);
+      }
+    },
+    [errorLine]
+  );
 
   const handleInputChange = (value: string) => {
     setInputJson(value);
@@ -108,7 +111,8 @@ export function ExecuteWorkflowModal({
     try {
       return JSON.parse(inputJson);
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Please fix JSON errors before executing';
+      const errorMessage =
+        error instanceof Error ? error.message : 'Please fix JSON errors before executing';
       setJsonError(errorMessage);
       setIsValidJson(false);
       setErrorLine(null);
@@ -140,11 +144,10 @@ export function ExecuteWorkflowModal({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-4xl h-[85vh] bg-[#1a1f2e] border-[#2a3142] text-white flex flex-col p-0">
         <DialogHeader className="px-6 pt-6 pb-4 border-b border-[#2a3142] flex-shrink-0">
-          <DialogTitle className="text-2xl font-semibold text-white">
-            Execute Workflow
-          </DialogTitle>
+          <DialogTitle className="text-2xl font-semibold text-white">Execute Workflow</DialogTitle>
           <DialogDescription className="text-sm text-gray-400">
-            Execute the workflow with input parameters. Workflow: <span className="text-cyan-400 font-medium">{workflow.name}</span>
+            Execute the workflow with input parameters. Workflow:{' '}
+            <span className="text-cyan-400 font-medium">{workflow.name}</span>
           </DialogDescription>
         </DialogHeader>
 
@@ -161,7 +164,10 @@ export function ExecuteWorkflowModal({
                   <p className="text-xs text-gray-400">{workflow.description}</p>
                   <div className="flex items-center gap-3 mt-2">
                     <span className="text-xs text-gray-500">
-                      Status: <span className="text-green-400 font-medium">{workflow.status.toUpperCase()}</span>
+                      Status:{' '}
+                      <span className="text-green-400 font-medium">
+                        {workflow.status.toUpperCase()}
+                      </span>
                     </span>
                     <span className="text-xs text-gray-500">
                       Created: {new Date(workflow.createdAt).toLocaleDateString()}
@@ -187,8 +193,18 @@ export function ExecuteWorkflowModal({
 
             {isValidJson && inputJson.trim() !== '' && !jsonError && (
               <div className="flex items-start gap-2 p-3 bg-green-500/10 border border-green-500/50 rounded-lg">
-                <svg className="w-4 h-4 text-green-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                <svg
+                  className="w-4 h-4 text-green-500 flex-shrink-0 mt-0.5"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M5 13l4 4L19 7"
+                  />
                 </svg>
                 <p className="text-sm text-green-400">Valid JSON format</p>
               </div>
@@ -265,14 +281,13 @@ export function ExecuteWorkflowModal({
                   />
                 </div>
               </div>
-
             </Card>
 
             {/* Example Input */}
             <Card className="p-6 bg-[#0f1419] border-[#2a3142]">
               <h3 className="text-sm font-semibold text-white mb-3">Example Input Structure</h3>
               <pre className="text-xs text-gray-400 font-mono bg-[#1a1f2e] p-4 rounded-lg border border-[#2a3142] overflow-x-auto">
-{`{
+                {`{
   "orderType": "BOPIS",
   "shipNode": "DC001",
   "customerId": "CUST123",

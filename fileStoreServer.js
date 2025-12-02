@@ -122,9 +122,9 @@ const fileStoreRoutes = (app) => {
       }
     } catch (error) {
       serverLogger.error('Error in /api/filestore/load:', error);
-      res.status(500).json({ 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Unknown error loading cache' 
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error loading cache',
       });
     }
   });
@@ -145,9 +145,9 @@ const fileStoreRoutes = (app) => {
       }
     } catch (error) {
       serverLogger.error('Error in /api/filestore/load-workflows:', error);
-      res.status(500).json({ 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Unknown error loading workflows' 
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error loading workflows',
       });
     }
   });
@@ -160,9 +160,9 @@ const fileStoreRoutes = (app) => {
       const { key, data, timestamp } = req.body;
 
       if (!key || !Array.isArray(data)) {
-        res.status(400).json({ 
-          success: false, 
-          error: 'Missing required fields: key (string), data (array)' 
+        res.status(400).json({
+          success: false,
+          error: 'Missing required fields: key (string), data (array)',
         });
         return;
       }
@@ -176,9 +176,9 @@ const fileStoreRoutes = (app) => {
       res.json({ success: true });
     } catch (error) {
       serverLogger.error('Error in /api/filestore/save:', error);
-      res.status(500).json({ 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Unknown error saving cache' 
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error saving cache',
       });
     }
   });
@@ -191,9 +191,9 @@ const fileStoreRoutes = (app) => {
       const { workflows, timestamp } = req.body;
 
       if (!Array.isArray(workflows)) {
-        res.status(400).json({ 
-          success: false, 
-          error: 'Missing required field: workflows (array)' 
+        res.status(400).json({
+          success: false,
+          error: 'Missing required field: workflows (array)',
         });
         return;
       }
@@ -207,9 +207,9 @@ const fileStoreRoutes = (app) => {
       res.json({ success: true });
     } catch (error) {
       serverLogger.error('Error in /api/filestore/save-workflows:', error);
-      res.status(500).json({ 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Unknown error saving workflows' 
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error saving workflows',
       });
     }
   });
@@ -222,9 +222,9 @@ const fileStoreRoutes = (app) => {
       const { key } = req.body;
 
       if (!key) {
-        res.status(400).json({ 
-          success: false, 
-          error: 'Missing required field: key' 
+        res.status(400).json({
+          success: false,
+          error: 'Missing required field: key',
         });
         return;
       }
@@ -233,9 +233,9 @@ const fileStoreRoutes = (app) => {
       res.json({ success: true });
     } catch (error) {
       serverLogger.error('Error in /api/filestore/clear:', error);
-      res.status(500).json({ 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Unknown error clearing cache' 
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error clearing cache',
       });
     }
   });
@@ -253,9 +253,9 @@ const fileStoreRoutes = (app) => {
       }
     } catch (error) {
       serverLogger.error('Error in /api/filestore/info:', error);
-      res.status(500).json({ 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Unknown error getting cache info' 
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error getting cache info',
       });
     }
   });
@@ -269,9 +269,9 @@ const fileStoreRoutes = (app) => {
       const { filename, data, timestamp } = req.body;
 
       if (!filename || !data) {
-        res.status(400).json({ 
-          success: false, 
-          error: 'Missing required fields: filename (string), data (object)' 
+        res.status(400).json({
+          success: false,
+          error: 'Missing required fields: filename (string), data (object)',
         });
         return;
       }
@@ -290,9 +290,9 @@ const fileStoreRoutes = (app) => {
       serverLogger.info(`Workflow saved to: ${filePath}`);
       res.json({ success: true });
     } catch (error) {
-      res.status(500).json({ 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Unknown error saving workflow' 
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error saving workflow',
       });
     }
   });
@@ -308,7 +308,7 @@ const fileStoreRoutes = (app) => {
       try {
         // Read all files in workflows directory
         const files = await fs.readdir(workflowsDir);
-        
+
         for (const file of files) {
           if (file.endsWith('.json')) {
             const filePath = path.join(workflowsDir, file);
@@ -326,9 +326,9 @@ const fileStoreRoutes = (app) => {
 
       res.json({ success: true, data: workflows });
     } catch (error) {
-      res.status(500).json({ 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Unknown error loading workflows' 
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error loading workflows',
       });
     }
   });
@@ -341,9 +341,9 @@ const fileStoreRoutes = (app) => {
       const { filename } = req.body;
 
       if (!filename) {
-        res.status(400).json({ 
-          success: false, 
-          error: 'Missing required field: filename' 
+        res.status(400).json({
+          success: false,
+          error: 'Missing required field: filename',
         });
         return;
       }
@@ -361,9 +361,9 @@ const fileStoreRoutes = (app) => {
 
       res.json({ success: true });
     } catch (error) {
-      res.status(500).json({ 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Unknown error deleting workflow' 
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error deleting workflow',
       });
     }
   });

@@ -65,7 +65,9 @@ export function Executions() {
               <tr>
                 <th className="px-6 py-4 text-left text-sm font-semibold text-white">Status</th>
                 <th className="px-6 py-4 text-left text-sm font-semibold text-white">Workflow</th>
-                <th className="px-6 py-4 text-left text-sm font-semibold text-white">Execution ID</th>
+                <th className="px-6 py-4 text-left text-sm font-semibold text-white">
+                  Execution ID
+                </th>
                 <th className="px-6 py-4 text-left text-sm font-semibold text-white">Start Time</th>
                 <th className="px-6 py-4 text-left text-sm font-semibold text-white">Duration</th>
                 <th className="px-6 py-4 text-left text-sm font-semibold text-white">Actions</th>
@@ -73,14 +75,19 @@ export function Executions() {
             </thead>
             <tbody className="divide-y divide-[#2a3142]">
               {executions.map((execution) => (
-                <tr key={execution.id} className="hover:bg-[#2a3142]/30 transition-colors duration-150 ease-in">
+                <tr
+                  key={execution.id}
+                  className="hover:bg-[#2a3142]/30 transition-colors duration-150 ease-in"
+                >
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-2">
                       {getStatusIcon(execution.status)}
                       {getStatusBadge(execution.status)}
                     </div>
                   </td>
-                  <td className="px-6 py-4 text-sm font-medium text-white">{execution.workflowName}</td>
+                  <td className="px-6 py-4 text-sm font-medium text-white">
+                    {execution.workflowName}
+                  </td>
                   <td className="px-6 py-4 text-xs font-mono text-gray-400">{execution.id}</td>
                   <td className="px-6 py-4 text-sm font-medium text-white">
                     {new Date(execution.startTime).toLocaleString()}

@@ -34,13 +34,23 @@ export function Tasks() {
           type: 'SIMPLE',
           description: config.description || 'Simple task definition',
         });
-        toast({ title: 'Success', description: `Task definition "${taskName}" created successfully.` });
+        toast({
+          title: 'Success',
+          description: `Task definition "${taskName}" created successfully.`,
+        });
       } else {
-        toast({ title: 'Error', description: 'Failed to create task definition. Please check your Conductor API settings.' });
+        toast({
+          title: 'Error',
+          description:
+            'Failed to create task definition. Please check your Conductor API settings.',
+        });
       }
     } catch (error) {
       console.error('Error saving task definition:', error);
-      toast({ title: 'Error', description: error instanceof Error ? error.message : 'Failed to create task definition.' });
+      toast({
+        title: 'Error',
+        description: error instanceof Error ? error.message : 'Failed to create task definition.',
+      });
     }
   };
 
@@ -67,7 +77,7 @@ export function Tasks() {
             <p className="text-base text-gray-400">Manage reusable task definitions</p>
           </div>
         </div>
-        <Button 
+        <Button
           onClick={() => setIsSimpleTaskModalOpen(true)}
           className="bg-cyan-500 text-white hover:bg-cyan-600 shadow-sm font-medium"
         >
@@ -78,19 +88,34 @@ export function Tasks() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {tasks.map((task) => (
-          <Card key={task.id} className="p-6 bg-[#1a1f2e] border-[#2a3142] shadow-sm hover:shadow-md transition-shadow duration-200">
+          <Card
+            key={task.id}
+            className="p-6 bg-[#1a1f2e] border-[#2a3142] shadow-sm hover:shadow-md transition-shadow duration-200"
+          >
             <div className="space-y-4">
               <div>
                 <h3 className="text-lg font-semibold text-white">{task.name}</h3>
                 <p className="text-sm text-gray-400 mt-3">{task.description}</p>
               </div>
               <div className="flex items-center gap-2 flex-wrap">
-                <Badge className="bg-cyan-500/20 text-cyan-400 border border-cyan-500/50 font-medium">{task.type}</Badge>
-                {task.config && typeof task.config === 'object' ? <Badge className="bg-green-500/20 text-green-400 border border-green-500/50 font-medium">Configured</Badge> : null}
+                <Badge className="bg-cyan-500/20 text-cyan-400 border border-cyan-500/50 font-medium">
+                  {task.type}
+                </Badge>
+                {task.config && typeof task.config === 'object' ? (
+                  <Badge className="bg-green-500/20 text-green-400 border border-green-500/50 font-medium">
+                    Configured
+                  </Badge>
+                ) : null}
               </div>
               <div className="flex gap-2 pt-4 border-t border-border">
-                <Button size="sm" onClick={() => handleDelete(task.id, task.name)} variant="outline" className="flex-1 text-destructive border-border hover:bg-destructive/10">
-                  <Trash2Icon className="w-4 h-4 mr-2" />Delete
+                <Button
+                  size="sm"
+                  onClick={() => handleDelete(task.id, task.name)}
+                  variant="outline"
+                  className="flex-1 text-destructive border-border hover:bg-destructive/10"
+                >
+                  <Trash2Icon className="w-4 h-4 mr-2" />
+                  Delete
                 </Button>
               </div>
             </div>

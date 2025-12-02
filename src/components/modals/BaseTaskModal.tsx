@@ -65,7 +65,7 @@ export function BaseTaskModal<T extends BaseTaskConfig>({
   useEffect(() => {
     if (open) {
       console.log('[BaseTaskModal] Modal open, initialConfig:', initialConfig);
-      
+
       // Whenever modal opens or initialConfig changes, update the form with the new config
       if (initialConfig) {
         console.log('[BaseTaskModal] Initializing with initialConfig');
@@ -75,7 +75,10 @@ export function BaseTaskModal<T extends BaseTaskConfig>({
         };
         if (!configWithRef.taskReferenceName || configWithRef.taskReferenceName.trim() === '') {
           configWithRef.taskReferenceName = `task_ref_${Date.now()}`;
-          console.log('[BaseTaskModal] Generated default taskReferenceName:', configWithRef.taskReferenceName);
+          console.log(
+            '[BaseTaskModal] Generated default taskReferenceName:',
+            configWithRef.taskReferenceName
+          );
         }
         setConfig(configWithRef);
         setCompleteConfigJson(JSON.stringify(configWithRef, null, 2));
@@ -119,7 +122,10 @@ export function BaseTaskModal<T extends BaseTaskConfig>({
 
   const validateAndGenerateDefaults = (cfg: T): string | null => {
     // Ensure taskReferenceName is generated if needed
-    if (cfg.taskReferenceName !== undefined && (!cfg.taskReferenceName || cfg.taskReferenceName.trim() === '')) {
+    if (
+      cfg.taskReferenceName !== undefined &&
+      (!cfg.taskReferenceName || cfg.taskReferenceName.trim() === '')
+    ) {
       cfg.taskReferenceName = `task_ref_${Date.now()}`;
     }
 
@@ -129,7 +135,10 @@ export function BaseTaskModal<T extends BaseTaskConfig>({
     }
 
     // Validate taskReferenceName
-    if (cfg.taskReferenceName !== undefined && (!cfg.taskReferenceName || cfg.taskReferenceName.trim() === '')) {
+    if (
+      cfg.taskReferenceName !== undefined &&
+      (!cfg.taskReferenceName || cfg.taskReferenceName.trim() === '')
+    ) {
       return 'Task Reference Name is required and cannot be empty';
     }
 
@@ -181,7 +190,9 @@ export function BaseTaskModal<T extends BaseTaskConfig>({
       <DialogContent className="max-w-4xl h-[85vh] bg-[#1a1f2e] border-[#2a3142] text-white flex flex-col p-0">
         <DialogHeader className="px-6 pt-6 pb-4 border-b border-[#2a3142] flex-shrink-0">
           <DialogTitle className="text-2xl font-semibold text-white">{title}</DialogTitle>
-          {description && <DialogDescription className="text-sm text-gray-400">{description}</DialogDescription>}
+          {description && (
+            <DialogDescription className="text-sm text-gray-400">{description}</DialogDescription>
+          )}
         </DialogHeader>
 
         <div className="flex-1 overflow-y-auto px-6">
@@ -204,7 +215,9 @@ export function BaseTaskModal<T extends BaseTaskConfig>({
                   {/* Name field */}
                   {config.name !== undefined && (
                     <div>
-                      <Label className="text-white">Name {config.taskReferenceName !== undefined && '*'}</Label>
+                      <Label className="text-white">
+                        Name {config.taskReferenceName !== undefined && '*'}
+                      </Label>
                       <Input
                         value={config.name || ''}
                         onChange={(e) => updateConfig({ name: e.target.value } as Partial<T>)}
@@ -220,7 +233,9 @@ export function BaseTaskModal<T extends BaseTaskConfig>({
                       <Label className="text-white">Task Reference Name *</Label>
                       <Input
                         value={config.taskReferenceName || ''}
-                        onChange={(e) => updateConfig({ taskReferenceName: e.target.value } as Partial<T>)}
+                        onChange={(e) =>
+                          updateConfig({ taskReferenceName: e.target.value } as Partial<T>)
+                        }
                         placeholder="e.g., task_ref"
                         className="mt-2 bg-[#1a1f2e] text-white border-[#2a3142]"
                       />
@@ -248,7 +263,9 @@ export function BaseTaskModal<T extends BaseTaskConfig>({
                       <Label className="text-white">Description</Label>
                       <Textarea
                         value={config.description || ''}
-                        onChange={(e) => updateConfig({ description: e.target.value } as Partial<T>)}
+                        onChange={(e) =>
+                          updateConfig({ description: e.target.value } as Partial<T>)
+                        }
                         placeholder="Describe this task"
                         className="mt-2 bg-[#1a1f2e] text-white border-[#2a3142] min-h-[80px]"
                       />
@@ -274,8 +291,13 @@ export function BaseTaskModal<T extends BaseTaskConfig>({
             {/* JSON Config Tab */}
             {!hideJsonTab && (
               <TabsContent value="json" className="space-y-4">
-                <Card className="p-6 bg-[#0f1419] border-[#2a3142]" style={{ '--line-height': '1.5rem' } as React.CSSProperties}>
-                  <h3 className="text-lg font-semibold text-white mb-4">Complete Configuration JSON</h3>
+                <Card
+                  className="p-6 bg-[#0f1419] border-[#2a3142]"
+                  style={{ '--line-height': '1.5rem' } as React.CSSProperties}
+                >
+                  <h3 className="text-lg font-semibold text-white mb-4">
+                    Complete Configuration JSON
+                  </h3>
                   <p className="text-sm text-gray-400 mb-4">
                     You can edit the JSON directly here. Changes will override form values.
                   </p>
@@ -304,7 +326,10 @@ export function BaseTaskModal<T extends BaseTaskConfig>({
           >
             Cancel
           </Button>
-          <Button onClick={handleSave} className="bg-cyan-500 text-white hover:bg-cyan-600 font-medium">
+          <Button
+            onClick={handleSave}
+            className="bg-cyan-500 text-white hover:bg-cyan-600 font-medium"
+          >
             {buttonLabel}
           </Button>
         </DialogFooter>

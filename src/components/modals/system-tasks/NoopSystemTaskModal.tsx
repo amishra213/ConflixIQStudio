@@ -14,7 +14,12 @@ interface NoopSystemTaskModalProps {
   readonly initialConfig?: NoopSystemTaskConfig;
 }
 
-export function NoopSystemTaskModal({ open, onOpenChange, onSave, initialConfig }: NoopSystemTaskModalProps) {
+export function NoopSystemTaskModal({
+  open,
+  onOpenChange,
+  onSave,
+  initialConfig,
+}: NoopSystemTaskModalProps) {
   const [config, setConfig] = useState<NoopSystemTaskConfig>({
     type: 'NOOP',
     name: '',

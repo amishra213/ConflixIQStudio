@@ -3,6 +3,7 @@
 ---
 
 ## Table of Contents
+
 - [Overview](#overview)
 - [Caching Architecture](#caching-architecture)
 - [Persistence Implementation Summary](#persistence-implementation-summary)
@@ -79,37 +80,51 @@ The Conductor Designer uses a **dual-layer caching strategy** to ensure WIP (Wor
 ### Data Flow Diagrams
 
 #### Creating a New Workflow
+
 ...existing code...
+
 #### Editing a Task Configuration
+
 ...existing code...
+
 #### Page Refresh / Reload
+
 ...existing code...
 
 ### Persistence Layers Comparison
+
 ...existing code...
 
 ### State Partitioning
+
 ...existing code...
 
 ### Performance Characteristics
+
 ...existing code...
 
 ### Error Handling
+
 ...existing code...
 
 ### Migration Strategy
+
 ...existing code...
 
 ### Testing Checklist
+
 ...existing code...
 
 ### Monitoring & Debugging
+
 ...existing code...
 
 ### Security Considerations
+
 ...existing code...
 
 ### Conclusion
+
 ...existing code...
 
 ---
@@ -117,6 +132,7 @@ The Conductor Designer uses a **dual-layer caching strategy** to ensure WIP (Wor
 ## Persistence Implementation Summary
 
 ### Zustand Persist Middleware
+
 **File**: `src/stores/workflowStore.ts`
 
 Added Zustand persist middleware to automatically cache workflows to browser localStorage:
@@ -127,7 +143,9 @@ import { persist, createJSONStorage } from 'zustand/middleware';
 
 export const useWorkflowStore = create<WorkflowStore>()(
   persist(
-    (set) => { /* store implementation */ },
+    (set) => {
+      /* store implementation */
+    },
     {
       name: 'conductor-workflow-store',
       storage: createJSONStorage(() => localStorage),
@@ -143,22 +161,27 @@ export const useWorkflowStore = create<WorkflowStore>()(
 ```
 
 **What Gets Persisted:**
+
 - ✅ Workflows (with nodes, edges, tasks, settings)
 - ✅ Task definitions from library
 - ✅ Canvas nodes and edges
 - ✅ All WIP (Work In Progress) workflow data
 
 **What Does NOT Get Persisted:**
+
 - ❌ Executions (runtime data)
 - ❌ Selected workflow/execution (UI state)
 
 ### Documentation Updates
+
 ...existing code...
 
 ### Persistence Guide
+
 ...existing code...
 
 ### Architecture Documentation
+
 ...existing code...
 
 ---
@@ -166,17 +189,20 @@ export const useWorkflowStore = create<WorkflowStore>()(
 ## How It Works
 
 ### Auto-Save Flow
+
 ```
 User Action → WorkflowDesigner → Zustand Store → Persist Middleware → localStorage
                                      (500ms debounce)
 ```
 
 ### Restore Flow
+
 ```
 Page Load → Zustand Init → Persist Middleware → Read localStorage → Hydrate State
 ```
 
 ### Key Features
+
 ...existing code...
 
 ---
@@ -184,6 +210,7 @@ Page Load → Zustand Init → Persist Middleware → Read localStorage → Hydr
 ## Testing & Verification
 
 ### Quick Test
+
 1. Open Conductor Designer
 2. Create a workflow with multiple tasks
 3. Configure tasks with custom values
@@ -191,6 +218,7 @@ Page Load → Zustand Init → Persist Middleware → Read localStorage → Hydr
 5. ✅ Verify: All workflows and configurations restored
 
 ### Detailed Test Scenarios
+
 - Test 1: Page Refresh
 - Test 2: Browser Restart
 - Test 3: Auto-Save During Editing
@@ -198,6 +226,7 @@ Page Load → Zustand Init → Persist Middleware → Read localStorage → Hydr
 - Test 5: Offline Mode
 
 ### Browser Developer Tools Verification
+
 ...existing code...
 
 ---
@@ -205,21 +234,27 @@ Page Load → Zustand Init → Persist Middleware → Read localStorage → Hydr
 ## Configuration & Customization
 
 ### Persist Middleware Settings
+
 ...existing code...
 
 ### Customize What Gets Persisted
+
 ...existing code...
 
 ### Change Storage Backend
+
 ...existing code...
 
 ### Change localStorage Key
+
 ...existing code...
 
 ### Persist Different State Fields
+
 ...existing code...
 
 ### Change Debounce Timing
+
 ...existing code...
 
 ---
@@ -227,15 +262,19 @@ Page Load → Zustand Init → Persist Middleware → Read localStorage → Hydr
 ## Troubleshooting
 
 ### Issue: Changes Not Persisting
+
 ...existing code...
 
 ### Issue: localStorage Quota Exceeded
+
 ...existing code...
 
 ### Issue: Corrupted State
+
 ...existing code...
 
 ### Issue: FileStore API Not Available
+
 ...existing code...
 
 ---
@@ -254,12 +293,15 @@ Page Load → Zustand Init → Persist Middleware → Read localStorage → Hydr
 ## Migration & Future Enhancements
 
 ### Migration from Previous Versions
+
 ...existing code...
 
 ### Future Scalability
+
 ...existing code...
 
 ### Next Steps (Optional Enhancements)
+
 - Add localStorage usage indicator in UI
 - Implement "Export All Workflows" feature
 - Add "Clear Cache" button in Settings
@@ -287,6 +329,7 @@ Page Load → Zustand Init → Persist Middleware → Read localStorage → Hydr
 - **Zustand Docs**: https://docs.pmnd.rs/zustand/integrations/persisting-store-data
 
 For issues or questions about persistence:
+
 1. Check browser console for errors
 2. Verify localStorage in DevTools
 3. Test with a fresh browser profile

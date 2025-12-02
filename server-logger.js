@@ -24,9 +24,15 @@ async function writeLog(level, ...parts) {
     await ensureLogFolder();
     const filePath = getLogFilePath();
     const ts = new Date().toISOString();
-    const message = parts.map(p => {
-      try { return typeof p === 'string' ? p : JSON.stringify(p); } catch { return String(p); }
-    }).join(' ');
+    const message = parts
+      .map((p) => {
+        try {
+          return typeof p === 'string' ? p : JSON.stringify(p);
+        } catch {
+          return String(p);
+        }
+      })
+      .join(' ');
     const line = `${ts} [${level.toUpperCase()}] ${message}\n`;
     await fs.appendFile(filePath, line, { encoding: 'utf8' });
   } catch (err) {

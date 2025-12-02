@@ -16,7 +16,7 @@ export interface ModalStates {
   isInlineModalOpen: boolean;
   isHumanTaskModalOpen: boolean;
   isSimpleTaskModalOpen: boolean;
-  
+
   // Operators
   isForkJoinModalOpen: boolean;
   isForkJoinDynamicModalOpen: boolean;
@@ -29,7 +29,7 @@ export interface ModalStates {
   isExclusiveJoinModalOpen: boolean;
   isOperatorSubWorkflowModalOpen: boolean;
   isStartWorkflowModalOpen: boolean;
-  
+
   // Other
   executeModalOpen: boolean;
 }

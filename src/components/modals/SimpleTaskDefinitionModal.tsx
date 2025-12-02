@@ -13,7 +13,13 @@ import { Textarea } from '@/components/ui/textarea';
 import { JsonTextarea } from '@/components/ui/json-textarea';
 import { Card } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 
 export interface SimpleTaskDefinitionConfig {
   name: string;
@@ -149,7 +155,10 @@ export function SimpleTaskCreateModal({
   const handleArrayChange = (name: 'inputKeys' | 'outputKeys', value: string) => {
     setConfig((prev) => ({
       ...prev,
-      [name]: value.split(',').map((key) => key.trim()).filter(Boolean),
+      [name]: value
+        .split(',')
+        .map((key) => key.trim())
+        .filter(Boolean),
     }));
   };
 
@@ -233,7 +242,9 @@ export function SimpleTaskCreateModal({
                       name="priority"
                       type="number"
                       value={config.priority}
-                      onChange={(e) => handleSelectChange('priority', Number.parseInt(e.target.value) || 0)}
+                      onChange={(e) =>
+                        handleSelectChange('priority', Number.parseInt(e.target.value) || 0)
+                      }
                       className="mt-2 bg-[#1a1f2e] text-white border-[#2a3142]"
                     />
                   </div>
@@ -279,7 +290,9 @@ export function SimpleTaskCreateModal({
                       name="retryCount"
                       type="number"
                       value={config.retryCount}
-                      onChange={(e) => handleSelectChange('retryCount', Number.parseInt(e.target.value) || 0)}
+                      onChange={(e) =>
+                        handleSelectChange('retryCount', Number.parseInt(e.target.value) || 0)
+                      }
                       className="mt-2 bg-[#1a1f2e] text-white border-[#2a3142]"
                     />
                   </div>
@@ -287,7 +300,9 @@ export function SimpleTaskCreateModal({
                     <Label className="text-white">Retry Logic</Label>
                     <Select
                       value={config.retryLogic}
-                      onValueChange={(value: 'FIXED' | 'LINEAR' | 'EXPONENTIAL') => handleSelectChange('retryLogic', value)}
+                      onValueChange={(value: 'FIXED' | 'LINEAR' | 'EXPONENTIAL') =>
+                        handleSelectChange('retryLogic', value)
+                      }
                     >
                       <SelectTrigger className="mt-2 bg-[#1a1f2e] text-white border-[#2a3142]">
                         <SelectValue />
@@ -305,7 +320,12 @@ export function SimpleTaskCreateModal({
                       name="retryDelaySeconds"
                       type="number"
                       value={config.retryDelaySeconds}
-                      onChange={(e) => handleSelectChange('retryDelaySeconds', Number.parseInt(e.target.value) || 0)}
+                      onChange={(e) =>
+                        handleSelectChange(
+                          'retryDelaySeconds',
+                          Number.parseInt(e.target.value) || 0
+                        )
+                      }
                       className="mt-2 bg-[#1a1f2e] text-white border-[#2a3142]"
                     />
                   </div>
@@ -316,7 +336,9 @@ export function SimpleTaskCreateModal({
                       type="number"
                       step="0.1"
                       value={config.backoffRate}
-                      onChange={(e) => handleSelectChange('backoffRate', Number.parseFloat(e.target.value) || 0)}
+                      onChange={(e) =>
+                        handleSelectChange('backoffRate', Number.parseFloat(e.target.value) || 0)
+                      }
                       className="mt-2 bg-[#1a1f2e] text-white border-[#2a3142]"
                     />
                   </div>
@@ -332,7 +354,9 @@ export function SimpleTaskCreateModal({
                       name="timeoutSeconds"
                       type="number"
                       value={config.timeoutSeconds}
-                      onChange={(e) => handleSelectChange('timeoutSeconds', Number.parseInt(e.target.value) || 0)}
+                      onChange={(e) =>
+                        handleSelectChange('timeoutSeconds', Number.parseInt(e.target.value) || 0)
+                      }
                       className="mt-2 bg-[#1a1f2e] text-white border-[#2a3142]"
                     />
                   </div>
@@ -340,7 +364,9 @@ export function SimpleTaskCreateModal({
                     <Label className="text-white">Timeout Policy</Label>
                     <Select
                       value={config.timeoutPolicy}
-                      onValueChange={(value: 'TIME_OUT_WF' | 'TIME_OUT_TASK' | 'RETRY') => handleSelectChange('timeoutPolicy', value)}
+                      onValueChange={(value: 'TIME_OUT_WF' | 'TIME_OUT_TASK' | 'RETRY') =>
+                        handleSelectChange('timeoutPolicy', value)
+                      }
                     >
                       <SelectTrigger className="mt-2 bg-[#1a1f2e] text-white border-[#2a3142]">
                         <SelectValue />
@@ -358,7 +384,12 @@ export function SimpleTaskCreateModal({
                       name="responseTimeoutSeconds"
                       type="number"
                       value={config.responseTimeoutSeconds}
-                      onChange={(e) => handleSelectChange('responseTimeoutSeconds', Number.parseInt(e.target.value) || 0)}
+                      onChange={(e) =>
+                        handleSelectChange(
+                          'responseTimeoutSeconds',
+                          Number.parseInt(e.target.value) || 0
+                        )
+                      }
                       className="mt-2 bg-[#1a1f2e] text-white border-[#2a3142]"
                     />
                   </div>
@@ -376,7 +407,12 @@ export function SimpleTaskCreateModal({
                       name="rateLimitPerFrequency"
                       type="number"
                       value={config.rateLimitPerFrequency}
-                      onChange={(e) => handleSelectChange('rateLimitPerFrequency', Number.parseInt(e.target.value) || 0)}
+                      onChange={(e) =>
+                        handleSelectChange(
+                          'rateLimitPerFrequency',
+                          Number.parseInt(e.target.value) || 0
+                        )
+                      }
                       className="mt-2 bg-[#1a1f2e] text-white border-[#2a3142]"
                     />
                   </div>
@@ -386,7 +422,12 @@ export function SimpleTaskCreateModal({
                       name="rateLimitFrequencyInSeconds"
                       type="number"
                       value={config.rateLimitFrequencyInSeconds}
-                      onChange={(e) => handleSelectChange('rateLimitFrequencyInSeconds', Number.parseInt(e.target.value) || 0)}
+                      onChange={(e) =>
+                        handleSelectChange(
+                          'rateLimitFrequencyInSeconds',
+                          Number.parseInt(e.target.value) || 0
+                        )
+                      }
                       className="mt-2 bg-[#1a1f2e] text-white border-[#2a3142]"
                     />
                   </div>
@@ -402,7 +443,12 @@ export function SimpleTaskCreateModal({
                       name="pollTimeoutSeconds"
                       type="number"
                       value={config.pollTimeoutSeconds}
-                      onChange={(e) => handleSelectChange('pollTimeoutSeconds', Number.parseInt(e.target.value) || 0)}
+                      onChange={(e) =>
+                        handleSelectChange(
+                          'pollTimeoutSeconds',
+                          Number.parseInt(e.target.value) || 0
+                        )
+                      }
                       className="mt-2 bg-[#1a1f2e] text-white border-[#2a3142]"
                     />
                   </div>
@@ -412,7 +458,12 @@ export function SimpleTaskCreateModal({
                       name="concurrentExecLimit"
                       type="number"
                       value={config.concurrentExecLimit}
-                      onChange={(e) => handleSelectChange('concurrentExecLimit', Number.parseInt(e.target.value) || 0)}
+                      onChange={(e) =>
+                        handleSelectChange(
+                          'concurrentExecLimit',
+                          Number.parseInt(e.target.value) || 0
+                        )
+                      }
                       className="mt-2 bg-[#1a1f2e] text-white border-[#2a3142]"
                     />
                   </div>
@@ -451,7 +502,10 @@ export function SimpleTaskCreateModal({
             </TabsContent>
 
             <TabsContent value="json" className="space-y-4">
-              <Card className="p-6 bg-[#0f1419] border-[#2a3142]" style={{ '--line-height': '1.5rem' } as React.CSSProperties}>
+              <Card
+                className="p-6 bg-[#0f1419] border-[#2a3142]"
+                style={{ '--line-height': '1.5rem' } as React.CSSProperties}
+              >
                 <h3 className="text-lg font-semibold text-white mb-4">Complete Definition JSON</h3>
                 <JsonTextarea
                   value={JSON.stringify(config, null, 2)}

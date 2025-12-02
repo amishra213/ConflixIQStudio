@@ -16,6 +16,7 @@ npm run sea:build:docker
 ## What You'll Get
 
 After running the build, you'll find your artifacts in:
+
 ```
 dist/sea-build-[timestamp]/
 ├── conductor-designer-build-001.exe     # Windows portable executable (numbered)
@@ -32,17 +33,20 @@ dist/sea-build-[timestamp]/
 ### Option 1: Windows EXE (Fastest & Easiest)
 
 **Method A: Double-click the batch file (recommended)**
+
 ```
 dist\sea-build-YYYY-MM-DD-HH-MM-SS\conductor-designer-build-001.bat
 ```
 
 **Method B: Run the EXE directly**
+
 ```cmd
 cd dist\sea-build-YYYY-MM-DD-HH-MM-SS
 conductor-designer-build-001.exe
 ```
 
 The app will automatically:
+
 - ✅ Create `.filestore` and `logs` folders (first run)
 - ✅ Start the backend server
 - ✅ Open your browser at `http://localhost:4000`
@@ -98,6 +102,7 @@ docker run -d -p 4000:4000 -e CONDUCTOR_API=https://conductor.example.com conduc
 ## Build Methods
 
 ### Using npm (Recommended)
+
 ```bash
 npm run sea:build              # All targets
 npm run sea:build:windows      # Windows EXE
@@ -105,6 +110,7 @@ npm run sea:build:docker       # Docker
 ```
 
 ### Using Batch Files (Windows)
+
 ```cmd
 .\bin\run-sea-build.bat        # All targets
 .\bin\run-sea-windows.bat      # Windows EXE
@@ -112,6 +118,7 @@ npm run sea:build:docker       # Docker
 ```
 
 ### Using PowerShell
+
 ```powershell
 .\scripts\build-sea.ps1 -Target all      # All targets
 .\scripts\build-sea.ps1 -Target windows  # Windows EXE
@@ -125,6 +132,7 @@ npm run sea:build:docker       # Docker
 - **Optional for Docker builds**: Docker or Rancher Desktop
 
 Check your versions:
+
 ```bash
 node --version    # Should be v18.x or higher
 npm --version     # Should be 8.x or higher
@@ -155,6 +163,7 @@ npm run sea:build
 ```
 
 **Why this happens:**
+
 - Windows Defender or antivirus scanning build files
 - Node.js or npm process still holding file handles
 - Previous build not fully cleaned up
@@ -165,6 +174,7 @@ The build system now includes automatic retry logic with 3 attempts and configur
 ### Build Fails
 
 **Clean and retry:**
+
 ```bash
 # Remove build cache
 rm -r .build
@@ -236,6 +246,7 @@ Everything is included - no additional setup needed.
 ### For Server Deployment
 
 Upload Docker image to your registry:
+
 ```bash
 docker load -i conductor-designer-portable.tar
 docker tag conductor-designer:latest myregistry/conductor-designer:latest
@@ -243,18 +254,19 @@ docker push myregistry/conductor-designer:latest
 ```
 
 Users can then pull and run:
+
 ```bash
 docker run -d -p 4000:4000 myregistry/conductor-designer:latest
 ```
 
 ## Environment Variables
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `PORT` | 4000 | HTTP server port |
-| `NODE_ENV` | production | Environment mode |
-| `CONDUCTOR_API` | http://localhost:8080 | Conductor server URL |
-| `LOG_LEVEL` | info | Logging level (debug, info, warn, error) |
+| Variable        | Default               | Description                              |
+| --------------- | --------------------- | ---------------------------------------- |
+| `PORT`          | 4000                  | HTTP server port                         |
+| `NODE_ENV`      | production            | Environment mode                         |
+| `CONDUCTOR_API` | http://localhost:8080 | Conductor server URL                     |
+| `LOG_LEVEL`     | info                  | Logging level (debug, info, warn, error) |
 
 ## Development
 
@@ -276,6 +288,7 @@ Then visit `http://localhost:5173` for the frontend.
 ## Build Process
 
 The build system:
+
 1. Compiles the React frontend with Vite
 2. Bundles the backend and frontend together
 3. Creates a portable Windows EXE using Node.js SEA
@@ -346,6 +359,7 @@ docker-compose down
 ```
 
 Make sure the Docker image is loaded first:
+
 ```bash
 docker load -i conductor-designer-portable.tar
 ```

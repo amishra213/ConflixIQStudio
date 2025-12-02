@@ -63,39 +63,34 @@ export const CustomNode = memo(({ data, selected, id }: NodeProps) => {
       aria-label={`Task node: ${data.label}. ${data.taskType} task.`}
     >
       {/* Top Handle */}
-      <Handle 
-        id="top" 
-        type="target" 
-        position={Position.Top} 
-        className="w-2.5 h-2.5 !bg-cyan-500" 
-      />
-      
+      <Handle id="top" type="target" position={Position.Top} className="w-2.5 h-2.5 !bg-cyan-500" />
+
       {/* Left Handle */}
-      <Handle 
-        id="left" 
-        type="target" 
-        position={Position.Left} 
+      <Handle
+        id="left"
+        type="target"
+        position={Position.Left}
         className="w-2.5 h-2.5 !bg-cyan-500"
         style={{ top: '50%', transform: 'translateY(-50%)' }}
       />
-      
+
       {/* Right Handle */}
-      <Handle 
-        id="right" 
-        type="source" 
-        position={Position.Right} 
+      <Handle
+        id="right"
+        type="source"
+        position={Position.Right}
         className="w-2.5 h-2.5 !bg-cyan-500"
         style={{ top: '50%', transform: 'translateY(-50%)' }}
       />
-      
+
       {/* Bottom Handle */}
-      <Handle 
-        id="bottom" 
-        type="source" 
-        position={Position.Bottom} 
-        className="w-2.5 h-2.5 !bg-cyan-500" 
+      <Handle
+        id="bottom"
+        type="source"
+        position={Position.Bottom}
+        className="w-2.5 h-2.5 !bg-cyan-500"
       />
-      
+
       {/* Action Buttons */}
       <div className="absolute -top-1 -right-1 flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity z-10">
         <button
@@ -126,7 +121,7 @@ export const CustomNode = memo(({ data, selected, id }: NodeProps) => {
         <span className="text-[10px] font-semibold text-cyan-400 uppercase">{data.taskType}</span>
       </div>
       <div className="text-xs font-medium text-white truncate text-center">{data.label}</div>
-      
+
       {/* Config indicator */}
       {data.config && (
         <div className="mt-0.5 flex items-center justify-center gap-0.5">

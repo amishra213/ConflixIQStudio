@@ -9,7 +9,7 @@ let apolloClient: ApolloClient | null = null;
 export const createApolloClient = (conductorUrl?: string, apiKey?: string) => {
   const envConductorUrl = import.meta.env.VITE_CONDUCTOR_SERVER_URL;
   const envApiKey = import.meta.env.VITE_CONDUCTOR_API_KEY;
-  
+
   const finalConductorUrl = conductorUrl || envConductorUrl || 'http://localhost:8080/graphql';
   const finalApiKey = apiKey || envApiKey;
 
@@ -70,7 +70,7 @@ export const createApolloClient = (conductorUrl?: string, apiKey?: string) => {
           // Log response only once
           try {
             const { addLog } = useLoggingStore.getState();
-            
+
             // Check if there's an error in the result
             if (result.errors && result.errors.length > 0) {
               // Log as error instead of response

@@ -27,23 +27,23 @@ export function normalizeWorkflowForConductor(workflow: WorkflowDefinition): Wor
     name: workflow.name || 'Unnamed Workflow',
     version: workflow.version ?? 1,
     description: workflow.description || '',
-    
+
     // Ensure arrays are properly formatted
     tasks: Array.isArray(workflow.tasks) ? workflow.tasks : [],
     inputParameters: Array.isArray(workflow.inputParameters) ? workflow.inputParameters : [],
-    
+
     // Ensure objects are properly formatted
     outputParameters: workflow.outputParameters || {},
-    
+
     // Ensure default values for boolean fields
     restartable: workflow.restartable ?? true,
     workflowStatusListenerEnabled: workflow.workflowStatusListenerEnabled ?? false,
-    
+
     // Ensure numeric defaults
     schemaVersion: workflow.schemaVersion || 2,
     timeoutSeconds: workflow.timeoutSeconds || 3600,
     timeoutPolicy: workflow.timeoutPolicy || 'TIME_OUT_WF',
-    
+
     // Include optional fields if present
     ...(workflow.ownerEmail && { ownerEmail: workflow.ownerEmail }),
   };

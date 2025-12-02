@@ -3,7 +3,13 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { useWorkflowStore } from '@/stores/workflowStore';
 import { useLoggingStore } from '@/stores/loggingStore';
-import { ActivityIcon, CheckCircle2Icon, XCircleIcon, ClockIcon, TrendingUpIcon } from 'lucide-react';
+import {
+  ActivityIcon,
+  CheckCircle2Icon,
+  XCircleIcon,
+  ClockIcon,
+  TrendingUpIcon,
+} from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { useToast } from '@/hooks/use-toast';
 import { useMemo } from 'react';
@@ -45,9 +51,9 @@ export function Dashboard() {
   const completedExecutions = executions.filter((e) => e.status === 'completed').length;
   const failedExecutions = executions.filter((e) => e.status === 'failed').length;
 
-  const avgDuration = executions
-    .filter((e) => e.duration)
-    .reduce((acc, e) => acc + (e.duration || 0), 0) / (executions.filter((e) => e.duration).length || 1);
+  const avgDuration =
+    executions.filter((e) => e.duration).reduce((acc, e) => acc + (e.duration || 0), 0) /
+    (executions.filter((e) => e.duration).length || 1);
 
   const chartData = [
     { name: 'Mon', executions: 12 },
@@ -154,21 +160,25 @@ export function Dashboard() {
               return (
                 <div key={execution.id} className="flex items-start gap-3">
                   <div className="mt-1">
-                    {execution.status === 'completed' && <CheckCircle2Icon className="w-5 h-5 text-success" />}
-                    {execution.status === 'failed' && <XCircleIcon className="w-5 h-5 text-destructive" />}
+                    {execution.status === 'completed' && (
+                      <CheckCircle2Icon className="w-5 h-5 text-success" />
+                    )}
+                    {execution.status === 'failed' && (
+                      <XCircleIcon className="w-5 h-5 text-destructive" />
+                    )}
                     {execution.status === 'running' && (
                       <ActivityIcon className="w-5 h-5 text-primary animate-pulse" />
                     )}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-white truncate">{execution.workflowName}</p>
+                    <p className="text-sm font-medium text-white truncate">
+                      {execution.workflowName}
+                    </p>
                     <p className="text-xs text-gray-400">
                       {new Date(execution.startTime).toLocaleTimeString()}
                     </p>
                   </div>
-                  <Badge className={badgeClassName}>
-                    {execution.status}
-                  </Badge>
+                  <Badge className={badgeClassName}>{execution.status}</Badge>
                 </div>
               );
             })}

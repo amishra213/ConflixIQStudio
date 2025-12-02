@@ -53,15 +53,15 @@ export interface ServerWorkflowDefinition {
 interface WorkflowCacheStoreState {
   // Workflow cache
   cachedWorkflows: Map<string, CachedWorkflowData>;
-  
+
   // Full workflow definitions from server (cached)
   cachedServerWorkflows: ServerWorkflowDefinition[];
-  
+
   // FileStore sync status
   isFileStoreSyncing: boolean;
   fileStoreSyncError: string | null;
   lastFileStoreSyncTime: number | null;
-  
+
   // Actions
   markAsPublished: (workflowId: string, syncTime?: number) => void;
   markAsDraft: (workflowId: string) => void;
@@ -73,12 +73,12 @@ interface WorkflowCacheStoreState {
   getSyncSummary: () => { synced: number; localOnly: number; syncing: number };
   saveWorkflowToCache: (workflow: CachedWorkflowData) => void;
   removeFromCache: (workflowId: string) => void;
-  
+
   // Server workflows caching
   setServerWorkflows: (workflows: ServerWorkflowDefinition[]) => void;
   getServerWorkflows: () => ServerWorkflowDefinition[];
   clearServerWorkflows: () => void;
-  
+
   // FileStore actions
   syncToFileStore: () => Promise<boolean>;
   loadFromFileStore: () => Promise<boolean>;
@@ -221,7 +221,11 @@ export const useWorkflowCacheStore = create<WorkflowCacheStoreState>()(
         set({ cachedServerWorkflows: [] });
         // Then set the new workflows
         set({ cachedServerWorkflows: workflows });
-        console.log('[WorkflowCacheStore] Updated server workflows cache with', workflows.length, 'workflows');
+        console.log(
+          '[WorkflowCacheStore] Updated server workflows cache with',
+          workflows.length,
+          'workflows'
+        );
       },
 
       getServerWorkflows: () => {
@@ -252,11 +256,16 @@ export const useWorkflowCacheStore = create<WorkflowCacheStoreState>()(
             ...workflow,
             cachedAt: Date.now(),
           }));
-          const success = await fileStoreClient.saveWorkflows(workflows as Parameters<typeof fileStoreClient.saveWorkflows>[0]);
+          const success = await fileStoreClient.saveWorkflows(
+            workflows as Parameters<typeof fileStoreClient.saveWorkflows>[0]
+          );
           if (success) {
             set({ lastFileStoreSyncTime: Date.now(), isFileStoreSyncing: false });
           } else {
-            set({ fileStoreSyncError: 'Failed to save workflows to filestore', isFileStoreSyncing: false });
+            set({
+              fileStoreSyncError: 'Failed to save workflows to filestore',
+              isFileStoreSyncing: false,
+            });
           }
           return success;
         } catch (error) {
@@ -274,7 +283,7 @@ export const useWorkflowCacheStore = create<WorkflowCacheStoreState>()(
           if (Array.isArray(cachedData) && cachedData.length > 0) {
             const workflows = new Map<string, CachedWorkflowData>();
             const workflowsByName = new Map<string, CachedWorkflowData[]>(); // Track multiple versions by name
-            
+
             for (const item of cachedData) {
               const cachedItem = item as Record<string, unknown>;
               const workflowName = item.name || 'Unnamed Workflow';
@@ -304,7 +313,9 @@ export const useWorkflowCacheStore = create<WorkflowCacheStoreState>()(
                   restartable: cachedItem.restartable as boolean | undefined,
                   timeoutSeconds: cachedItem.timeoutSeconds as number | undefined,
                   timeoutPolicy: cachedItem.timeoutPolicy as string | undefined,
-                  workflowStatusListenerEnabled: cachedItem.workflowStatusListenerEnabled as boolean | undefined,
+                  workflowStatusListenerEnabled: cachedItem.workflowStatusListenerEnabled as
+                    | boolean
+                    | undefined,
                   failureWorkflow: cachedItem.failureWorkflow as string | undefined,
                   inputParameters: cachedItem.inputParameters as string[] | undefined,
                   outputParameters: cachedItem.outputParameters as Record<string, unknown>,
@@ -312,23 +323,49 @@ export const useWorkflowCacheStore = create<WorkflowCacheStoreState>()(
                   accessPolicy: cachedItem.accessPolicy as Record<string, unknown>,
                   variables: cachedItem.variables as Record<string, unknown>,
                   // Spread remaining properties (excluding already set fields)
-                  ...(Object.fromEntries(
+                  ...Object.fromEntries(
                     Object.entries(item).filter(
-                      ([key]) => !['name', 'description', 'nodes', 'edges', 'version', 'schemaVersion', 'ownerEmail', 'ownerApp', 'createdBy', 'updatedBy', 'createTime', 'updateTime', 'tasks', 'settings', 'restartable', 'timeoutSeconds', 'timeoutPolicy', 'workflowStatusListenerEnabled', 'failureWorkflow', 'inputParameters', 'outputParameters', 'inputTemplate', 'accessPolicy', 'variables'].includes(key)
+                      ([key]) =>
+                        ![
+                          'name',
+                          'description',
+                          'nodes',
+                          'edges',
+                          'version',
+                          'schemaVersion',
+                          'ownerEmail',
+                          'ownerApp',
+                          'createdBy',
+                          'updatedBy',
+                          'createTime',
+                          'updateTime',
+                          'tasks',
+                          'settings',
+                          'restartable',
+                          'timeoutSeconds',
+                          'timeoutPolicy',
+                          'workflowStatusListenerEnabled',
+                          'failureWorkflow',
+                          'inputParameters',
+                          'outputParameters',
+                          'inputTemplate',
+                          'accessPolicy',
+                          'variables',
+                        ].includes(key)
                     )
-                  )),
+                  ),
                 },
               };
-              
+
               workflows.set(item.id, cachedWorkflow);
-              
+
               // Track multiple versions: keep the most recent by comparing timestamps
               if (!workflowsByName.has(workflowName)) {
                 workflowsByName.set(workflowName, []);
               }
               workflowsByName.get(workflowName)?.push(cachedWorkflow);
             }
-            
+
             // Log version handling for workflows with multiple versions
             for (const [name, versions] of workflowsByName.entries()) {
               if (versions.length > 1) {
@@ -338,12 +375,21 @@ export const useWorkflowCacheStore = create<WorkflowCacheStoreState>()(
                   const bTime = (b.definition?.createTime || 0) as number;
                   return bTime - aTime; // Most recent first
                 });
-                console.log(`[WorkflowCacheStore] Found ${versions.length} versions of "${name}", using most recent (v${versionsCopy[0].definition?.version || 1})`);
+                console.log(
+                  `[WorkflowCacheStore] Found ${versions.length} versions of "${name}", using most recent (v${versionsCopy[0].definition?.version || 1})`
+                );
               }
             }
-            
-            console.log('[WorkflowCacheStore] Loaded workflows from separate files (multi-file architecture):', Array.from(workflows.values()));
-            set({ cachedWorkflows: workflows, lastFileStoreSyncTime: Date.now(), isFileStoreSyncing: false });
+
+            console.log(
+              '[WorkflowCacheStore] Loaded workflows from separate files (multi-file architecture):',
+              Array.from(workflows.values())
+            );
+            set({
+              cachedWorkflows: workflows,
+              lastFileStoreSyncTime: Date.now(),
+              isFileStoreSyncing: false,
+            });
             return true;
           }
           set({ isFileStoreSyncing: false });
@@ -360,17 +406,26 @@ export const useWorkflowCacheStore = create<WorkflowCacheStoreState>()(
         try {
           // Load all workflows to get their IDs for deletion
           const cachedData = await fileStoreClient.loadAllWorkflows();
-          
+
           // Delete each workflow file from filestore
           if (Array.isArray(cachedData)) {
             for (const workflow of cachedData) {
               await fileStoreClient.deleteWorkflow(workflow.id);
             }
-            console.log('[WorkflowCacheStore] Deleted', cachedData.length, 'workflow files from filestore');
+            console.log(
+              '[WorkflowCacheStore] Deleted',
+              cachedData.length,
+              'workflow files from filestore'
+            );
           }
-          
+
           // Clear local caches
-          set({ cachedWorkflows: new Map(), cachedServerWorkflows: [], lastFileStoreSyncTime: Date.now(), isFileStoreSyncing: false });
+          set({
+            cachedWorkflows: new Map(),
+            cachedServerWorkflows: [],
+            lastFileStoreSyncTime: Date.now(),
+            isFileStoreSyncing: false,
+          });
           console.log('[WorkflowCacheStore] Cleared filestore and local caches');
           return true;
         } catch (error) {

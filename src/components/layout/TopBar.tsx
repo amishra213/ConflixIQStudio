@@ -34,10 +34,18 @@ export function TopBar() {
       </div>
 
       <div className="flex items-center gap-2">
-        <Button variant="ghost" size="icon" className="text-gray-400 hover:bg-[#2a3142] hover:text-white">
+        <Button
+          variant="ghost"
+          size="icon"
+          className="text-gray-400 hover:bg-[#2a3142] hover:text-white"
+        >
           <HelpCircleIcon className="w-5 h-5" />
         </Button>
-        <Button variant="ghost" size="icon" className="text-gray-400 hover:bg-[#2a3142] hover:text-white relative">
+        <Button
+          variant="ghost"
+          size="icon"
+          className="text-gray-400 hover:bg-[#2a3142] hover:text-white relative"
+        >
           <BellIcon className="w-5 h-5" />
           <span className="absolute top-2 right-2 w-2 h-2 bg-cyan-500 rounded-full"></span>
         </Button>

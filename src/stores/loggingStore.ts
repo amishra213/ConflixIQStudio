@@ -35,7 +35,12 @@ interface LoggingState {
   addLog: (log: Omit<LogEntry, 'id' | 'timestamp'>) => void;
   clearLogs: () => void;
   exportLogs: () => void;
-  getFilteredLogs: (filter?: { type?: string; operation?: string; startDate?: Date; endDate?: Date }) => LogEntry[];
+  getFilteredLogs: (filter?: {
+    type?: string;
+    operation?: string;
+    startDate?: Date;
+    endDate?: Date;
+  }) => LogEntry[];
 }
 
 const defaultLoggingSettings: LoggingSettings = {
@@ -66,7 +71,7 @@ export const useLoggingStore = create<LoggingState>()(
 
       addLog: (log) => {
         const { loggingSettings, logs } = get();
-        
+
         if (!loggingSettings.enabled) return;
 
         if (log.type === 'request' && !loggingSettings.logRequests) return;
@@ -89,12 +94,15 @@ export const useLoggingStore = create<LoggingState>()(
         };
 
         // Check for duplicate entries (same operation, method, url, type within 100ms)
-        const isDuplicate = logs.some(existingLog => 
-          existingLog.type === newLog.type &&
-          existingLog.operation === newLog.operation &&
-          existingLog.method === newLog.method &&
-          existingLog.url === newLog.url &&
-          Math.abs(new Date(existingLog.timestamp).getTime() - new Date(newLog.timestamp).getTime()) < 100
+        const isDuplicate = logs.some(
+          (existingLog) =>
+            existingLog.type === newLog.type &&
+            existingLog.operation === newLog.operation &&
+            existingLog.method === newLog.method &&
+            existingLog.url === newLog.url &&
+            Math.abs(
+              new Date(existingLog.timestamp).getTime() - new Date(newLog.timestamp).getTime()
+            ) < 100
         );
 
         if (isDuplicate) {
@@ -107,9 +115,7 @@ export const useLoggingStore = create<LoggingState>()(
         const retentionDate = new Date();
         retentionDate.setDate(retentionDate.getDate() - loggingSettings.retentionDays);
 
-        const filteredLogs = updatedLogs.filter(
-          (l) => new Date(l.timestamp) > retentionDate
-        );
+        const filteredLogs = updatedLogs.filter((l) => new Date(l.timestamp) > retentionDate);
 
         set({ logs: filteredLogs });
       },
@@ -135,12 +141,16 @@ export const useLoggingStore = create<LoggingState>()(
 
       getFilteredLogs: (filter) => {
         const { logs } = get();
-        
+
         if (!filter) return logs;
 
         return logs.filter((log) => {
           if (filter.type && log.type !== filter.type) return false;
-          if (filter.operation && !log.operation.toLowerCase().includes(filter.operation.toLowerCase())) return false;
+          if (
+            filter.operation &&
+            !log.operation.toLowerCase().includes(filter.operation.toLowerCase())
+          )
+            return false;
           if (filter.startDate && new Date(log.timestamp) < filter.startDate) return false;
           if (filter.endDate && new Date(log.timestamp) > filter.endDate) return false;
           return true;

@@ -34,10 +34,10 @@ export class APILogger {
    */
   static logGraphQLRequest(query: string, variables?: GraphQLVariables, url?: string) {
     const store = useLoggingStore.getState();
-    
+
     // Extract operation name from GraphQL query
     const operationName = extractOperationName(query, 'GraphQL Operation');
-    
+
     store.addLog({
       type: 'request',
       operation: operationName,
@@ -64,9 +64,9 @@ export class APILogger {
     url?: string
   ) {
     const store = useLoggingStore.getState();
-    
+
     const operationName = extractOperationName(query, 'GraphQL Operation');
-    
+
     store.addLog({
       type: 'response',
       operation: operationName,
@@ -74,7 +74,10 @@ export class APILogger {
       url: url || '/api/graphql',
       status,
       duration,
-      responseBody: (typeof responseData === 'object' && responseData !== null ? responseData as Record<string, unknown> : undefined),
+      responseBody:
+        typeof responseData === 'object' && responseData !== null
+          ? (responseData as Record<string, unknown>)
+          : undefined,
       responseHeaders: {
         'Content-Type': 'application/json',
       },
@@ -92,12 +95,15 @@ export class APILogger {
     url?: string
   ) {
     const store = useLoggingStore.getState();
-    
+
     const operationName = extractOperationName(query, 'GraphQL Operation');
-    
-    const errorMessage = error?.message || (typeof error === 'object' ? JSON.stringify(error) : String(error)) || 'Unknown error';
+
+    const errorMessage =
+      error?.message ||
+      (typeof error === 'object' ? JSON.stringify(error) : String(error)) ||
+      'Unknown error';
     const errorCode = error?.code || status;
-    
+
     store.addLog({
       type: 'error',
       operation: operationName,
@@ -123,16 +129,17 @@ export class APILogger {
     headers?: Record<string, string>
   ) {
     const store = useLoggingStore.getState();
-    
+
     // Extract operation name from URL
     const operationName = extractPathSegment(url, method);
-    
+
     store.addLog({
       type: 'request',
       operation: operationName,
       method,
       url,
-      requestBody: (typeof body === 'object' && body !== null ? body as Record<string, unknown> : undefined),
+      requestBody:
+        typeof body === 'object' && body !== null ? (body as Record<string, unknown>) : undefined,
       requestHeaders: headers,
     });
   }
@@ -149,9 +156,9 @@ export class APILogger {
     headers?: Record<string, string>
   ) {
     const store = useLoggingStore.getState();
-    
+
     const operationName = extractPathSegment(url, method);
-    
+
     store.addLog({
       type: 'response',
       operation: operationName,
@@ -159,7 +166,10 @@ export class APILogger {
       url,
       status,
       duration,
-      responseBody: (typeof responseData === 'object' && responseData !== null ? responseData as Record<string, unknown> : undefined),
+      responseBody:
+        typeof responseData === 'object' && responseData !== null
+          ? (responseData as Record<string, unknown>)
+          : undefined,
       responseHeaders: headers,
     });
   }
@@ -176,12 +186,15 @@ export class APILogger {
     responseData?: unknown
   ) {
     const store = useLoggingStore.getState();
-    
+
     const operationName = extractPathSegment(url, method);
-    
-    const errorMessage = error?.message || (typeof error === 'object' ? JSON.stringify(error) : String(error)) || 'Unknown error';
+
+    const errorMessage =
+      error?.message ||
+      (typeof error === 'object' ? JSON.stringify(error) : String(error)) ||
+      'Unknown error';
     const errorCode = error?.code || status;
-    
+
     store.addLog({
       type: 'error',
       operation: operationName,
@@ -190,7 +203,10 @@ export class APILogger {
       status,
       duration,
       error: `[${errorCode}] ${errorMessage}`,
-      responseBody: (typeof responseData === 'object' && responseData !== null ? responseData as Record<string, unknown> : { error: errorMessage }),
+      responseBody:
+        typeof responseData === 'object' && responseData !== null
+          ? (responseData as Record<string, unknown>)
+          : { error: errorMessage },
     });
   }
 
@@ -210,9 +226,9 @@ export class APILogger {
       const headers = APILogger.extractHeaders(init?.headers);
 
       // Skip logging for GraphQL requests - they're handled by Apollo's loggingLink
-      const isGraphQLRequest = url.includes('/graphql') || 
-                               (typeof body === 'object' && body !== null && 'query' in body);
-      
+      const isGraphQLRequest =
+        url.includes('/graphql') || (typeof body === 'object' && body !== null && 'query' in body);
+
       const startTime = performance.now();
 
       try {
@@ -220,24 +236,24 @@ export class APILogger {
         if (!isGraphQLRequest) {
           APILogger.logRestRequest(method, url, body, headers);
         }
-        
+
         const response = await originalFetch.apply(this, [input, init]);
         const duration = Math.round(performance.now() - startTime);
-        
+
         // Only log non-GraphQL responses to avoid duplicates
         if (!isGraphQLRequest) {
           await APILogger.handleSuccessResponse(response, method, url, duration, headers);
         }
-        
+
         return response;
       } catch (error: unknown) {
         const duration = Math.round(performance.now() - startTime);
-        
+
         // Only log non-GraphQL errors to avoid duplicates
         if (!isGraphQLRequest) {
           APILogger.handleErrorResponse(error, method, url, duration);
         }
-        
+
         throw error;
       }
     };
@@ -295,9 +311,11 @@ export class APILogger {
   /**
    * Parse response body safely, handling JSON and text content
    */
-  private static async parseResponseBody(response: Response): Promise<{ data: unknown; contentType: string }> {
+  private static async parseResponseBody(
+    response: Response
+  ): Promise<{ data: unknown; contentType: string }> {
     const contentType = response.headers.get('content-type') || '';
-    
+
     try {
       if (contentType.includes('application/json')) {
         const data = await response.json();
@@ -308,7 +326,10 @@ export class APILogger {
       }
     } catch (parseError) {
       console.error('[APILogger] Failed to parse response body:', parseError);
-      const text = await response.clone().text().catch(() => '');
+      const text = await response
+        .clone()
+        .text()
+        .catch(() => '');
       return { data: { parseError: String(parseError), text }, contentType };
     }
   }
@@ -327,10 +348,18 @@ export class APILogger {
     }
 
     // Try GraphQL errors array
-    if ('errors' in responseData && Array.isArray((responseData as { errors?: unknown[] }).errors)) {
+    if (
+      'errors' in responseData &&
+      Array.isArray((responseData as { errors?: unknown[] }).errors)
+    ) {
       const errors = (responseData as { errors: unknown[] }).errors;
-      if (errors.length > 0 && typeof errors[0] === 'object' && errors[0] !== null && 'message' in errors[0]) {
-        return String(((errors[0] as { message: unknown }).message));
+      if (
+        errors.length > 0 &&
+        typeof errors[0] === 'object' &&
+        errors[0] !== null &&
+        'message' in errors[0]
+      ) {
+        return String((errors[0] as { message: unknown }).message);
       }
     }
 
@@ -357,38 +386,55 @@ export class APILogger {
 
     if (response.ok) {
       // Check if it's a successful GraphQL response but with errors in the data
-      if (responseData && typeof responseData === 'object' && 'errors' in responseData && Array.isArray((responseData as { errors?: unknown[] }).errors) && (responseData as { errors?: unknown[] }).errors!.length > 0) {
+      if (
+        responseData &&
+        typeof responseData === 'object' &&
+        'errors' in responseData &&
+        Array.isArray((responseData as { errors?: unknown[] }).errors) &&
+        (responseData as { errors?: unknown[] }).errors!.length > 0
+      ) {
         // GraphQL errors in a 200 response
         const errors = (responseData as { errors: unknown[] }).errors;
         const errorMessage = APILogger.extractErrorMessage(responseData);
-        const errorDetails: ErrorDetails = { 
+        const errorDetails: ErrorDetails = {
           message: errorMessage,
           code: response.status,
-          errors: errors
+          errors: errors,
         };
         APILogger.logRestError(method, url, errorDetails, response.status, duration, responseData);
       } else {
         // Normal successful response
-        APILogger.logRestResponse(method, url, responseData, response.status, duration, responseHeaders);
+        APILogger.logRestResponse(
+          method,
+          url,
+          responseData,
+          response.status,
+          duration,
+          responseHeaders
+        );
       }
     } else {
       // HTTP error response (4xx, 5xx)
-      const errorMessage = APILogger.extractErrorMessage(responseData) || response.statusText || `HTTP ${response.status}`;
+      const errorMessage =
+        APILogger.extractErrorMessage(responseData) ||
+        response.statusText ||
+        `HTTP ${response.status}`;
 
       console.error(`[APILogger] HTTP Error (${response.status}) from ${method} ${url}:`, {
         statusCode: response.status,
         statusText: response.statusText,
         errorMessage,
         responseData,
-        headers: responseHeaders
+        headers: responseHeaders,
       });
 
-      const errorDetails: ErrorDetails = { 
+      const errorDetails: ErrorDetails = {
         message: errorMessage,
         code: response.status,
-        errors: (responseData && typeof responseData === 'object' && 'errors' in responseData) 
-          ? (responseData as { errors: unknown[] }).errors
-          : [responseData]
+        errors:
+          responseData && typeof responseData === 'object' && 'errors' in responseData
+            ? (responseData as { errors: unknown[] }).errors
+            : [responseData],
       };
       APILogger.logRestError(method, url, errorDetails, response.status, duration, responseData);
     }
@@ -397,10 +443,16 @@ export class APILogger {
   /**
    * Handle error response
    */
-  private static handleErrorResponse(error: unknown, method: string, url: string, duration: number): void {
-    const errorDetails: ErrorDetails = error instanceof Error 
-      ? { message: error.message, code: (error as { code?: string }).code }
-      : { message: String(error) };
+  private static handleErrorResponse(
+    error: unknown,
+    method: string,
+    url: string,
+    duration: number
+  ): void {
+    const errorDetails: ErrorDetails =
+      error instanceof Error
+        ? { message: error.message, code: (error as { code?: string }).code }
+        : { message: String(error) };
     APILogger.logRestError(method, url, errorDetails, 0, duration);
   }
 }

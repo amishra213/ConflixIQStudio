@@ -1,7 +1,13 @@
 import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { PlusIcon, Trash2Icon } from 'lucide-react';
 import { ConditionGroup, JoinType, Condition } from '@/types/config';
 import { ConditionForm } from './ConditionForm';
@@ -94,7 +100,9 @@ export const ConditionGroupForm: React.FC<ConditionGroupFormProps> = ({
 
       <div className="space-y-3">
         {group.conditions.length === 0 ? (
-          <p className="text-gray-400 text-sm text-center py-4">No conditions defined in this group.</p>
+          <p className="text-gray-400 text-sm text-center py-4">
+            No conditions defined in this group.
+          </p>
         ) : (
           group.conditions.map((condition) => (
             <ConditionForm

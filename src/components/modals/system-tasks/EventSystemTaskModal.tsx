@@ -19,7 +19,12 @@ interface EventSystemTaskModalProps {
   readonly initialConfig?: EventSystemTaskConfig | null;
 }
 
-export function EventSystemTaskModal({ open, onOpenChange, onSave, initialConfig }: EventSystemTaskModalProps) {
+export function EventSystemTaskModal({
+  open,
+  onOpenChange,
+  onSave,
+  initialConfig,
+}: EventSystemTaskModalProps) {
   const [config, setConfig] = useState<EventSystemTaskConfig>({
     type: 'EVENT',
     name: '',
@@ -64,7 +69,9 @@ export function EventSystemTaskModal({ open, onOpenChange, onSave, initialConfig
       <div className="flex items-center justify-between p-4 bg-[#1a1f2e] rounded-lg">
         <div>
           <Label className="text-white">Async Complete</Label>
-          <p className="text-xs text-gray-400 mt-1">Mark task complete asynchronously via external event</p>
+          <p className="text-xs text-gray-400 mt-1">
+            Mark task complete asynchronously via external event
+          </p>
         </div>
         <Switch
           checked={config.asyncComplete ?? false}

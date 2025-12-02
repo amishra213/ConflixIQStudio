@@ -1,19 +1,26 @@
-import { useState, useEffect } from "react";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { JsonTextarea } from "@/components/ui/json-textarea";
-import { Card } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useToast } from "@/hooks/use-toast";
-import { PlusIcon, Trash2Icon } from "lucide-react";
+import { useState, useEffect } from 'react';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { JsonTextarea } from '@/components/ui/json-textarea';
+import { Card } from '@/components/ui/card';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { useToast } from '@/hooks/use-toast';
+import { PlusIcon, Trash2Icon } from 'lucide-react';
 
 export interface WorkflowTaskConfig {
   name: string;
   taskReferenceName: string;
-  type: "SIMPLE";
+  type: 'SIMPLE';
   inputParameters: Record<string, unknown>;
   rateLimitPerFrequency: number;
   rateLimitFrequencyInSeconds: number;
@@ -44,29 +51,29 @@ export function SimpleTaskModal({
 }: SimpleTaskModalProps) {
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
-  const [taskName, setTaskName] = useState("");
-  const [taskRefName, setTaskRefName] = useState("");
+  const [taskName, setTaskName] = useState('');
+  const [taskRefName, setTaskRefName] = useState('');
   const [optional, setOptional] = useState(false);
   const [startDelay, setStartDelay] = useState(0);
   const [asyncComplete, setAsyncComplete] = useState(false);
   const [rateLimitPerFrequency, setRateLimitPerFrequency] = useState(0);
   const [rateLimitFrequencyInSeconds, setRateLimitFrequencyInSeconds] = useState(1);
   const [inputParams, setInputParams] = useState<InputParam[]>([]);
-  const [jsonEditable, setJsonEditable] = useState("");
-  const [jsonValidationError, setJsonValidationError] = useState("");
+  const [jsonEditable, setJsonEditable] = useState('');
+  const [jsonValidationError, setJsonValidationError] = useState('');
 
   useEffect(() => {
     if (open) {
       if (initialConfig) {
         // Editing mode: populate form with existing config
-        setTaskName(initialConfig.name || "");
-        setTaskRefName(initialConfig.taskReferenceName || "");
+        setTaskName(initialConfig.name || '');
+        setTaskRefName(initialConfig.taskReferenceName || '');
         setOptional(initialConfig.optional ?? false);
         setStartDelay(initialConfig.startDelay ?? 0);
         setAsyncComplete(initialConfig.asyncComplete ?? false);
         setRateLimitPerFrequency(initialConfig.rateLimitPerFrequency ?? 0);
         setRateLimitFrequencyInSeconds(initialConfig.rateLimitFrequencyInSeconds ?? 1);
-        
+
         // Parse input parameters into the InputParam format
         const params: InputParam[] = Object.entries(initialConfig.inputParameters || {}).map(
           ([key, value]) => ({
@@ -88,21 +95,21 @@ export function SimpleTaskModal({
         setRateLimitFrequencyInSeconds(1);
         setInputParams([]);
       }
-      setJsonValidationError("");
-      setJsonEditable("");
+      setJsonValidationError('');
+      setJsonEditable('');
     }
   }, [open, initialConfig]);
 
   const handleAddInputParam = () => {
-    setInputParams([...inputParams, { id: `${Date.now()}`, key: "", value: "" }]);
+    setInputParams([...inputParams, { id: `${Date.now()}`, key: '', value: '' }]);
   };
 
   const handleRemoveInputParam = (id: string) => {
-    setInputParams(inputParams.filter(p => p.id !== id));
+    setInputParams(inputParams.filter((p) => p.id !== id));
   };
 
-  const handleInputParamChange = (id: string, field: "key" | "value", newValue: string) => {
-    setInputParams(inputParams.map(p => (p.id === id ? { ...p, [field]: newValue } : p)));
+  const handleInputParamChange = (id: string, field: 'key' | 'value', newValue: string) => {
+    setInputParams(inputParams.map((p) => (p.id === id ? { ...p, [field]: newValue } : p)));
   };
 
   const buildInputParameters = () => {
@@ -120,20 +127,20 @@ export function SimpleTaskModal({
   };
 
   const handleSave = async () => {
-    if (!taskName || taskName.trim() === "") {
+    if (!taskName || taskName.trim() === '') {
       toast({
-        title: "Validation Error",
-        description: "Task name is required",
-        variant: "destructive",
+        title: 'Validation Error',
+        description: 'Task name is required',
+        variant: 'destructive',
       });
       return;
     }
 
-    if (!taskRefName || taskRefName.trim() === "") {
+    if (!taskRefName || taskRefName.trim() === '') {
       toast({
-        title: "Validation Error",
-        description: "Task reference name is required",
-        variant: "destructive",
+        title: 'Validation Error',
+        description: 'Task reference name is required',
+        variant: 'destructive',
       });
       return;
     }
@@ -142,7 +149,7 @@ export function SimpleTaskModal({
       const finalConfig: WorkflowTaskConfig = {
         name: taskName,
         taskReferenceName: taskRefName,
-        type: "SIMPLE",
+        type: 'SIMPLE',
         inputParameters: buildInputParameters(),
         rateLimitPerFrequency,
         rateLimitFrequencyInSeconds,
@@ -156,9 +163,9 @@ export function SimpleTaskModal({
       onOpenChange(false);
     } catch (error) {
       toast({
-        title: "Error",
-        description: error instanceof Error ? error.message : "Failed to save task",
-        variant: "destructive",
+        title: 'Error',
+        description: error instanceof Error ? error.message : 'Failed to save task',
+        variant: 'destructive',
       });
     } finally {
       setIsLoading(false);
@@ -169,7 +176,7 @@ export function SimpleTaskModal({
     return {
       name: taskName,
       taskReferenceName: taskRefName,
-      type: "SIMPLE",
+      type: 'SIMPLE',
       inputParameters: buildInputParameters(),
       rateLimitPerFrequency,
       rateLimitFrequencyInSeconds,
@@ -183,9 +190,9 @@ export function SimpleTaskModal({
     setJsonEditable(newJson);
     try {
       JSON.parse(newJson);
-      setJsonValidationError("");
+      setJsonValidationError('');
     } catch (error) {
-      setJsonValidationError(error instanceof Error ? error.message : "Invalid JSON");
+      setJsonValidationError(error instanceof Error ? error.message : 'Invalid JSON');
     }
   };
 
@@ -194,14 +201,14 @@ export function SimpleTaskModal({
       const json = JSON.stringify(getJsonPreview(), null, 2);
       await navigator.clipboard.writeText(json);
       toast({
-        title: "Copied!",
-        description: "JSON configuration copied to clipboard.",
+        title: 'Copied!',
+        description: 'JSON configuration copied to clipboard.',
       });
     } catch {
       toast({
-        title: "Error",
-        description: "Failed to copy JSON to clipboard",
-        variant: "destructive",
+        title: 'Error',
+        description: 'Failed to copy JSON to clipboard',
+        variant: 'destructive',
       });
     }
   };
@@ -210,7 +217,9 @@ export function SimpleTaskModal({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-4xl h-[85vh] bg-[#1a1f2e] border-[#2a3142] text-white flex flex-col p-0">
         <DialogHeader className="px-6 pt-6 pb-4 border-b border-[#2a3142] flex-shrink-0">
-          <DialogTitle className="text-2xl font-semibold text-white">Create Simple Task</DialogTitle>
+          <DialogTitle className="text-2xl font-semibold text-white">
+            Create Simple Task
+          </DialogTitle>
           <DialogDescription className="text-sm text-gray-400">
             Configure a simple task for your workflow. Specify inputs and rate limiting parameters.
           </DialogDescription>
@@ -237,7 +246,9 @@ export function SimpleTaskModal({
                       placeholder="e.g., send_email"
                       className="mt-2 bg-[#1a1f2e] text-white border-[#2a3142]"
                     />
-                    <p className="text-xs text-gray-400 mt-1">Unique name for this task definition</p>
+                    <p className="text-xs text-gray-400 mt-1">
+                      Unique name for this task definition
+                    </p>
                   </div>
                   <div>
                     <Label className="text-white">Task Reference Name *</Label>
@@ -247,7 +258,9 @@ export function SimpleTaskModal({
                       placeholder="e.g., send_email_ref"
                       className="mt-2 bg-[#1a1f2e] text-white border-[#2a3142]"
                     />
-                    <p className="text-xs text-gray-400 mt-1">Unique identifier for referencing this task within the workflow</p>
+                    <p className="text-xs text-gray-400 mt-1">
+                      Unique identifier for referencing this task within the workflow
+                    </p>
                   </div>
                 </div>
               </Card>
@@ -258,7 +271,9 @@ export function SimpleTaskModal({
                 <div className="flex items-center justify-between mb-4">
                   <div>
                     <h3 className="text-lg font-semibold text-white">Input Parameters</h3>
-                    <p className="text-sm text-gray-400 mt-1">Define name-value pairs that will be passed as input to the task</p>
+                    <p className="text-sm text-gray-400 mt-1">
+                      Define name-value pairs that will be passed as input to the task
+                    </p>
                   </div>
                   <Button
                     onClick={handleAddInputParam}
@@ -281,7 +296,9 @@ export function SimpleTaskModal({
                             <Label className="text-xs text-gray-400">Parameter Name</Label>
                             <Input
                               value={param.key}
-                              onChange={(e) => handleInputParamChange(param.id, "key", e.target.value)}
+                              onChange={(e) =>
+                                handleInputParamChange(param.id, 'key', e.target.value)
+                              }
                               placeholder="e.g., recipientEmail"
                               className="mt-1 bg-[#0f1419] text-white border-[#2a3142] h-8 text-sm"
                             />
@@ -291,7 +308,9 @@ export function SimpleTaskModal({
                             <div className="flex gap-2">
                               <Textarea
                                 value={param.value}
-                                onChange={(e) => handleInputParamChange(param.id, "value", e.target.value)}
+                                onChange={(e) =>
+                                  handleInputParamChange(param.id, 'value', e.target.value)
+                                }
                                 placeholder='Value, JSON, or reference (e.g., "$workflow.input.email")'
                                 className="flex-1 bg-[#0f1419] text-white border-[#2a3142] h-16 text-sm font-mono"
                               />
@@ -327,18 +346,24 @@ export function SimpleTaskModal({
                         className="mt-2 bg-[#1a1f2e] text-white border-[#2a3142]"
                         min="0"
                       />
-                      <p className="text-xs text-gray-400 mt-1">Maximum task executions per frequency window (0 = unlimited)</p>
+                      <p className="text-xs text-gray-400 mt-1">
+                        Maximum task executions per frequency window (0 = unlimited)
+                      </p>
                     </div>
                     <div>
                       <Label className="text-white">Rate Limit Frequency (seconds)</Label>
                       <Input
                         type="number"
                         value={rateLimitFrequencyInSeconds}
-                        onChange={(e) => setRateLimitFrequencyInSeconds(Number(e.target.value) || 1)}
+                        onChange={(e) =>
+                          setRateLimitFrequencyInSeconds(Number(e.target.value) || 1)
+                        }
                         className="mt-2 bg-[#1a1f2e] text-white border-[#2a3142]"
                         min="1"
                       />
-                      <p className="text-xs text-gray-400 mt-1">Time window in seconds for rate limiting</p>
+                      <p className="text-xs text-gray-400 mt-1">
+                        Time window in seconds for rate limiting
+                      </p>
                     </div>
                   </div>
 
@@ -352,7 +377,9 @@ export function SimpleTaskModal({
                         className="mt-2 bg-[#1a1f2e] text-white border-[#2a3142]"
                         min="0"
                       />
-                      <p className="text-xs text-gray-400 mt-1">Delay before task execution begins</p>
+                      <p className="text-xs text-gray-400 mt-1">
+                        Delay before task execution begins
+                      </p>
                     </div>
                   </div>
 
@@ -387,11 +414,16 @@ export function SimpleTaskModal({
             </TabsContent>
 
             <TabsContent value="preview" className="space-y-4">
-              <Card className="p-6 bg-[#0f1419] border-[#2a3142]" style={{ '--line-height': '1.5rem' } as React.CSSProperties}>
+              <Card
+                className="p-6 bg-[#0f1419] border-[#2a3142]"
+                style={{ '--line-height': '1.5rem' } as React.CSSProperties}
+              >
                 <div className="flex items-center justify-between mb-4">
                   <div>
                     <h3 className="text-lg font-semibold text-white">JSON Preview</h3>
-                    <p className="text-sm text-gray-400 mt-1">View the generated task configuration</p>
+                    <p className="text-sm text-gray-400 mt-1">
+                      View the generated task configuration
+                    </p>
                   </div>
                   <Button
                     onClick={handleCopyJson}
@@ -437,11 +469,10 @@ export function SimpleTaskModal({
             disabled={isLoading}
             className="bg-cyan-500 text-white hover:bg-cyan-600 font-medium disabled:opacity-50"
           >
-            {isLoading ? "Saving..." : "Save Configuration"}
+            {isLoading ? 'Saving...' : 'Save Configuration'}
           </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
   );
 }
-

@@ -4,7 +4,11 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { DownloadIcon, ZoomInIcon, ZoomOutIcon, MaximizeIcon, RefreshCwIcon } from 'lucide-react';
 import mermaid from 'mermaid';
-import { workflowToMermaid, WorkflowDefinition, WorkflowExecution } from '@/utils/workflowToMermaid';
+import {
+  workflowToMermaid,
+  WorkflowDefinition,
+  WorkflowExecution,
+} from '@/utils/workflowToMermaid';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { JsonViewer } from '@/components/ui/json-viewer';
 
@@ -38,14 +42,14 @@ const TASK_TYPE_MAP: Record<string, string> = {
   'decision|switch|condition': 'DECISION',
   'fork|parallel': 'FORK_JOIN',
   'join|converge': 'CONVERGE',
-  'wait_signal': 'WAIT_FOR_SIGNAL',
-  'wait': 'WAIT',
-  'signal': 'SIGNAL',
+  wait_signal: 'WAIT_FOR_SIGNAL',
+  wait: 'WAIT',
+  signal: 'SIGNAL',
   'event|publish': 'EVENT',
   'loop|while': 'DO_WHILE',
   'terminate|end|stop': 'TERMINATE',
   'workflow|sub': 'SUB_WORKFLOW',
-  'dynamic': 'DYNAMIC',
+  dynamic: 'DYNAMIC',
   'pass|passthrough': 'PASS_THROUGH',
 };
 
@@ -56,7 +60,7 @@ function inferTaskType(taskName: string): string {
     for (const keyword of keywords) {
       if (keyword.includes('_')) {
         const parts = keyword.split('_');
-        if (parts.every(part => nameLower.includes(part))) {
+        if (parts.every((part) => nameLower.includes(part))) {
           return type;
         }
       } else if (nameLower.includes(keyword)) {
@@ -76,20 +80,22 @@ const getStatusBadgeClass = (status: string): string => {
   return 'bg-gray-500';
 };
 
-const handleNodeClick = (node: Element, workflow: WorkflowDefinition | WorkflowExecution | null): WorkflowTask | null => {
+const handleNodeClick = (
+  node: Element,
+  workflow: WorkflowDefinition | WorkflowExecution | null
+): WorkflowTask | null => {
   if (!workflow) return null;
-  
+
   const nodeId = node.id;
   const taskRef = nodeId.split('_')[0];
-  
-  const tasks = 'workflowDefinition' in workflow 
-    ? workflow.workflowDefinition.tasks 
-    : workflow.tasks;
-  
+
+  const tasks =
+    'workflowDefinition' in workflow ? workflow.workflowDefinition.tasks : workflow.tasks;
+
   const task = tasks?.find(
     (t: WorkflowTask) => t.taskReferenceName?.replaceAll(/[^a-zA-Z0-9]/g, '_') === taskRef
   );
-  
+
   return task || null;
 };
 
@@ -122,36 +128,39 @@ export function WorkflowDiagramViewer({
     });
   }, []);
 
-  const setupDiagramInteractions = useCallback((svgElement: SVGElement) => {
-    const nodes = svgElement.querySelectorAll('.node');
-    for (const node of nodes) {
-      node.addEventListener('click', () => {
-        const task = handleNodeClick(node, workflow);
-        if (task) {
-          setSelectedTask(task);
-        }
-      });
-      (node as HTMLElement).style.cursor = 'pointer';
-    }
-  }, [workflow]);
+  const setupDiagramInteractions = useCallback(
+    (svgElement: SVGElement) => {
+      const nodes = svgElement.querySelectorAll('.node');
+      for (const node of nodes) {
+        node.addEventListener('click', () => {
+          const task = handleNodeClick(node, workflow);
+          if (task) {
+            setSelectedTask(task);
+          }
+        });
+        (node as HTMLElement).style.cursor = 'pointer';
+      }
+    },
+    [workflow]
+  );
 
   const convertWorkflowForRendering = useCallback(async () => {
     if (!workflow) return null;
-    
+
     let workflowToRender = workflow;
-    
+
     // If it's a WorkflowExecution, extract the definition
     if ('workflowDefinition' in workflowToRender) {
       return workflowToRender.workflowDefinition;
     }
-    
+
     // If it's a preview (raw local workflow), convert it first
     if (type === 'preview' && !('tasks' in workflowToRender)) {
       const { localWorkflowToConductor } = await import('@/utils/workflowConverter');
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       workflowToRender = localWorkflowToConductor(workflowToRender as any);
     }
-    
+
     return workflowToRender;
   }, [workflow, type]);
 
@@ -159,26 +168,26 @@ export function WorkflowDiagramViewer({
     if (!workflow || !mermaidRef.current) {
       return;
     }
-    
+
     try {
       const workflowToRender = await convertWorkflowForRendering();
       if (!workflowToRender) {
         return;
       }
-      
+
       const mermaidCode = workflowToMermaid(workflowToRender, {
         showStatus: type === 'execution',
         interactive: true,
         theme: 'dark',
         direction: 'TD',
       });
-      
+
       const elementId = `mermaid-${type}-${Date.now()}`;
       const { svg } = await mermaid.render(elementId, mermaidCode);
-      
+
       if (mermaidRef.current) {
         mermaidRef.current.innerHTML = svg;
-        
+
         const svgElement = mermaidRef.current.querySelector('svg');
         if (svgElement) {
           setupDiagramInteractions(svgElement);
@@ -187,7 +196,8 @@ export function WorkflowDiagramViewer({
     } catch (error) {
       console.error('Error rendering diagram:', error);
       if (mermaidRef.current) {
-        mermaidRef.current.innerHTML = '<p class="text-destructive">Error rendering workflow diagram</p>';
+        mermaidRef.current.innerHTML =
+          '<p class="text-destructive">Error rendering workflow diagram</p>';
       }
     }
   }, [workflow, type, convertWorkflowForRendering, setupDiagramInteractions]);
@@ -203,12 +213,12 @@ export function WorkflowDiagramViewer({
         renderDiagram();
       }, 3000);
       setRefreshInterval(interval);
-      
+
       return () => {
         clearInterval(interval);
       };
     }
-    
+
     if (refreshInterval && !autoRefresh) {
       clearInterval(refreshInterval);
       setRefreshInterval(null);
@@ -219,12 +229,12 @@ export function WorkflowDiagramViewer({
     if (!mermaidRef.current || !workflow) {
       return;
     }
-    
+
     const svgElement = mermaidRef.current.querySelector('svg');
     if (!svgElement) {
       return;
     }
-    
+
     const svgData = new XMLSerializer().serializeToString(svgElement);
     const blob = new Blob([svgData], { type: 'image/svg+xml' });
     const url = URL.createObjectURL(blob);
@@ -242,7 +252,7 @@ export function WorkflowDiagramViewer({
     if (!workflow) {
       return;
     }
-    
+
     const workflowDef = 'workflowDefinition' in workflow ? workflow.workflowDefinition : workflow;
     const mermaidCode = workflowToMermaid(workflowDef, {
       showStatus: type === 'execution',
@@ -250,7 +260,7 @@ export function WorkflowDiagramViewer({
       theme: 'dark',
       direction: 'TD',
     });
-    
+
     const blob = new Blob([mermaidCode], { type: 'text/plain' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -319,7 +329,7 @@ export function WorkflowDiagramViewer({
               </div>
             </div>
           </div>
-          
+
           <div className="flex items-center gap-2 ml-4">
             {type === 'execution' && onRefresh && (
               <Button
@@ -378,8 +388,11 @@ export function WorkflowDiagramViewer({
             </Button>
           </div>
         </div>
-        
-        <div className="p-8 overflow-auto" style={{ minHeight: isFullscreen ? 'calc(100vh - 200px)' : '600px' }}>
+
+        <div
+          className="p-8 overflow-auto"
+          style={{ minHeight: isFullscreen ? 'calc(100vh - 200px)' : '600px' }}
+        >
           <div
             ref={mermaidRef}
             className="flex items-center justify-center"
@@ -403,61 +416,103 @@ export function WorkflowDiagramViewer({
             <div className="space-y-4">
               <div className="grid grid-cols-3 gap-4">
                 <div>
-                  <label htmlFor="task-ref" className="text-sm font-semibold text-foreground">Task Reference</label>
+                  <label htmlFor="task-ref" className="text-sm font-semibold text-foreground">
+                    Task Reference
+                  </label>
                   <p id="task-ref" className="text-sm text-muted-foreground mt-1 font-mono">
                     {selectedTask.taskReferenceName || selectedTask.taskId}
                   </p>
                 </div>
                 <div>
-                  <label htmlFor="task-type" className="text-sm font-semibold text-foreground">Task Type</label>
+                  <label htmlFor="task-type" className="text-sm font-semibold text-foreground">
+                    Task Type
+                  </label>
                   <div id="task-type">
                     <Badge className="mt-1 bg-purple-500 text-white">
-                      {selectedTask.type || selectedTask.taskType || inferTaskType(selectedTask.name || selectedTask.taskName || '')}
+                      {selectedTask.type ||
+                        selectedTask.taskType ||
+                        inferTaskType(selectedTask.name || selectedTask.taskName || '')}
                     </Badge>
                   </div>
                 </div>
                 {selectedTask.status && (
                   <div>
-                    <label htmlFor="task-status" className="text-sm font-semibold text-foreground">Status</label>
+                    <label htmlFor="task-status" className="text-sm font-semibold text-foreground">
+                      Status
+                    </label>
                     <div id="task-status">
-                      <Badge className={`mt-1 ${getStatusBadgeClass(selectedTask.status)} text-white`}>
+                      <Badge
+                        className={`mt-1 ${getStatusBadgeClass(selectedTask.status)} text-white`}
+                      >
                         {selectedTask.status.toUpperCase()}
                       </Badge>
                     </div>
                   </div>
                 )}
               </div>
-              
+
               {selectedTask.description && (
                 <div>
-                  <label htmlFor="task-desc" className="text-sm font-semibold text-foreground">Description</label>
-                  <p id="task-desc" className="text-sm text-muted-foreground mt-1">{selectedTask.description}</p>
+                  <label htmlFor="task-desc" className="text-sm font-semibold text-foreground">
+                    Description
+                  </label>
+                  <p id="task-desc" className="text-sm text-muted-foreground mt-1">
+                    {selectedTask.description}
+                  </p>
                 </div>
               )}
-              
-              {selectedTask.inputParameters && Object.keys(selectedTask.inputParameters).length > 0 && (
-                <div>
-                  <label htmlFor="task-input-params" className="text-sm font-semibold text-foreground mb-2 block">Input Parameters</label>
-                  <div id="task-input-params">
-                    <JsonViewer data={selectedTask.inputParameters} maxHeight="200px" collapsible={true} />
+
+              {selectedTask.inputParameters &&
+                Object.keys(selectedTask.inputParameters).length > 0 && (
+                  <div>
+                    <label
+                      htmlFor="task-input-params"
+                      className="text-sm font-semibold text-foreground mb-2 block"
+                    >
+                      Input Parameters
+                    </label>
+                    <div id="task-input-params">
+                      <JsonViewer
+                        data={selectedTask.inputParameters}
+                        maxHeight="200px"
+                        collapsible={true}
+                      />
+                    </div>
                   </div>
-                </div>
-              )}
-              
+                )}
+
               {selectedTask.inputData !== undefined && selectedTask.inputData !== null && (
                 <div>
-                  <label htmlFor="task-input-data" className="text-sm font-semibold text-foreground mb-2 block">Input Data</label>
+                  <label
+                    htmlFor="task-input-data"
+                    className="text-sm font-semibold text-foreground mb-2 block"
+                  >
+                    Input Data
+                  </label>
                   <div id="task-input-data">
-                    <JsonViewer data={selectedTask.inputData} maxHeight="200px" collapsible={true} />
+                    <JsonViewer
+                      data={selectedTask.inputData}
+                      maxHeight="200px"
+                      collapsible={true}
+                    />
                   </div>
                 </div>
               )}
-              
+
               {selectedTask.outputData !== undefined && selectedTask.outputData !== null && (
                 <div>
-                  <label htmlFor="task-output-data" className="text-sm font-semibold text-foreground mb-2 block">Output Data</label>
+                  <label
+                    htmlFor="task-output-data"
+                    className="text-sm font-semibold text-foreground mb-2 block"
+                  >
+                    Output Data
+                  </label>
                   <div id="task-output-data">
-                    <JsonViewer data={selectedTask.outputData} maxHeight="200px" collapsible={true} />
+                    <JsonViewer
+                      data={selectedTask.outputData}
+                      maxHeight="200px"
+                      collapsible={true}
+                    />
                   </div>
                 </div>
               )}

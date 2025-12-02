@@ -25,8 +25,8 @@ export const NODE_CONFIG = {
   WIDTH: 200,
   HEIGHT: 80,
   HORIZONTAL_SPACING: 80, // Space between nodes horizontally
-  VERTICAL_SPACING: 120,  // Space between nodes vertically
-  GRID_COLUMNS: 4,        // Number of columns in grid layout
+  VERTICAL_SPACING: 120, // Space between nodes vertically
+  GRID_COLUMNS: 4, // Number of columns in grid layout
 };
 
 /**
@@ -41,8 +41,8 @@ function assignNodeLevels(
   const queue: string[] = [];
 
   // Find root nodes (nodes with no incoming edges)
-  const rootNodes = nodeIds.filter(id => (incoming.get(id)?.length ?? 0) === 0);
-  
+  const rootNodes = nodeIds.filter((id) => (incoming.get(id)?.length ?? 0) === 0);
+
   // Determine starting nodes
   let startNodes: string[] = [];
   if (rootNodes.length > 0) {
@@ -120,17 +120,14 @@ function positionNodesByLevel(
  * Arrange nodes in a hierarchical layout based on their connections
  * Builds a dependency graph and arranges nodes level by level
  */
-export function arrangeNodesHierarchical(
-  nodes: LayoutNode[],
-  edges: LayoutEdge[]
-): LayoutNode[] {
+export function arrangeNodesHierarchical(nodes: LayoutNode[], edges: LayoutEdge[]): LayoutNode[] {
   if (nodes.length === 0) return nodes;
 
   // Build adjacency maps
   const outgoing = new Map<string, string[]>();
   const incoming = new Map<string, string[]>();
-  const nodeIds = nodes.map(n => n.id);
-  
+  const nodeIds = nodes.map((n) => n.id);
+
   for (const node of nodes) {
     outgoing.set(node.id, []);
     incoming.set(node.id, []);
@@ -199,10 +196,7 @@ export function arrangeNodesGrid(nodes: LayoutNode[]): LayoutNode[] {
  * Arrange nodes based on their type and connections
  * Attempts to create a more natural layout for complex workflows
  */
-export function arrangeNodesAuto(
-  nodes: LayoutNode[],
-  edges: LayoutEdge[]
-): LayoutNode[] {
+export function arrangeNodesAuto(nodes: LayoutNode[], edges: LayoutEdge[]): LayoutNode[] {
   // If workflow is simple (few nodes), use grid layout
   if (nodes.length <= 6) {
     return arrangeNodesGrid(nodes);
@@ -253,7 +247,7 @@ export function centerDiagram(nodes: LayoutNode[]): LayoutNode[] {
   const offsetY = (viewportHeight - diagramHeight) / 2 - minY;
 
   // Apply offset
-  return nodes.map(node => ({
+  return nodes.map((node) => ({
     ...node,
     position: {
       x: node.position.x + offsetX,

@@ -5,14 +5,22 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useWorkflowStore } from '@/stores/workflowStore';
 import { useSettingsStore } from '@/stores/settingsStore';
-import { ArrowLeftIcon, CheckCircleIcon, XCircleIcon, AlertTriangleIcon, PlayIcon, RefreshCwIcon, Trash2Icon } from 'lucide-react';
+import {
+  ArrowLeftIcon,
+  CheckCircleIcon,
+  XCircleIcon,
+  AlertTriangleIcon,
+  PlayIcon,
+  RefreshCwIcon,
+  Trash2Icon,
+} from 'lucide-react';
 import { JsonViewer } from '@/components/ui/json-viewer';
 import { localWorkflowToConductor } from '@/utils/workflowConverter';
-import { 
-  generateTestScenarios, 
-  generateTestInputForScenario, 
+import {
+  generateTestScenarios,
+  generateTestInputForScenario,
   executeWorkflowOnConductor,
-  TestScenario 
+  TestScenario,
 } from '@/services/llmService';
 import { useToast } from '@/hooks/use-toast';
 
@@ -42,12 +50,17 @@ export function WorkflowValidation() {
   const { workflows } = useWorkflowStore();
   const { toast } = useToast();
   const { openAiLlm, conductorApi } = useSettingsStore();
-  
+
   const [inputData, setInputData] = useState<TestInput | null>(null);
   const [llmContextData, setLlmContextData] = useState<string>('');
-  const [workflowDefinitionCache, setWorkflowDefinitionCache] = useState<WorkflowDefinitionCached | null>(null);
+  const [workflowDefinitionCache, setWorkflowDefinitionCache] =
+    useState<WorkflowDefinitionCached | null>(null);
   const [isGeneratingScenarios, setIsGeneratingScenarios] = useState(true);
-  const [generationProgress, setGenerationProgress] = useState({ current: 0, total: 0, message: '' });
+  const [generationProgress, setGenerationProgress] = useState({
+    current: 0,
+    total: 0,
+    message: '',
+  });
   const [testScenarios, setTestScenarios] = useState<TestScenario[]>([]);
   const [expandedScenarios, setExpandedScenarios] = useState<Set<string>>(new Set());
   const [isTestingAll, setIsTestingAll] = useState(false);
@@ -55,67 +68,70 @@ export function WorkflowValidation() {
 
   const workflow = workflows.find((w) => w.id === id);
 
-  const generateScenarios = useCallback(async (input: TestInput, context?: string) => {
-    setIsGeneratingScenarios(true);
-    setGenerationProgress({ current: 0, total: 0, message: 'Initializing...' });
-    
-    if (!openAiLlm.apiKey) {
-      toast({
-        title: 'LLM API Key Missing',
-        description: 'Please configure your OpenAI API Key in settings to generate scenarios.',
-        variant: 'destructive',
-      });
-      setIsGeneratingScenarios(false);
-      return;
-    }
-    
-    try {
-      // Convert and cache workflow definition
-      const conductorWorkflow = localWorkflowToConductor(workflow!);
-      setWorkflowDefinitionCache(conductorWorkflow as WorkflowDefinitionCached);
-      
-      // Progress callback for recursive generation
-      const onProgress = (message: string, current: number, total: number) => {
-        setGenerationProgress({ current, total, message });
-      };
-      
-      // Generate scenarios recursively
-      const scenarios = await generateTestScenarios(
-        conductorWorkflow, 
-        input, 
-        context,
-        onProgress
-      );
-      
-      setTestScenarios(scenarios);
-      
-      toast({
-        title: 'Test scenarios generated',
-        description: `${scenarios.length} test scenarios created from ${conductorWorkflow.tasks?.length || 0} workflow tasks`,
-      });
-    } catch (error) {
-      console.error('Failed to generate scenarios:', error);
-      toast({
-        title: 'Generation failed',
-        description: error instanceof Error ? error.message : 'Failed to generate test scenarios',
-        variant: 'destructive',
-      });
-    } finally {
-      setIsGeneratingScenarios(false);
-      setGenerationProgress({ current: 0, total: 0, message: '' });
-    }
-  }, [workflow, openAiLlm.apiKey, toast]);
+  const generateScenarios = useCallback(
+    async (input: TestInput, context?: string) => {
+      setIsGeneratingScenarios(true);
+      setGenerationProgress({ current: 0, total: 0, message: 'Initializing...' });
+
+      if (!openAiLlm.apiKey) {
+        toast({
+          title: 'LLM API Key Missing',
+          description: 'Please configure your OpenAI API Key in settings to generate scenarios.',
+          variant: 'destructive',
+        });
+        setIsGeneratingScenarios(false);
+        return;
+      }
+
+      try {
+        // Convert and cache workflow definition
+        const conductorWorkflow = localWorkflowToConductor(workflow!);
+        setWorkflowDefinitionCache(conductorWorkflow as WorkflowDefinitionCached);
+
+        // Progress callback for recursive generation
+        const onProgress = (message: string, current: number, total: number) => {
+          setGenerationProgress({ current, total, message });
+        };
+
+        // Generate scenarios recursively
+        const scenarios = await generateTestScenarios(
+          conductorWorkflow,
+          input,
+          context,
+          onProgress
+        );
+
+        setTestScenarios(scenarios);
+
+        toast({
+          title: 'Test scenarios generated',
+          description: `${scenarios.length} test scenarios created from ${conductorWorkflow.tasks?.length || 0} workflow tasks`,
+        });
+      } catch (error) {
+        console.error('Failed to generate scenarios:', error);
+        toast({
+          title: 'Generation failed',
+          description: error instanceof Error ? error.message : 'Failed to generate test scenarios',
+          variant: 'destructive',
+        });
+      } finally {
+        setIsGeneratingScenarios(false);
+        setGenerationProgress({ current: 0, total: 0, message: '' });
+      }
+    },
+    [workflow, openAiLlm.apiKey, toast]
+  );
 
   useEffect(() => {
     if (workflow) {
       const inputParam = searchParams.get('input');
       const contextParam = searchParams.get('context');
-      
+
       if (inputParam) {
         try {
           const parsedInput = JSON.parse(decodeURIComponent(inputParam)) as TestInput;
           const parsedContext = contextParam ? decodeURIComponent(contextParam) : '';
-          
+
           setInputData(parsedInput);
           setLlmContextData(parsedContext);
           generateScenarios(parsedInput, parsedContext);
@@ -129,42 +145,55 @@ export function WorkflowValidation() {
     }
   }, [workflow, searchParams, generateScenarios]);
 
-  const generateInputForScenario = useCallback(async (scenario: TestScenario) => {
-    setTestScenarios(prev =>
-      prev.map(s => s.id === scenario.id ? { ...s, status: 'generating' } : s)
-    );
-
-    try {
-      const conductorWorkflow = localWorkflowToConductor(workflow!);
-      const testInput = await generateTestInputForScenario(scenario, inputData, conductorWorkflow);
-      
-      setTestScenarios(prev =>
-        prev.map(s => s.id === scenario.id ? { ...s, inputJson: testInput, status: 'ready' } : s)
+  const generateInputForScenario = useCallback(
+    async (scenario: TestScenario) => {
+      setTestScenarios((prev) =>
+        prev.map((s) => (s.id === scenario.id ? { ...s, status: 'generating' } : s))
       );
 
-      toast({
-        title: 'Test input generated',
-        description: `Input JSON created for: ${scenario.name}`,
-      });
-    } catch (error) {
-      console.error('Failed to generate input:', error);
-      setTestScenarios(prev =>
-        prev.map(s => s.id === scenario.id ? { ...s, status: 'pending', error: 'Failed to generate input' } : s)
-      );
-      toast({
-        title: 'Input generation failed',
-        description: `Failed to generate input for: ${scenario.name}`,
-        variant: 'destructive',
-      });
-    }
-  }, [workflow, inputData, toast]); // Dependencies for useCallback
+      try {
+        const conductorWorkflow = localWorkflowToConductor(workflow!);
+        const testInput = await generateTestInputForScenario(
+          scenario,
+          inputData,
+          conductorWorkflow
+        );
+
+        setTestScenarios((prev) =>
+          prev.map((s) =>
+            s.id === scenario.id ? { ...s, inputJson: testInput, status: 'ready' } : s
+          )
+        );
+
+        toast({
+          title: 'Test input generated',
+          description: `Input JSON created for: ${scenario.name}`,
+        });
+      } catch (error) {
+        console.error('Failed to generate input:', error);
+        setTestScenarios((prev) =>
+          prev.map((s) =>
+            s.id === scenario.id
+              ? { ...s, status: 'pending', error: 'Failed to generate input' }
+              : s
+          )
+        );
+        toast({
+          title: 'Input generation failed',
+          description: `Failed to generate input for: ${scenario.name}`,
+          variant: 'destructive',
+        });
+      }
+    },
+    [workflow, inputData, toast]
+  ); // Dependencies for useCallback
 
   const generateAllInputs = async () => {
     setIsGeneratingAllInputs(true);
     for (const scenario of testScenarios) {
       if (!scenario.inputJson || scenario.status === 'pending') {
         await generateInputForScenario(scenario);
-        await new Promise(resolve => setTimeout(resolve, 200)); // Small delay for UI updates
+        await new Promise((resolve) => setTimeout(resolve, 200)); // Small delay for UI updates
       }
     }
     setIsGeneratingAllInputs(false);
@@ -176,7 +205,7 @@ export function WorkflowValidation() {
 
   const handleDeleteScenario = (scenarioId: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    setTestScenarios(prev => prev.filter(s => s.id !== scenarioId));
+    setTestScenarios((prev) => prev.filter((s) => s.id !== scenarioId));
     toast({
       title: 'Scenario deleted',
       description: 'Test scenario removed successfully.',
@@ -184,7 +213,7 @@ export function WorkflowValidation() {
   };
 
   const toggleScenarioExpansion = (scenarioId: string) => {
-    setExpandedScenarios(prev => {
+    setExpandedScenarios((prev) => {
       const newSet = new Set(prev);
       if (newSet.has(scenarioId)) {
         newSet.delete(scenarioId);
@@ -205,26 +234,30 @@ export function WorkflowValidation() {
       return;
     }
 
-    setTestScenarios(prev =>
-      prev.map(s => s.id === scenario.id ? { ...s, status: 'testing' } : s)
+    setTestScenarios((prev) =>
+      prev.map((s) => (s.id === scenario.id ? { ...s, status: 'testing' } : s))
     );
 
     try {
       const result = await executeWorkflowOnConductor(
-        workflow!.name, 
+        workflow!.name,
         scenario.inputJson,
         conductorApi.endpoint,
         conductorApi.apiKey
       );
-      
+
       const passed = result.status === 'COMPLETED';
-      
-      setTestScenarios(prev =>
-        prev.map(s => s.id === scenario.id ? { 
-          ...s, 
-          status: passed ? 'passed' : 'failed',
-          executionResult: result 
-        } : s)
+
+      setTestScenarios((prev) =>
+        prev.map((s) =>
+          s.id === scenario.id
+            ? {
+                ...s,
+                status: passed ? 'passed' : 'failed',
+                executionResult: result,
+              }
+            : s
+        )
       );
 
       toast({
@@ -234,12 +267,16 @@ export function WorkflowValidation() {
       });
     } catch (error) {
       console.error('Failed to execute scenario:', error);
-      setTestScenarios(prev =>
-        prev.map(s => s.id === scenario.id ? { 
-          ...s, 
-          status: 'failed',
-          error: 'Execution failed' 
-        } : s)
+      setTestScenarios((prev) =>
+        prev.map((s) =>
+          s.id === scenario.id
+            ? {
+                ...s,
+                status: 'failed',
+                error: 'Execution failed',
+              }
+            : s
+        )
       );
       toast({
         title: 'Execution failed',
@@ -251,22 +288,22 @@ export function WorkflowValidation() {
 
   const executeAllScenarios = async () => {
     setIsTestingAll(true);
-    
+
     for (const scenario of testScenarios) {
       // Ensure input is generated before executing
       if (!scenario.inputJson) {
         await generateInputForScenario(scenario);
-        await new Promise(resolve => setTimeout(resolve, 200));
+        await new Promise((resolve) => setTimeout(resolve, 200));
       }
       await executeScenario(scenario);
-      await new Promise(resolve => setTimeout(resolve, 500));
+      await new Promise((resolve) => setTimeout(resolve, 500));
     }
-    
+
     setIsTestingAll(false);
-    
-    const passed = testScenarios.filter(s => s.status === 'passed').length;
+
+    const passed = testScenarios.filter((s) => s.status === 'passed').length;
     const total = testScenarios.length;
-    
+
     toast({
       title: 'All tests completed',
       description: `${passed}/${total} tests passed`,
@@ -322,9 +359,9 @@ export function WorkflowValidation() {
 
   const stats = {
     total: testScenarios.length,
-    passed: testScenarios.filter(s => s.status === 'passed').length,
-    failed: testScenarios.filter(s => s.status === 'failed').length,
-    pending: testScenarios.filter(s => s.status === 'pending' || s.status === 'ready').length,
+    passed: testScenarios.filter((s) => s.status === 'passed').length,
+    failed: testScenarios.filter((s) => s.status === 'failed').length,
+    pending: testScenarios.filter((s) => s.status === 'pending' || s.status === 'ready').length,
   };
 
   return (
@@ -351,7 +388,9 @@ export function WorkflowValidation() {
             disabled={isGeneratingScenarios || isGeneratingAllInputs || isTestingAll}
             className="bg-cyan-500 text-white hover:bg-cyan-600"
           >
-            <RefreshCwIcon className={`w-4 h-4 mr-2 ${isGeneratingAllInputs ? 'animate-spin' : ''}`} />
+            <RefreshCwIcon
+              className={`w-4 h-4 mr-2 ${isGeneratingAllInputs ? 'animate-spin' : ''}`}
+            />
             {isGeneratingAllInputs ? 'Generating All Inputs...' : 'Generate All Inputs'}
           </Button>
           <Button
@@ -374,7 +413,7 @@ export function WorkflowValidation() {
           <p className="text-foreground mt-2">
             {generationProgress.message || 'Analyzing workflow and generating test scenarios...'}
           </p>
-          
+
           {generationProgress.total > 0 && (
             <div className="mt-4 max-w-md mx-auto">
               <div className="flex items-center justify-between text-sm text-muted-foreground mb-2">
@@ -384,20 +423,21 @@ export function WorkflowValidation() {
                 </span>
               </div>
               <div className="w-full bg-muted rounded-full h-2 overflow-hidden">
-                <div 
+                <div
                   className="bg-primary h-full transition-all duration-300 ease-out"
-                  style={{ 
-                    width: `${(generationProgress.current / generationProgress.total) * 100}%` 
+                  style={{
+                    width: `${(generationProgress.current / generationProgress.total) * 100}%`,
                   }}
                 />
               </div>
             </div>
           )}
-          
+
           <p className="text-sm text-muted-foreground mt-4">
-            The LLM is recursively traversing each workflow task and generating targeted test scenarios
+            The LLM is recursively traversing each workflow task and generating targeted test
+            scenarios
           </p>
-          
+
           <div className="mt-6 max-w-md mx-auto text-left space-y-2">
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <div className="w-2 h-2 bg-primary rounded-full animate-pulse"></div>
@@ -416,7 +456,7 @@ export function WorkflowValidation() {
               <span>Creating end-to-end validation tests</span>
             </div>
           </div>
-          
+
           {llmContextData && (
             <div className="mt-6 p-3 bg-purple-500/10 border border-purple-500/50 rounded-lg max-w-md mx-auto">
               <p className="text-xs text-purple-400 font-semibold">
@@ -484,18 +524,16 @@ export function WorkflowValidation() {
             <div className="space-y-3">
               {testScenarios.map((scenario) => {
                 const isExpanded = expandedScenarios.has(scenario.id);
-                
+
                 return (
                   <Card key={scenario.id} className="bg-background border-border overflow-hidden">
-                    <button 
+                    <button
                       className="w-full p-4 cursor-pointer hover:bg-muted/50 transition-colors text-left"
                       onClick={() => toggleScenarioExpansion(scenario.id)}
                     >
                       <div className="flex items-start gap-4">
-                        <div className="mt-1">
-                          {getStatusIcon(scenario.status)}
-                        </div>
-                        
+                        <div className="mt-1">{getStatusIcon(scenario.status)}</div>
+
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-3 mb-2">
                             <h4 className="text-sm font-medium text-foreground">{scenario.name}</h4>
@@ -534,7 +572,7 @@ export function WorkflowValidation() {
                               Generate Input
                             </Button>
                           )}
-                          
+
                           {/* Execute Test Button */}
                           {scenario.inputJson && (
                             <Button
@@ -544,7 +582,11 @@ export function WorkflowValidation() {
                                 e.stopPropagation();
                                 executeScenario(scenario);
                               }}
-                              disabled={scenario.status === 'testing' || isGeneratingAllInputs || isTestingAll}
+                              disabled={
+                                scenario.status === 'testing' ||
+                                isGeneratingAllInputs ||
+                                isTestingAll
+                              }
                               className="text-primary border-border hover:bg-primary/10"
                             >
                               <PlayIcon className="w-4 h-4 mr-1" />
@@ -563,7 +605,9 @@ export function WorkflowValidation() {
                             <div className="flex items-center gap-3">
                               <RefreshCwIcon className="w-5 h-5 text-primary animate-spin" />
                               <div>
-                                <p className="text-sm font-semibold text-primary">🤖 LLM Interaction #2</p>
+                                <p className="text-sm font-semibold text-primary">
+                                  🤖 LLM Interaction #2
+                                </p>
                                 <p className="text-xs text-muted-foreground mt-1">
                                   Generating test input JSON for this scenario...
                                 </p>
@@ -576,14 +620,20 @@ export function WorkflowValidation() {
                         {scenario.inputJson && (
                           <div>
                             <div className="flex items-center justify-between mb-2">
-                              <h5 className="text-sm font-semibold text-foreground">Test Input JSON (LLM Generated)</h5>
+                              <h5 className="text-sm font-semibold text-foreground">
+                                Test Input JSON (LLM Generated)
+                              </h5>
                               {scenario.inputJson._llmGenerated && (
                                 <Badge className="bg-purple-500/20 text-purple-400 border border-purple-500/50">
                                   🤖 AI Generated
                                 </Badge>
                               )}
                             </div>
-                            <JsonViewer data={scenario.inputJson} maxHeight="200px" collapsible={true} />
+                            <JsonViewer
+                              data={scenario.inputJson}
+                              maxHeight="200px"
+                              collapsible={true}
+                            />
                           </div>
                         )}
 
@@ -593,7 +643,9 @@ export function WorkflowValidation() {
                             <div className="flex items-center gap-3">
                               <RefreshCwIcon className="w-5 h-5 text-blue-500 animate-spin" />
                               <div>
-                                <p className="text-sm font-semibold text-blue-400">⚡ Executing on Conductor</p>
+                                <p className="text-sm font-semibold text-blue-400">
+                                  ⚡ Executing on Conductor
+                                </p>
                                 <p className="text-xs text-muted-foreground mt-1">
                                   Running workflow on Netflix Conductor...
                                 </p>
@@ -609,18 +661,24 @@ export function WorkflowValidation() {
                               Conductor Execution Result
                             </h5>
                             <div className="mb-3 flex items-center gap-2">
-                              <Badge className={`${
-                                scenario.executionResult.status === 'COMPLETED' 
-                                  ? 'bg-success text-white' 
-                                  : 'bg-destructive text-white'
-                              }`}>
+                              <Badge
+                                className={`${
+                                  scenario.executionResult.status === 'COMPLETED'
+                                    ? 'bg-success text-white'
+                                    : 'bg-destructive text-white'
+                                }`}
+                              >
                                 {scenario.executionResult.status}
                               </Badge>
                               <span className="text-xs text-muted-foreground">
                                 Workflow ID: {scenario.executionResult.workflowId}
                               </span>
                             </div>
-                            <JsonViewer data={scenario.executionResult} maxHeight="300px" collapsible={true} />
+                            <JsonViewer
+                              data={scenario.executionResult}
+                              maxHeight="300px"
+                              collapsible={true}
+                            />
                           </div>
                         )}
 
@@ -657,9 +715,7 @@ export function WorkflowValidation() {
                 </div>
                 <div className="p-4 bg-background border border-border rounded-lg">
                   <p className="text-sm text-muted-foreground">Scenarios Generated</p>
-                  <p className="text-2xl font-bold text-foreground mt-1">
-                    {testScenarios.length}
-                  </p>
+                  <p className="text-2xl font-bold text-foreground mt-1">{testScenarios.length}</p>
                 </div>
                 <div className="p-4 bg-background border border-border rounded-lg">
                   <p className="text-sm text-muted-foreground">LLM Interactions</p>

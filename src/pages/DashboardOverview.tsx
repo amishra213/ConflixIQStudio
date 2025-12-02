@@ -4,17 +4,17 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { useNavigate } from 'react-router-dom';
-import { 
-  WorkflowIcon, 
-  ListTodoIcon, 
-  ServerIcon, 
+import {
+  WorkflowIcon,
+  ListTodoIcon,
+  ServerIcon,
   ActivityIcon,
   CheckCircle2Icon,
   XCircleIcon,
   AlertCircleIcon,
   PlayIcon,
   PauseIcon,
-  SettingsIcon
+  SettingsIcon,
 } from 'lucide-react';
 import { useWorkflowStore } from '../stores/workflowStore';
 import { useSettingsStore } from '../stores/settingsStore';
@@ -44,12 +44,12 @@ export default function DashboardOverview() {
       gsap.fromTo(
         cards,
         { opacity: 0, y: 20 },
-        { 
-          opacity: 1, 
-          y: 0, 
-          duration: 0.5, 
+        {
+          opacity: 1,
+          y: 0,
+          duration: 0.5,
           stagger: 0.1,
-          ease: 'power2.out'
+          ease: 'power2.out',
         }
       );
     }
@@ -92,13 +92,17 @@ export default function DashboardOverview() {
           <CardContent className="p-6">
             <div className="flex items-start justify-between gap-4">
               <div className="flex items-start gap-3">
-                <AlertCircleIcon className="h-5 w-5 text-warning flex-shrink-0 mt-0.5" strokeWidth={1.5} />
+                <AlertCircleIcon
+                  className="h-5 w-5 text-warning flex-shrink-0 mt-0.5"
+                  strokeWidth={1.5}
+                />
                 <div>
                   <p className="text-sm font-medium text-foreground">
                     Not Connected to Netflix Conductor
                   </p>
                   <p className="text-xs text-muted-foreground mt-1">
-                    Configure your connection to start managing workflows and view real-time execution data.
+                    Configure your connection to start managing workflows and view real-time
+                    execution data.
                   </p>
                 </div>
               </div>
@@ -118,13 +122,19 @@ export default function DashboardOverview() {
       {/* Main Stats Grid */}
       <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-4">
         {/* Workflows Card */}
-        <Card className="dashboard-card border-border bg-card hover:shadow-lg transition-shadow cursor-pointer" onClick={() => navigate('/workflows/list')}>
+        <Card
+          className="dashboard-card border-border bg-card hover:shadow-lg transition-shadow cursor-pointer"
+          onClick={() => navigate('/workflows/list')}
+        >
           <CardContent className="p-6">
             <div className="flex items-center justify-between mb-4">
               <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10">
                 <WorkflowIcon className="h-6 w-6 text-primary" strokeWidth={1.5} />
               </div>
-              <Badge variant="outline" className="text-xs bg-primary/10 text-primary border-primary/20">
+              <Badge
+                variant="outline"
+                className="text-xs bg-primary/10 text-primary border-primary/20"
+              >
                 View All
               </Badge>
             </div>
@@ -136,13 +146,19 @@ export default function DashboardOverview() {
         </Card>
 
         {/* Tasks Card */}
-        <Card className="dashboard-card border-border bg-card hover:shadow-lg transition-shadow cursor-pointer" onClick={() => navigate('/tasks')}>
+        <Card
+          className="dashboard-card border-border bg-card hover:shadow-lg transition-shadow cursor-pointer"
+          onClick={() => navigate('/tasks')}
+        >
           <CardContent className="p-6">
             <div className="flex items-center justify-between mb-4">
               <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-tertiary/10">
                 <ListTodoIcon className="h-6 w-6 text-tertiary" strokeWidth={1.5} />
               </div>
-              <Badge variant="outline" className="text-xs bg-tertiary/10 text-tertiary border-tertiary/20">
+              <Badge
+                variant="outline"
+                className="text-xs bg-tertiary/10 text-tertiary border-tertiary/20"
+              >
                 View All
               </Badge>
             </div>
@@ -154,13 +170,32 @@ export default function DashboardOverview() {
         </Card>
 
         {/* Connection Status Card */}
-        <Card className={cn("dashboard-card border-border bg-card", !isConnected && "cursor-pointer hover:shadow-lg transition-shadow")} onClick={() => !isConnected && navigate('/settings')}>
+        <Card
+          className={cn(
+            'dashboard-card border-border bg-card',
+            !isConnected && 'cursor-pointer hover:shadow-lg transition-shadow'
+          )}
+          onClick={() => !isConnected && navigate('/settings')}
+        >
           <CardContent className="p-6">
             <div className="flex items-center justify-between mb-4">
-              <div className={cn("flex h-12 w-12 items-center justify-center rounded-lg", connectionStatus.bgColor)}>
-                <ServerIcon className={cn("h-6 w-6", connectionStatus.color)} strokeWidth={1.5} />
+              <div
+                className={cn(
+                  'flex h-12 w-12 items-center justify-center rounded-lg',
+                  connectionStatus.bgColor
+                )}
+              >
+                <ServerIcon className={cn('h-6 w-6', connectionStatus.color)} strokeWidth={1.5} />
               </div>
-              <Badge variant="outline" className={cn("text-xs", connectionStatus.bgColor, connectionStatus.color, connectionStatus.borderColor)}>
+              <Badge
+                variant="outline"
+                className={cn(
+                  'text-xs',
+                  connectionStatus.bgColor,
+                  connectionStatus.color,
+                  connectionStatus.borderColor
+                )}
+              >
                 <ConnectionIcon className="h-3 w-3 mr-1" strokeWidth={1.5} />
                 {connectionStatus.label}
               </Badge>
@@ -181,7 +216,10 @@ export default function DashboardOverview() {
               <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-success/10">
                 <ActivityIcon className="h-6 w-6 text-success" strokeWidth={1.5} />
               </div>
-              <Badge variant="outline" className="text-xs bg-success/10 text-success border-success/20">
+              <Badge
+                variant="outline"
+                className="text-xs bg-success/10 text-success border-success/20"
+              >
                 All Time
               </Badge>
             </div>
@@ -196,7 +234,9 @@ export default function DashboardOverview() {
       {/* Workflow Execution Status */}
       <Card className="dashboard-card border-border bg-card">
         <CardHeader>
-          <CardTitle className="font-heading text-xl text-foreground">Workflow Execution Status</CardTitle>
+          <CardTitle className="font-heading text-xl text-foreground">
+            Workflow Execution Status
+          </CardTitle>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">

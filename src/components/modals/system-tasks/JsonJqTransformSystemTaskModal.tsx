@@ -35,7 +35,8 @@ export function JsonJqTransformTaskModal({
         setConfig({
           ...initialConfig,
           name: initialConfig.name || `json_jq_transform_${timestamp}`,
-          taskReferenceName: initialConfig.taskReferenceName || `json_jq_transform_ref_${timestamp}`,
+          taskReferenceName:
+            initialConfig.taskReferenceName || `json_jq_transform_ref_${timestamp}`,
         });
       } else {
         setConfig({
@@ -57,9 +58,7 @@ export function JsonJqTransformTaskModal({
         placeholder=".field | select(.value > 10)"
         className="mt-1 bg-[#1a1f2e] text-white font-mono text-sm min-h-[120px]"
       />
-      <p className="text-xs text-gray-400 mt-1">
-        Enter a valid jq query expression
-      </p>
+      <p className="text-xs text-gray-400 mt-1">Enter a valid jq query expression</p>
     </div>
   );
 

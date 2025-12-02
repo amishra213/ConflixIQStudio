@@ -1,6 +1,6 @@
-import { type ClassValue, clsx } from "clsx";
-import { twMerge } from "tailwind-merge";
-import { Workflow } from "@/stores/workflowStore";
+import { type ClassValue, clsx } from 'clsx';
+import { twMerge } from 'tailwind-merge';
+import { Workflow } from '@/stores/workflowStore';
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -60,8 +60,10 @@ export type { ConductorWorkflow };
  * Converts a Conductor API workflow to local Workflow format
  */
 export function conductorWorkflowToLocal(conductorWorkflow: ConductorWorkflow): Workflow {
-  console.log(`[conductorWorkflowToLocal] Converting workflow: ${conductorWorkflow.name} v${conductorWorkflow.version} with ${conductorWorkflow.tasks?.length || 0} tasks`);
-  
+  console.log(
+    `[conductorWorkflowToLocal] Converting workflow: ${conductorWorkflow.name} v${conductorWorkflow.version} with ${conductorWorkflow.tasks?.length || 0} tasks`
+  );
+
   // Helper function to safely convert to ISO date string
   const _toISOString = (value: unknown): string => {
     try {
@@ -69,12 +71,12 @@ export function conductorWorkflowToLocal(conductorWorkflow: ConductorWorkflow): 
       if (value === null || value === undefined) {
         return new Date().toISOString();
       }
-      
+
       // If it's already a string that looks like ISO, return it
       if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}T/.exec(value)) {
         return value;
       }
-      
+
       // If it's a number (timestamp), convert it
       if (typeof value === 'number') {
         if (value === 0 || Number.isNaN(value)) {
@@ -83,7 +85,7 @@ export function conductorWorkflowToLocal(conductorWorkflow: ConductorWorkflow): 
         // Conductor timestamps are in milliseconds
         return new Date(value).toISOString();
       }
-      
+
       // Try to parse as date
       const date = new Date(value as string | number);
       if (Number.isNaN(date.getTime())) {
@@ -98,14 +100,18 @@ export function conductorWorkflowToLocal(conductorWorkflow: ConductorWorkflow): 
   };
 
   // Helper to normalize timeout policy to valid values
-  const normalizeTimeoutPolicy = (policy: string | undefined): "TIME_OUT_WF" | "ALERT_ONLY" | undefined => {
+  const normalizeTimeoutPolicy = (
+    policy: string | undefined
+  ): 'TIME_OUT_WF' | 'ALERT_ONLY' | undefined => {
     if (!policy) return undefined;
     if (policy === 'TIME_OUT_WF' || policy === 'ALERT_ONLY') return policy;
     // Default to TIME_OUT_WF for unknown values
-    console.warn(`[conductorWorkflowToLocal] Unknown timeoutPolicy: ${policy}, defaulting to TIME_OUT_WF`);
+    console.warn(
+      `[conductorWorkflowToLocal] Unknown timeoutPolicy: ${policy}, defaulting to TIME_OUT_WF`
+    );
     return 'TIME_OUT_WF';
   };
-  
+
   // Helper function to parse JSON strings in task fields
   const parseTaskField = (field: unknown): unknown => {
     if (typeof field === 'string') {
@@ -121,22 +127,22 @@ export function conductorWorkflowToLocal(conductorWorkflow: ConductorWorkflow): 
   // Helper function to get task type color
   const getTaskColor = (taskType: string): string => {
     const colorMap: Record<string, string> = {
-      'HTTP': '#0066cc',
-      'SIMPLE': '#10b981',
-      'HUMAN': '#f59e0b',
-      'INLINE': '#8b5cf6',
-      'KAFKA_PUBLISH': '#ec4899',
-      'EVENT': '#06b6d4',
-      'WAIT': '#6366f1',
-      'NOOP': '#6b7280',
-      'TERMINATE': '#dc2626',
-      'SWITCH': '#f97316',
-      'DO_WHILE': '#a855f7',
-      'FORK_JOIN': '#0ea5e9',
-      'DYNAMIC': '#14b8a6',
-      'JOIN': '#7c3aed',
-      'SUB_WORKFLOW': '#3b82f6',
-      'START_WORKFLOW': '#06b6d4',
+      HTTP: '#0066cc',
+      SIMPLE: '#10b981',
+      HUMAN: '#f59e0b',
+      INLINE: '#8b5cf6',
+      KAFKA_PUBLISH: '#ec4899',
+      EVENT: '#06b6d4',
+      WAIT: '#6366f1',
+      NOOP: '#6b7280',
+      TERMINATE: '#dc2626',
+      SWITCH: '#f97316',
+      DO_WHILE: '#a855f7',
+      FORK_JOIN: '#0ea5e9',
+      DYNAMIC: '#14b8a6',
+      JOIN: '#7c3aed',
+      SUB_WORKFLOW: '#3b82f6',
+      START_WORKFLOW: '#06b6d4',
     };
     return colorMap[taskType] || '#10b981';
   };
@@ -258,6 +264,8 @@ export function conductorWorkflowToLocal(conductorWorkflow: ConductorWorkflow): 
     }
   }
 
-  console.log(`[conductorWorkflowToLocal] Converted to workflow ID: ${workflow.id} with ${workflow.nodes.length} nodes, ${workflow.edges.length} edges, and ${workflow.tasks?.length || 0} tasks`);
+  console.log(
+    `[conductorWorkflowToLocal] Converted to workflow ID: ${workflow.id} with ${workflow.nodes.length} nodes, ${workflow.edges.length} edges, and ${workflow.tasks?.length || 0} tasks`
+  );
   return workflow;
 }

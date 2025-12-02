@@ -18,201 +18,218 @@ interface JsonNodeProps {
   defaultExpanded?: boolean;
 }
 
-const JsonNode = memo(({
-  nodeKey,
-  value,
-  level = 0,
-  isLast = false,
-  collapsible = true,
-  defaultExpanded = true,
-}: JsonNodeProps) => {
-  const [isExpanded, setIsExpanded] = useState(defaultExpanded || level < 2);
-  const indent = level * 20;
+const JsonNode = memo(
+  ({
+    nodeKey,
+    value,
+    level = 0,
+    isLast = false,
+    collapsible = true,
+    defaultExpanded = true,
+  }: JsonNodeProps) => {
+    const [isExpanded, setIsExpanded] = useState(defaultExpanded || level < 2);
+    const indent = level * 20;
 
-  const toggleExpand = useCallback(() => {
-    setIsExpanded((prev) => !prev);
-  }, []);
+    const toggleExpand = useCallback(() => {
+      setIsExpanded((prev) => !prev);
+    }, []);
 
-  const renderPrimitiveValue = useCallback((val: unknown): JSX.Element => {
-    if (val === null) {
-      return <span className="text-purple-400">null</span>;
-    }
+    const renderPrimitiveValue = useCallback((val: unknown): JSX.Element => {
+      if (val === null) {
+        return <span className="text-purple-400">null</span>;
+      }
 
-    if (val === undefined) {
-      return <span className="text-purple-400">undefined</span>;
-    }
+      if (val === undefined) {
+        return <span className="text-purple-400">undefined</span>;
+      }
 
-    if (typeof val === 'boolean') {
-      return <span className="text-orange-400">{val.toString()}</span>;
-    }
+      if (typeof val === 'boolean') {
+        return <span className="text-orange-400">{val.toString()}</span>;
+      }
 
-    if (typeof val === 'number') {
-      return <span className="text-cyan-400">{val}</span>;
-    }
+      if (typeof val === 'number') {
+        return <span className="text-cyan-400">{val}</span>;
+      }
 
-    if (typeof val === 'string') {
-      const displayValue = val.length > 200 ? `${val.substring(0, 200)}...` : val;
-      return <span className="text-green-400">&quot;{displayValue}&quot;</span>;
-    }
+      if (typeof val === 'string') {
+        const displayValue = val.length > 200 ? `${val.substring(0, 200)}...` : val;
+        return <span className="text-green-400">&quot;{displayValue}&quot;</span>;
+      }
 
-    try {
-      return <span className="text-gray-400">{JSON.stringify(val)}</span>;
-    } catch {
-      return <span className="text-gray-400">[Circular]</span>;
-    }
-  }, []);
+      try {
+        return <span className="text-gray-400">{JSON.stringify(val)}</span>;
+      } catch {
+        return <span className="text-gray-400">[Circular]</span>;
+      }
+    }, []);
 
-  const renderArrayValue = useCallback((): JSX.Element | null => {
-    if (!Array.isArray(value)) return null;
+    const renderArrayValue = useCallback((): JSX.Element | null => {
+      if (!Array.isArray(value)) return null;
 
-    const itemCount = value.length;
+      const itemCount = value.length;
 
-    if (itemCount === 0) {
-      return <span className="text-gray-400">[]</span>;
-    }
+      if (itemCount === 0) {
+        return <span className="text-gray-400">[]</span>;
+      }
 
-    if (!collapsible || !isExpanded) {
+      if (!collapsible || !isExpanded) {
+        return (
+          <span className="text-gray-400">
+            [{itemCount} {itemCount === 1 ? 'item' : 'items'}]
+          </span>
+        );
+      }
+
       return (
-        <span className="text-gray-400">
-          [{itemCount} {itemCount === 1 ? 'item' : 'items'}]
-        </span>
-      );
-    }
-
-    return (
-      <div>
-        <span className="text-gray-400">[</span>
         <div>
-          {value.map((item, index) => {
-            const itemKey = typeof item === 'object' && item !== null ? `item-${index}-${JSON.stringify(item).slice(0, 10)}` : `item-${index}`;
-            return (
+          <span className="text-gray-400">[</span>
+          <div>
+            {value.map((item, index) => {
+              const itemKey =
+                typeof item === 'object' && item !== null
+                  ? `item-${index}-${JSON.stringify(item).slice(0, 10)}`
+                  : `item-${index}`;
+              return (
+                <JsonNode
+                  key={itemKey}
+                  nodeKey={index.toString()}
+                  value={item}
+                  level={level + 1}
+                  isLast={index === value.length - 1}
+                  collapsible={collapsible}
+                  defaultExpanded={defaultExpanded}
+                />
+              );
+            })}
+          </div>
+          <span className="text-gray-400" style={{ marginLeft: `${indent}px` }}>
+            ]
+          </span>
+        </div>
+      );
+    }, [value, level, isExpanded, collapsible, defaultExpanded, indent]);
+
+    const renderObjectValue = useCallback((): JSX.Element | null => {
+      if (typeof value !== 'object' || value === null || Array.isArray(value)) return null;
+
+      const keys = Object.keys(value as Record<string, unknown>);
+      const keyCount = keys.length;
+
+      if (keyCount === 0) {
+        return <span className="text-gray-400">{'{}'}</span>;
+      }
+
+      if (!collapsible || !isExpanded) {
+        return (
+          <span className="text-gray-400">
+            {'{'}
+            {keyCount} {keyCount === 1 ? 'key' : 'keys'}
+            {'}'}
+          </span>
+        );
+      }
+
+      return (
+        <div>
+          <span className="text-gray-400">{'{'}</span>
+          <div>
+            {keys.map((key, index) => (
               <JsonNode
-                key={itemKey}
-                nodeKey={index.toString()}
-                value={item}
+                key={key}
+                nodeKey={key}
+                value={(value as Record<string, unknown>)[key]}
                 level={level + 1}
-                isLast={index === value.length - 1}
+                isLast={index === keys.length - 1}
                 collapsible={collapsible}
                 defaultExpanded={defaultExpanded}
               />
-            );
-          })}
-        </div>
-        <span className="text-gray-400" style={{ marginLeft: `${indent}px` }}>
-          ]
-        </span>
-      </div>
-    );
-  }, [value, level, isExpanded, collapsible, defaultExpanded, indent]);
-
-  const renderObjectValue = useCallback((): JSX.Element | null => {
-    if (typeof value !== 'object' || value === null || Array.isArray(value)) return null;
-
-    const keys = Object.keys(value as Record<string, unknown>);
-    const keyCount = keys.length;
-
-    if (keyCount === 0) {
-      return <span className="text-gray-400">{'{}'}</span>;
-    }
-
-    if (!collapsible || !isExpanded) {
-      return (
-        <span className="text-gray-400">
-          {'{'}
-          {keyCount} {keyCount === 1 ? 'key' : 'keys'}
-          {'}'}
-        </span>
-      );
-    }
-
-    return (
-      <div>
-        <span className="text-gray-400">{'{'}</span>
-        <div>
-          {keys.map((key, index) => (
-            <JsonNode
-              key={key}
-              nodeKey={key}
-              value={(value as Record<string, unknown>)[key]}
-              level={level + 1}
-              isLast={index === keys.length - 1}
-              collapsible={collapsible}
-              defaultExpanded={defaultExpanded}
-            />
-          ))}
-        </div>
-        <span className="text-gray-400" style={{ marginLeft: `${indent}px` }}>
-          {'}'}
-        </span>
-      </div>
-    );
-  }, [value, level, isExpanded, collapsible, defaultExpanded, indent]);
-
-  const renderValue = useMemo(() => {
-    if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean' || value === null || value === undefined) {
-      return renderPrimitiveValue(value);
-    }
-
-    if (Array.isArray(value)) {
-      return renderArrayValue();
-    }
-
-    if (typeof value === 'object') {
-      return renderObjectValue();
-    }
-
-    return renderPrimitiveValue(value);
-  }, [value, renderPrimitiveValue, renderArrayValue, renderObjectValue]);
-
-  const isExpandable = useMemo(() => {
-    return (
-      collapsible &&
-      ((typeof value === 'object' && value !== null && Object.keys(value).length > 0) ||
-        (Array.isArray(value) && value.length > 0))
-    );
-  }, [value, collapsible]);
-
-  return (
-    <div className="font-mono text-xs leading-relaxed">
-      <div
-        className="flex items-start hover:bg-muted/30 rounded px-1 py-0.5"
-        style={{ marginLeft: `${indent}px` }}
-      >
-        {isExpandable && (
-          <button
-            onClick={toggleExpand}
-            className="mr-1 mt-0.5 text-muted-foreground hover:text-foreground flex-shrink-0"
-          >
-            {isExpanded ? (
-              <ChevronDownIcon className="w-3 h-3" />
-            ) : (
-              <ChevronRightIcon className="w-3 h-3" />
-            )}
-          </button>
-        )}
-        {!isExpandable && <span className="w-4 flex-shrink-0" />}
-
-        {nodeKey && (
-          <span className="text-blue-400 mr-2 flex-shrink-0">
-            {Array.isArray(value) || typeof value === 'object' ? '' : '"'}
-            {nodeKey}
-            {Array.isArray(value) || typeof value === 'object' ? '' : '"'}:
+            ))}
+          </div>
+          <span className="text-gray-400" style={{ marginLeft: `${indent}px` }}>
+            {'}'}
           </span>
-        )}
+        </div>
+      );
+    }, [value, level, isExpanded, collapsible, defaultExpanded, indent]);
 
-        <div className="flex-1 break-all">
-          {renderValue}
-          {!isLast && <span className="text-gray-400">,</span>}
+    const renderValue = useMemo(() => {
+      if (
+        typeof value === 'string' ||
+        typeof value === 'number' ||
+        typeof value === 'boolean' ||
+        value === null ||
+        value === undefined
+      ) {
+        return renderPrimitiveValue(value);
+      }
+
+      if (Array.isArray(value)) {
+        return renderArrayValue();
+      }
+
+      if (typeof value === 'object') {
+        return renderObjectValue();
+      }
+
+      return renderPrimitiveValue(value);
+    }, [value, renderPrimitiveValue, renderArrayValue, renderObjectValue]);
+
+    const isExpandable = useMemo(() => {
+      return (
+        collapsible &&
+        ((typeof value === 'object' && value !== null && Object.keys(value).length > 0) ||
+          (Array.isArray(value) && value.length > 0))
+      );
+    }, [value, collapsible]);
+
+    return (
+      <div className="font-mono text-xs leading-relaxed">
+        <div
+          className="flex items-start hover:bg-muted/30 rounded px-1 py-0.5"
+          style={{ marginLeft: `${indent}px` }}
+        >
+          {isExpandable && (
+            <button
+              onClick={toggleExpand}
+              className="mr-1 mt-0.5 text-muted-foreground hover:text-foreground flex-shrink-0"
+            >
+              {isExpanded ? (
+                <ChevronDownIcon className="w-3 h-3" />
+              ) : (
+                <ChevronRightIcon className="w-3 h-3" />
+              )}
+            </button>
+          )}
+          {!isExpandable && <span className="w-4 flex-shrink-0" />}
+
+          {nodeKey && (
+            <span className="text-blue-400 mr-2 flex-shrink-0">
+              {Array.isArray(value) || typeof value === 'object' ? '' : '"'}
+              {nodeKey}
+              {Array.isArray(value) || typeof value === 'object' ? '' : '"'}:
+            </span>
+          )}
+
+          <div className="flex-1 break-all">
+            {renderValue}
+            {!isLast && <span className="text-gray-400">,</span>}
+          </div>
         </div>
       </div>
-    </div>
-  );
-});
+    );
+  }
+);
 
 JsonNode.displayName = 'JsonNode';
 
 export const JsonViewer = memo(
-  ({ data, maxHeight = 'none', collapsible = true, defaultExpanded = true, level = 0 }: JsonViewerProps) => {
+  ({
+    data,
+    maxHeight = 'none',
+    collapsible = true,
+    defaultExpanded = true,
+    level = 0,
+  }: JsonViewerProps) => {
     // Calculate data size upfront (before any conditional returns)
     const dataSize = useMemo(() => {
       try {

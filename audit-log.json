@@ -13,9 +13,7 @@
           "title": "glob CLI: Command injection via -c/--cmd executes matches with shell:true",
           "url": "https://github.com/advisories/GHSA-5j98-mcp5-4vw2",
           "severity": "high",
-          "cwe": [
-            "CWE-78"
-          ],
+          "cwe": ["CWE-78"],
           "cvss": {
             "score": 7.5,
             "vectorString": "CVSS:3.1/AV:N/AC:H/PR:L/UI:N/S:U/C:H/I:H/A:H"
@@ -23,59 +21,39 @@
           "range": ">=10.3.7 <=11.0.3"
         }
       ],
-      "effects": [
-        "sucrase"
-      ],
+      "effects": ["sucrase"],
       "range": "10.3.7 - 11.0.3",
-      "nodes": [
-        "node_modules/glob"
-      ],
+      "nodes": ["node_modules/glob"],
       "fixAvailable": false
     },
     "sucrase": {
       "name": "sucrase",
       "severity": "high",
       "isDirect": false,
-      "via": [
-        "glob"
-      ],
-      "effects": [
-        "tailwindcss"
-      ],
+      "via": ["glob"],
+      "effects": ["tailwindcss"],
       "range": ">=3.35.0",
-      "nodes": [
-        "node_modules/sucrase"
-      ],
+      "nodes": ["node_modules/sucrase"],
       "fixAvailable": false
     },
     "tailwindcss": {
       "name": "tailwindcss",
       "severity": "high",
       "isDirect": true,
-      "via": [
-        "sucrase"
-      ],
-      "effects": [
-        "tailwindcss-animate"
-      ],
+      "via": ["sucrase"],
+      "effects": ["tailwindcss-animate"],
       "range": "3.4.15 - 3.4.18",
-      "nodes": [
-        "node_modules/tailwindcss"
-      ],
+      "nodes": ["node_modules/tailwindcss"],
       "fixAvailable": false
     },
     "tailwindcss-animate": {
       "name": "tailwindcss-animate",
       "severity": "high",
       "isDirect": true,
-      "via": [
-        "tailwindcss"
-      ],
+      "via": ["tailwindcss"],
       "effects": [],
       "range": "*",
-      "nodes": [
-        "node_modules/tailwindcss-animate"
-      ],
+      "nodes": ["node_modules/tailwindcss-animate"],
       "fixAvailable": false
     }
   },

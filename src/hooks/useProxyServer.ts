@@ -24,16 +24,19 @@ export function useProxyServer() {
   const configureProxy = useCallback(
     async (conductorServerUrl: string, conductorApiKey?: string): Promise<boolean> => {
       try {
-        const response = await fetch(`${proxyServer.proxyEndpoint.replace('/graphql', '')}/api/config`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            conductorServerUrl,
-            conductorApiKey: conductorApiKey || '',
-          }),
-        });
+        const response = await fetch(
+          `${proxyServer.proxyEndpoint.replace('/graphql', '')}/api/config`,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              conductorServerUrl,
+              conductorApiKey: conductorApiKey || '',
+            }),
+          }
+        );
 
         if (!response.ok) {
           console.error('Failed to configure proxy server', response.statusText);
@@ -54,7 +57,9 @@ export function useProxyServer() {
    */
   const checkHealth = useCallback(async (): Promise<boolean> => {
     try {
-      const response = await fetch(`${proxyServer.proxyEndpoint.replace('/graphql', '')}/api/health`);
+      const response = await fetch(
+        `${proxyServer.proxyEndpoint.replace('/graphql', '')}/api/health`
+      );
       return response.ok;
     } catch (error) {
       console.error('Proxy server health check failed:', error);
@@ -66,7 +71,10 @@ export function useProxyServer() {
    * Make a GraphQL query through the proxy
    */
   const executeGraphQL = useCallback(
-    async <T = Record<string, unknown>>(query: string, variables?: Record<string, unknown>): Promise<T | null> => {
+    async <T = Record<string, unknown>>(
+      query: string,
+      variables?: Record<string, unknown>
+    ): Promise<T | null> => {
       try {
         const response = await fetch(proxyServer.proxyEndpoint, {
           method: 'POST',

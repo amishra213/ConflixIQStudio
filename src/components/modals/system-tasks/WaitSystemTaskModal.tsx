@@ -17,7 +17,12 @@ interface WaitSystemTaskModalProps {
   readonly initialConfig?: WaitSystemTaskConfig;
 }
 
-export function WaitSystemTaskModal({ open, onOpenChange, onSave, initialConfig }: WaitSystemTaskModalProps) {
+export function WaitSystemTaskModal({
+  open,
+  onOpenChange,
+  onSave,
+  initialConfig,
+}: WaitSystemTaskModalProps) {
   const [config, setConfig] = useState<WaitSystemTaskConfig>({
     type: 'WAIT',
     name: '',
@@ -54,7 +59,9 @@ export function WaitSystemTaskModal({ open, onOpenChange, onSave, initialConfig 
         placeholder="e.g., PT30S (ISO 8601 format)"
         className="mt-1 bg-[#1a1f2e] text-white border-[#2a3142]"
       />
-      <p className="text-xs text-gray-400 mt-1">Optional: ISO 8601 duration format (e.g., PT30S, PT5M)</p>
+      <p className="text-xs text-gray-400 mt-1">
+        Optional: ISO 8601 duration format (e.g., PT30S, PT5M)
+      </p>
     </div>
   );
 

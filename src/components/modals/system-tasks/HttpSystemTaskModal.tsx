@@ -4,7 +4,13 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { JsonTextarea } from '@/components/ui/json-textarea';
 import { Button } from '@/components/ui/button';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Plus, Trash2 } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 
@@ -69,10 +75,10 @@ export function HttpTaskModal({
         // Safely access http_request from initialConfig
         const httpRequest = initialConfig.inputParameters?.http_request || {};
         const timestamp = Date.now();
-        
+
         console.log('[HttpTaskModal] Setting config from initialConfig. httpRequest:', httpRequest);
-        
-        setConfig({ 
+
+        setConfig({
           ...initialConfig,
           name: initialConfig.name || `http_task_${timestamp}`,
           taskReferenceName: initialConfig.taskReferenceName || `http_task_ref_${timestamp}`,
@@ -86,8 +92,8 @@ export function HttpTaskModal({
               connectionTimeOut: httpRequest.connectionTimeOut ?? 100,
               readTimeOut: httpRequest.readTimeOut ?? 150,
               asyncComplete: httpRequest.asyncComplete || false,
-            }
-          }
+            },
+          },
         });
 
         // Extract headers
@@ -147,7 +153,10 @@ export function HttpTaskModal({
       ...config,
       inputParameters: {
         ...config.inputParameters,
-        http_request: { ...config.inputParameters.http_request, headers: Object.keys(headersObj).length > 0 ? headersObj : undefined },
+        http_request: {
+          ...config.inputParameters.http_request,
+          headers: Object.keys(headersObj).length > 0 ? headersObj : undefined,
+        },
       },
     });
   };
@@ -166,13 +175,19 @@ export function HttpTaskModal({
       ...config,
       inputParameters: {
         ...config.inputParameters,
-        http_request: { ...config.inputParameters.http_request, headers: Object.keys(headersObj).length > 0 ? headersObj : undefined },
+        http_request: {
+          ...config.inputParameters.http_request,
+          headers: Object.keys(headersObj).length > 0 ? headersObj : undefined,
+        },
       },
     });
   };
 
   const validateConfig = (cfg: HttpTaskConfig): string | null => {
-    if (!cfg.inputParameters.http_request.uri || cfg.inputParameters.http_request.uri.trim() === '') {
+    if (
+      !cfg.inputParameters.http_request.uri ||
+      cfg.inputParameters.http_request.uri.trim() === ''
+    ) {
       return 'URI is required';
     }
     return null;
@@ -254,7 +269,10 @@ export function HttpTaskModal({
                       ...config,
                       inputParameters: {
                         ...config.inputParameters,
-                        http_request: { ...config.inputParameters.http_request, method: value as HttpRequest['method'] },
+                        http_request: {
+                          ...config.inputParameters.http_request,
+                          method: value as HttpRequest['method'],
+                        },
                       },
                     })
                   }
@@ -296,8 +314,12 @@ export function HttpTaskModal({
                     <SelectItem value="application/json">application/json</SelectItem>
                     <SelectItem value="application/xml">application/xml</SelectItem>
                     <SelectItem value="application/pdf">application/pdf</SelectItem>
-                    <SelectItem value="application/octet-stream">application/octet-stream</SelectItem>
-                    <SelectItem value="application/x-www-form-urlencoded">application/x-www-form-urlencoded</SelectItem>
+                    <SelectItem value="application/octet-stream">
+                      application/octet-stream
+                    </SelectItem>
+                    <SelectItem value="application/x-www-form-urlencoded">
+                      application/x-www-form-urlencoded
+                    </SelectItem>
                     <SelectItem value="text/plain">text/plain</SelectItem>
                     <SelectItem value="text/html">text/html</SelectItem>
                     <SelectItem value="text/xml">text/xml</SelectItem>
@@ -393,7 +415,10 @@ export function HttpTaskModal({
                     ...config,
                     inputParameters: {
                       ...config.inputParameters,
-                      http_request: { ...config.inputParameters.http_request, asyncComplete: checked },
+                      http_request: {
+                        ...config.inputParameters.http_request,
+                        asyncComplete: checked,
+                      },
                     },
                   })
                 }
@@ -449,9 +474,7 @@ export function HttpTaskModal({
 
         <div className="p-6 bg-[#0f1419] border border-[#2a3142] rounded-lg">
           <h3 className="text-lg font-semibold text-white mb-4">Request Body</h3>
-          <p className="text-xs text-gray-400 mb-2">
-            Required for POST, PUT, and PATCH methods
-          </p>
+          <p className="text-xs text-gray-400 mb-2">Required for POST, PUT, and PATCH methods</p>
           <JsonTextarea
             value={bodyJson}
             onChange={(value) => {

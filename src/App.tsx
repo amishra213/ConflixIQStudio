@@ -38,8 +38,12 @@ function App() {
               const normalizedWorkflows = parsed.map((wf: unknown) => {
                 const workflow = wf as Record<string, unknown>;
                 // If nodes/edges are empty but definition exists, restore from definition
-                if ((!workflow.nodes || (Array.isArray(workflow.nodes) && workflow.nodes.length === 0)) && 
-                    workflow.definition && typeof workflow.definition === 'object') {
+                if (
+                  (!workflow.nodes ||
+                    (Array.isArray(workflow.nodes) && workflow.nodes.length === 0)) &&
+                  workflow.definition &&
+                  typeof workflow.definition === 'object'
+                ) {
                   const def = workflow.definition as Record<string, unknown>;
                   return {
                     ...workflow,
@@ -67,7 +71,7 @@ function App() {
           const normalizedWorkflows = storedWorkflows.map((wf: unknown) => {
             const workflow = wf as Record<string, unknown>;
             const definition = (workflow.definition || {}) as Record<string, unknown>;
-            
+
             return {
               id: workflow.id,
               name: workflow.name || definition.name || 'Unnamed Workflow',
@@ -85,11 +89,16 @@ function App() {
               edges: (definition.edges || workflow.edges || []) as unknown[],
               createdAt: workflow.createdAt as string | undefined,
               status: (workflow.status || 'draft') as 'draft' | 'active' | 'paused',
-              syncStatus: (workflow.syncStatus || 'local-only') as 'local-only' | 'synced' | 'syncing',
+              syncStatus: (workflow.syncStatus || 'local-only') as
+                | 'local-only'
+                | 'synced'
+                | 'syncing',
               restartable: definition.restartable as boolean | undefined,
               timeoutSeconds: definition.timeoutSeconds as number | undefined,
               timeoutPolicy: definition.timeoutPolicy as string | undefined,
-              workflowStatusListenerEnabled: definition.workflowStatusListenerEnabled as boolean | undefined,
+              workflowStatusListenerEnabled: definition.workflowStatusListenerEnabled as
+                | boolean
+                | undefined,
               failureWorkflow: definition.failureWorkflow as string | undefined,
               inputParameters: definition.inputParameters as string[] | undefined,
               outputParameters: definition.outputParameters as Record<string, unknown>,

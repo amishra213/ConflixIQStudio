@@ -47,7 +47,9 @@ export default function WorkflowOverview() {
           return (
             <div key={stat.label} className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className={`flex h-10 w-10 items-center justify-center rounded-lg ${stat.bgColor}`}>
+                <div
+                  className={`flex h-10 w-10 items-center justify-center rounded-lg ${stat.bgColor}`}
+                >
                   <Icon className={`h-5 w-5 ${stat.color}`} strokeWidth={1.5} />
                 </div>
                 <span className="text-sm font-normal text-foreground">{stat.label}</span>

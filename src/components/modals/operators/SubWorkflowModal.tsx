@@ -17,7 +17,12 @@ interface SubWorkflowModalProps {
   readonly initialConfig?: SubWorkflowConfig | null;
 }
 
-export function SubWorkflowModal({ open, onOpenChange, onSave, initialConfig }: SubWorkflowModalProps) {
+export function SubWorkflowModal({
+  open,
+  onOpenChange,
+  onSave,
+  initialConfig,
+}: SubWorkflowModalProps) {
   const [config, setConfig] = useState<SubWorkflowConfig>({
     taskRefId: 'subWorkflow-1',
     name: 'Sub Workflow',
@@ -60,7 +65,12 @@ export function SubWorkflowModal({ open, onOpenChange, onSave, initialConfig }: 
         <Input
           type="number"
           value={config.subWorkflowVersion || ''}
-          onChange={(e) => setConfig({ ...config, subWorkflowVersion: e.target.value ? Number(e.target.value) : undefined })}
+          onChange={(e) =>
+            setConfig({
+              ...config,
+              subWorkflowVersion: e.target.value ? Number(e.target.value) : undefined,
+            })
+          }
           placeholder="Version number"
           className="mt-1 bg-[#1a1f2e] text-white border-[#2a3142]"
         />

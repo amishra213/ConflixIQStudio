@@ -26,19 +26,19 @@ export default function MetricsPanel() {
       <CardContent>
         <Tabs defaultValue="throughput" className="w-full">
           <TabsList className="grid w-full grid-cols-3 bg-muted">
-            <TabsTrigger 
+            <TabsTrigger
               value="throughput"
               className="text-foreground data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
             >
               Throughput
             </TabsTrigger>
-            <TabsTrigger 
+            <TabsTrigger
               value="latency"
               className="text-foreground data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
             >
               Latency
             </TabsTrigger>
-            <TabsTrigger 
+            <TabsTrigger
               value="success"
               className="text-foreground data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
             >
@@ -56,15 +56,8 @@ export default function MetricsPanel() {
                   </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" stroke="hsl(220, 13%, 20%)" />
-                <XAxis 
-                  dataKey="time" 
-                  stroke="hsl(220, 9%, 68%)"
-                  style={{ fontSize: '12px' }}
-                />
-                <YAxis 
-                  stroke="hsl(220, 9%, 68%)"
-                  style={{ fontSize: '12px' }}
-                />
+                <XAxis dataKey="time" stroke="hsl(220, 9%, 68%)" style={{ fontSize: '12px' }} />
+                <YAxis stroke="hsl(220, 9%, 68%)" style={{ fontSize: '12px' }} />
                 <Tooltip
                   contentStyle={{
                     backgroundColor: 'hsl(220, 15%, 14%)',
@@ -89,15 +82,8 @@ export default function MetricsPanel() {
             <ResponsiveContainer width="100%" height={300}>
               <LineChart data={metricsData.latency}>
                 <CartesianGrid strokeDasharray="3 3" stroke="hsl(220, 13%, 20%)" />
-                <XAxis 
-                  dataKey="time" 
-                  stroke="hsl(220, 9%, 68%)"
-                  style={{ fontSize: '12px' }}
-                />
-                <YAxis 
-                  stroke="hsl(220, 9%, 68%)"
-                  style={{ fontSize: '12px' }}
-                />
+                <XAxis dataKey="time" stroke="hsl(220, 9%, 68%)" style={{ fontSize: '12px' }} />
+                <YAxis stroke="hsl(220, 9%, 68%)" style={{ fontSize: '12px' }} />
                 <Tooltip
                   contentStyle={{
                     backgroundColor: 'hsl(220, 15%, 14%)',
@@ -128,15 +114,8 @@ export default function MetricsPanel() {
                   </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" stroke="hsl(220, 13%, 20%)" />
-                <XAxis 
-                  dataKey="time" 
-                  stroke="hsl(220, 9%, 68%)"
-                  style={{ fontSize: '12px' }}
-                />
-                <YAxis 
-                  stroke="hsl(220, 9%, 68%)"
-                  style={{ fontSize: '12px' }}
-                />
+                <XAxis dataKey="time" stroke="hsl(220, 9%, 68%)" style={{ fontSize: '12px' }} />
+                <YAxis stroke="hsl(220, 9%, 68%)" style={{ fontSize: '12px' }} />
                 <Tooltip
                   contentStyle={{
                     backgroundColor: 'hsl(220, 15%, 14%)',

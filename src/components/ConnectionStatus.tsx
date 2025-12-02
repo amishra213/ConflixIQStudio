@@ -17,9 +17,7 @@ export default function ConnectionStatus() {
         <div className="flex items-start gap-3">
           <XCircleIcon className="h-5 w-5 text-warning flex-shrink-0 mt-0.5" strokeWidth={1.5} />
           <div className="flex-1 space-y-2">
-            <p className="text-sm font-medium text-foreground">
-              Not Connected to Conductor
-            </p>
+            <p className="text-sm font-medium text-foreground">Not Connected to Conductor</p>
             <p className="text-xs text-muted-foreground">
               Configure your Netflix Conductor connection to start managing workflows.
             </p>

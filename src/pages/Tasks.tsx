@@ -4,7 +4,15 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { useWorkflowStore } from '@/stores/workflowStore';
-import { PlusIcon, Trash2Icon, RefreshCw, CheckCircle2, Search, ChevronLeft, ChevronRight } from 'lucide-react';
+import {
+  PlusIcon,
+  Trash2Icon,
+  RefreshCw,
+  CheckCircle2,
+  Search,
+  ChevronLeft,
+  ChevronRight,
+} from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useConductorApi } from '@/hooks/useConductorApi';
 import { useTaskStore } from '@/stores/taskStore';
@@ -16,16 +24,21 @@ const ITEMS_PER_PAGE = 10;
 
 export function Tasks() {
   const { tasks, addTask, deleteTask } = useWorkflowStore();
-  const { 
-    markAsPublished, 
-    markAllAsPublished, 
-    syncToFileStore, 
-    loadFromFileStore, 
+  const {
+    markAsPublished,
+    markAllAsPublished,
+    syncToFileStore,
+    loadFromFileStore,
     setTaskDefinitions,
     getTaskDefinitions,
   } = useTaskStore();
   const { toast } = useToast();
-  const { fetchAllTaskDefinitions, createTaskDefinition, updateTaskDefinition, deleteTaskDefinition } = useConductorApi({ enableFallback: false });
+  const {
+    fetchAllTaskDefinitions,
+    createTaskDefinition,
+    updateTaskDefinition,
+    deleteTaskDefinition,
+  } = useConductorApi({ enableFallback: false });
 
   // Simple Task Definition Modal state
   const [isSimpleTaskModalOpen, setIsSimpleTaskModalOpen] = useState(false);
@@ -61,7 +74,7 @@ export function Tasks() {
     try {
       const data = await fetchAllTaskDefinitions();
       console.log('Fetched task definitions:', data);
-      
+
       // Handle both array and object with data property
       let tasksArray: TaskDefinition[] = [];
       if (Array.isArray(data)) {
@@ -89,7 +102,7 @@ export function Tasks() {
       } else {
         setAllTasks(tasksArray);
         // Cache the full task definitions (cast to compatible type)
-        const definitionsToCache = tasksArray.map(t => ({
+        const definitionsToCache = tasksArray.map((t) => ({
           ...t,
           createTime: typeof t.createTime === 'number' ? t.createTime.toString() : t.createTime,
           updateTime: typeof t.updateTime === 'number' ? t.updateTime.toString() : t.updateTime,
@@ -98,7 +111,7 @@ export function Tasks() {
         // Mark API tasks as published
         markAllAsPublished(tasksArray.map((t: TaskDefinition) => t.name));
       }
-      
+
       // Sync cache to filestore after successful load
       await syncToFileStore();
       toast({ title: 'Success', description: 'Task list loaded and cache synced to filestore.' });
@@ -114,9 +127,9 @@ export function Tasks() {
   const handleSaveSimpleTask = async (config: SimpleTaskDefinitionConfig) => {
     try {
       const isEditing = !!editingTask;
-      
+
       // Call the appropriate function based on edit/create mode
-      const success = isEditing 
+      const success = isEditing
         ? await updateTaskDefinition(config).catch((err: Error) => {
             console.error('Update task error:', err);
             throw err;
@@ -125,14 +138,17 @@ export function Tasks() {
             console.error('Create task error:', err);
             throw err;
           });
-        
+
       if (success) {
         const taskName = config.name;
-        
+
         if (isEditing) {
           // Update existing task - reload from server
           console.log('Task updated successfully, reloading task list');
-          toast({ title: 'Success', description: `Task definition "${taskName}" updated successfully.` });
+          toast({
+            title: 'Success',
+            description: `Task definition "${taskName}" updated successfully.`,
+          });
           // Mark as published
           markAsPublished(taskName);
           // Reload the full task list to get updated data
@@ -152,23 +168,25 @@ export function Tasks() {
           });
           // Mark as published
           markAsPublished(taskName);
-          toast({ title: 'Success', description: `Task definition "${taskName}" created and published successfully.` });
+          toast({
+            title: 'Success',
+            description: `Task definition "${taskName}" created and published successfully.`,
+          });
         }
-        
+
         setEditingTask(null);
       }
     } catch (error) {
       console.error('Error saving task definition:', error);
       const isEditing = !!editingTask;
       const actionType = isEditing ? 'update' : 'create';
-      const errorMessage = error instanceof Error 
-        ? error.message 
-        : `Failed to ${actionType} task definition.`;
+      const errorMessage =
+        error instanceof Error ? error.message : `Failed to ${actionType} task definition.`;
       console.error(`${actionType} failed - Error message:`, errorMessage);
-      toast({ 
-        title: 'Error', 
+      toast({
+        title: 'Error',
         description: errorMessage,
-        variant: 'destructive'
+        variant: 'destructive',
       });
     }
   };
@@ -191,7 +209,7 @@ export function Tasks() {
           const updatedDefs = cachedDefs.filter((t) => t.name !== name);
           setTaskDefinitions(updatedDefs);
           // Update allTasks state
-          setAllTasks(prev => prev.filter(t => t.name !== name));
+          setAllTasks((prev) => prev.filter((t) => t.name !== name));
           // Sync to filestore
           await syncToFileStore();
           toast({ title: 'Success', description: `Task "${name}" deleted from server and cache.` });
@@ -205,10 +223,10 @@ export function Tasks() {
       }
     } catch (error) {
       console.error('Error deleting task:', error);
-      toast({ 
-        title: 'Error', 
+      toast({
+        title: 'Error',
         description: error instanceof Error ? error.message : `Failed to delete task "${name}".`,
-        variant: 'destructive'
+        variant: 'destructive',
       });
     }
   };
@@ -217,21 +235,24 @@ export function Tasks() {
   const filteredTasks = useMemo(() => {
     return allTasks.filter((task) => {
       // Search filter
-      if (searchQuery && !task.name.toLowerCase().includes(searchQuery.toLowerCase()) &&
-          !task.description?.toLowerCase().includes(searchQuery.toLowerCase())) {
+      if (
+        searchQuery &&
+        !task.name.toLowerCase().includes(searchQuery.toLowerCase()) &&
+        !task.description?.toLowerCase().includes(searchQuery.toLowerCase())
+      ) {
         return false;
       }
-      
+
       // Timeout policy filter
       if (timeoutPolicyFilter !== 'all' && task.timeoutPolicy !== timeoutPolicyFilter) {
         return false;
       }
-      
+
       // Retry logic filter
       if (retryLogicFilter !== 'all' && task.retryLogic !== retryLogicFilter) {
         return false;
       }
-      
+
       return true;
     });
   }, [allTasks, searchQuery, timeoutPolicyFilter, retryLogicFilter]);
@@ -243,12 +264,20 @@ export function Tasks() {
   const paginatedTasks = filteredTasks.slice(startIndex, endIndex);
 
   // Get unique values for filters
-  const uniqueTimeoutPolicies = [...new Set(allTasks
-    .map(t => t.timeoutPolicy)
-    .filter(Boolean) as ('RETRY' | 'ALERT' | 'SKIP')[])].sort((a, b) => a.localeCompare(b));
-  const uniqueRetryLogics = [...new Set(allTasks
-    .map(t => t.retryLogic)
-    .filter(Boolean) as ('FIXED' | 'EXPONENTIAL_BACKOFF' | 'LINEAR_BACKOFF')[])].sort((a, b) => a.localeCompare(b));
+  const uniqueTimeoutPolicies = [
+    ...new Set(
+      allTasks.map((t) => t.timeoutPolicy).filter(Boolean) as ('RETRY' | 'ALERT' | 'SKIP')[]
+    ),
+  ].sort((a, b) => a.localeCompare(b));
+  const uniqueRetryLogics = [
+    ...new Set(
+      allTasks.map((t) => t.retryLogic).filter(Boolean) as (
+        | 'FIXED'
+        | 'EXPONENTIAL_BACKOFF'
+        | 'LINEAR_BACKOFF'
+      )[]
+    ),
+  ].sort((a, b) => a.localeCompare(b));
 
   // Reset pagination when filters change
   useEffect(() => {
@@ -267,9 +296,9 @@ export function Tasks() {
         <div className="flex items-center justify-between">
           <h2 className="text-2xl font-bold text-white">Task Definitions</h2>
           <div className="flex gap-3">
-            <Button 
-              onClick={loadAllTasks} 
-              variant="outline" 
+            <Button
+              onClick={loadAllTasks}
+              variant="outline"
               disabled={isLoading}
               className="border-[#2a3142] text-cyan-400 hover:bg-cyan-500/10"
               title="Load tasks from Conductor and sync to filestore"
@@ -277,16 +306,16 @@ export function Tasks() {
               <RefreshCw className={`w-4 h-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
               {isLoading ? 'Loading...' : 'Get Task List'}
             </Button>
-            <Button 
-              onClick={syncToFileStore} 
-              variant="outline" 
+            <Button
+              onClick={syncToFileStore}
+              variant="outline"
               className="border-[#2a3142] text-purple-400 hover:bg-purple-500/10"
               title="Manually sync current cache to filestore"
             >
               <RefreshCw className="w-4 h-4 mr-2" />
               Sync to FileStore
             </Button>
-            <Button 
+            <Button
               onClick={() => setIsSimpleTaskModalOpen(true)}
               className="bg-cyan-500 text-white hover:bg-cyan-600 shadow-sm font-medium"
             >
@@ -301,7 +330,12 @@ export function Tasks() {
           <div className="flex flex-col gap-4 md:flex-row md:items-end">
             {/* Search Input */}
             <div className="flex-1">
-              <label htmlFor="search-tasks" className="text-sm font-medium text-gray-300 block mb-2">Search by name or description</label>
+              <label
+                htmlFor="search-tasks"
+                className="text-sm font-medium text-gray-300 block mb-2"
+              >
+                Search by name or description
+              </label>
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-500" />
                 <Input
@@ -316,7 +350,12 @@ export function Tasks() {
 
             {/* Timeout Policy Filter */}
             <div className="min-w-40">
-              <label htmlFor="timeout-policy-filter" className="text-sm font-medium text-gray-300 block mb-2">Timeout Policy</label>
+              <label
+                htmlFor="timeout-policy-filter"
+                className="text-sm font-medium text-gray-300 block mb-2"
+              >
+                Timeout Policy
+              </label>
               <select
                 id="timeout-policy-filter"
                 value={timeoutPolicyFilter}
@@ -324,15 +363,22 @@ export function Tasks() {
                 className="w-full bg-[#0f1419] border border-[#2a3142] rounded text-white p-2 text-sm"
               >
                 <option value="all">All Policies</option>
-                {uniqueTimeoutPolicies.map(policy => (
-                  <option key={policy} value={policy}>{policy}</option>
+                {uniqueTimeoutPolicies.map((policy) => (
+                  <option key={policy} value={policy}>
+                    {policy}
+                  </option>
                 ))}
               </select>
             </div>
 
             {/* Retry Logic Filter */}
             <div className="min-w-40">
-              <label htmlFor="retry-logic-filter" className="text-sm font-medium text-gray-300 block mb-2">Retry Logic</label>
+              <label
+                htmlFor="retry-logic-filter"
+                className="text-sm font-medium text-gray-300 block mb-2"
+              >
+                Retry Logic
+              </label>
               <select
                 id="retry-logic-filter"
                 value={retryLogicFilter}
@@ -340,8 +386,10 @@ export function Tasks() {
                 className="w-full bg-[#0f1419] border border-[#2a3142] rounded text-white p-2 text-sm"
               >
                 <option value="all">All Logics</option>
-                {uniqueRetryLogics.map(logic => (
-                  <option key={logic} value={logic}>{logic}</option>
+                {uniqueRetryLogics.map((logic) => (
+                  <option key={logic} value={logic}>
+                    {logic}
+                  </option>
                 ))}
               </select>
             </div>
@@ -363,7 +411,8 @@ export function Tasks() {
           {/* Results count */}
           <div className="text-sm text-gray-400">
             Showing {paginatedTasks.length} of {filteredTasks.length} tasks
-            {filteredTasks.length < allTasks.length && ` (${allTasks.length - filteredTasks.length} filtered)`}
+            {filteredTasks.length < allTasks.length &&
+              ` (${allTasks.length - filteredTasks.length} filtered)`}
           </div>
         </div>
 
@@ -376,7 +425,8 @@ export function Tasks() {
               </div>
               <h3 className="text-2xl font-semibold text-white">No tasks yet</h3>
               <p className="text-base text-gray-400">
-                Create a task definition or click &quot;Get Task List&quot; to load task definitions from your Conductor instance.
+                Create a task definition or click &quot;Get Task List&quot; to load task definitions
+                from your Conductor instance.
               </p>
             </div>
           </Card>
@@ -387,37 +437,65 @@ export function Tasks() {
                 <thead className="bg-[#0f1419]">
                   <tr>
                     <th className="px-6 py-4 text-left text-sm font-semibold text-white">Name</th>
-                    <th className="px-6 py-4 text-left text-sm font-semibold text-white">Description</th>
-                    <th className="px-6 py-4 text-left text-sm font-semibold text-white">Execution Namespace</th>
-                    <th className="px-6 py-4 text-center text-sm font-semibold text-white">Timeout (s)</th>
-                    <th className="px-6 py-4 text-center text-sm font-semibold text-white">Timeout Policy</th>
-                    <th className="px-6 py-4 text-center text-sm font-semibold text-white">Retry Logic</th>
-                    <th className="px-6 py-4 text-center text-sm font-semibold text-white">Status</th>
-                    <th className="px-6 py-4 text-center text-sm font-semibold text-white">Actions</th>
+                    <th className="px-6 py-4 text-left text-sm font-semibold text-white">
+                      Description
+                    </th>
+                    <th className="px-6 py-4 text-left text-sm font-semibold text-white">
+                      Execution Namespace
+                    </th>
+                    <th className="px-6 py-4 text-center text-sm font-semibold text-white">
+                      Timeout (s)
+                    </th>
+                    <th className="px-6 py-4 text-center text-sm font-semibold text-white">
+                      Timeout Policy
+                    </th>
+                    <th className="px-6 py-4 text-center text-sm font-semibold text-white">
+                      Retry Logic
+                    </th>
+                    <th className="px-6 py-4 text-center text-sm font-semibold text-white">
+                      Status
+                    </th>
+                    <th className="px-6 py-4 text-center text-sm font-semibold text-white">
+                      Actions
+                    </th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#2a3142]">
                   {/* Paginated Filtered Tasks */}
                   {paginatedTasks.map((task) => (
-                    <tr 
-                      key={task.name} 
+                    <tr
+                      key={task.name}
                       className="hover:bg-[#2a3142]/30 transition-colors duration-150 cursor-pointer"
                     >
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-3">
                           <div className="w-8 h-8 bg-cyan-500/10 rounded flex items-center justify-center flex-shrink-0">
-                            <svg className="w-4 h-4 text-cyan-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                            <svg
+                              className="w-4 h-4 text-cyan-500"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
+                              />
                             </svg>
                           </div>
                           <span className="text-sm font-medium text-white">{task.name}</span>
                         </div>
                       </td>
                       <td className="px-6 py-4">
-                        <span className="text-sm text-gray-400 line-clamp-1">{task.description || '-'}</span>
+                        <span className="text-sm text-gray-400 line-clamp-1">
+                          {task.description || '-'}
+                        </span>
                       </td>
                       <td className="px-6 py-4">
-                        <span className="text-sm text-gray-400">{task.executionNameSpace || '-'}</span>
+                        <span className="text-sm text-gray-400">
+                          {task.executionNameSpace || '-'}
+                        </span>
                       </td>
                       <td className="px-6 py-4 text-center">
                         <span className="text-sm text-gray-400">{task.timeoutSeconds ?? '-'}</span>
@@ -454,8 +532,18 @@ export function Tasks() {
                             className="text-blue-500 hover:bg-blue-500/10 hover:text-blue-400"
                             title="Edit Task"
                           >
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                            <svg
+                              className="w-4 h-4"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                              />
                             </svg>
                           </Button>
                           <Button
@@ -483,7 +571,7 @@ export function Tasks() {
                 </div>
                 <div className="flex gap-2">
                   <Button
-                    onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                    onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
                     disabled={currentPage === 1}
                     variant="outline"
                     size="sm"
@@ -493,7 +581,7 @@ export function Tasks() {
                     Previous
                   </Button>
                   <Button
-                    onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                    onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
                     disabled={currentPage === totalPages}
                     variant="outline"
                     size="sm"

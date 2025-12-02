@@ -25,10 +25,7 @@ export default function TaskQueuePanel() {
                 <p className="text-xs text-muted-foreground">capacity</p>
               </div>
             </div>
-            <Progress 
-              value={(queue.processing / queue.capacity) * 100} 
-              className="h-2 bg-muted"
-            />
+            <Progress value={(queue.processing / queue.capacity) * 100} className="h-2 bg-muted" />
             <div className="flex items-center justify-between text-xs">
               <span className="text-muted-foreground">Processing rate</span>
               <span className="font-medium text-primary">{queue.rate}/min</span>

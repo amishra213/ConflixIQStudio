@@ -5,6 +5,7 @@ This document describes the automated build system that creates all distribution
 ## Overview
 
 The build system automatically:
+
 1. **Increments Build ID** - Each build gets a unique ID (1001, 1002, etc.)
 2. **Builds all packages** - Web app, Windows EXE, Docker images
 3. **Organizes artifacts** - Everything in `distribution/builds/` folder
@@ -14,11 +15,13 @@ The build system automatically:
 ## Quick Start
 
 ### Build All Distributions Locally
+
 ```bash
 npm run dist:build-all
 ```
 
 This command:
+
 - Increments the build ID automatically
 - Builds the web application
 - Creates Windows EXE installers
@@ -27,11 +30,13 @@ This command:
 - Generates build summary and metadata files
 
 ### Check Current Build ID
+
 ```bash
 cat .build-metadata.json
 ```
 
 ### Output Structure
+
 ```
 distribution/
 ├── README.md                          # Distribution guide
@@ -53,12 +58,14 @@ distribution/
 ## Build ID System
 
 ### Auto-Incrementing
+
 - Starts at: `1000`
 - Increments on each build: 1001, 1002, 1003, etc.
 - Stored in: `.build-metadata.json`
 - Metadata auto-committed to git (on pushes)
 
 ### Metadata File (.build-metadata.json)
+
 ```json
 {
   "buildId": 1002,
@@ -81,14 +88,17 @@ distribution/
 ## Distribution Packages
 
 ### 1. Web Application
+
 **Location**: `distribution/builds/web/`
 
 Complete static web application files:
+
 - HTML/CSS/JavaScript bundles
 - Assets and images
 - Ready to serve with any HTTP server
 
 **Usage**:
+
 ```bash
 # Serve locally
 cd distribution/builds/web
@@ -97,19 +107,23 @@ npx http-server
 ```
 
 ### 2. Windows Executable
+
 **Location**: `distribution/builds/windows/`
 
 Two installer types:
+
 - **NSIS Installer** (`.exe`) - Full Windows installer with uninstall
 - **Portable** (`.exe`) - Standalone, no installation required
 
 **Features**:
+
 - Auto-start menu shortcuts
 - Desktop shortcuts
 - Uninstall support (NSIS version)
 - No internet required to run
 
 **Usage**:
+
 ```bash
 # Run installer
 ./distribution/builds/windows/Conductor\ Designer\ Setup\ 1.0.0.exe
@@ -119,19 +133,23 @@ Two installer types:
 ```
 
 ### 3. Docker Images
+
 **Location**: `distribution/builds/docker/`
 
 Two formats:
+
 - **TAR** (`conductor-designer.tar`) - Full uncompressed (~600MB)
 - **TAR.GZ** (`conductor-designer.tar.gz`) - Compressed (~150MB)
 
 **Features**:
+
 - Works offline (after import)
 - Compatible with Docker and Rancher Desktop
 - All dependencies included
 - Multi-platform (linux/amd64, linux/arm64)
 
 **Usage**:
+
 ```bash
 # Load compressed image (recommended)
 docker load -i distribution/builds/docker/conductor-designer.tar.gz

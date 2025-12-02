@@ -127,7 +127,7 @@ class FileStoreClient {
       // Create filename from workflow ID (unique identifier) instead of name
       // This prevents collisions when multiple workflows have the same name
       const filename = `workflows/${workflow.id}.json`;
-      
+
       const response = await fetch(`${this.baseUrl}/filestore/save-workflow`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -206,12 +206,14 @@ class FileStoreClient {
       let filename: string;
       if (workflowId.includes('_v') || workflowId.startsWith('workflows/')) {
         // Legacy approach: name-based filename
-        filename = workflowId.startsWith('workflows/') ? workflowId : `workflows/${workflowId}.json`;
+        filename = workflowId.startsWith('workflows/')
+          ? workflowId
+          : `workflows/${workflowId}.json`;
       } else {
         // New approach: ID-based filename
         filename = `workflows/${workflowId}.json`;
       }
-      
+
       const response = await fetch(`${this.baseUrl}/filestore/delete-workflow`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -219,7 +221,10 @@ class FileStoreClient {
       });
 
       if (!response.ok) {
-        console.warn(`Failed to delete workflow ${workflowId} from filestore:`, response.statusText);
+        console.warn(
+          `Failed to delete workflow ${workflowId} from filestore:`,
+          response.statusText
+        );
         return false;
       }
 

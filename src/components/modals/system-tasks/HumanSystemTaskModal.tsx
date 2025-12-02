@@ -30,7 +30,9 @@ export function HumanSystemTaskModal({
     inputParameters: {},
   });
 
-  const [inputParams, setInputParams] = useState<Array<{ id: string; key: string; value: string }>>([]);
+  const [inputParams, setInputParams] = useState<Array<{ id: string; key: string; value: string }>>(
+    []
+  );
 
   useEffect(() => {
     if (open) {

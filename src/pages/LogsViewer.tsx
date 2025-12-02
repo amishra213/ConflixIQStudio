@@ -31,7 +31,7 @@ export default function LogsViewer() {
   const logs = useLoggingStore((state) => state.logs);
   const clearLogs = useLoggingStore((state) => state.clearLogs);
   const exportLogs = useLoggingStore((state) => state.exportLogs);
-  
+
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedType, setSelectedType] = useState<string>('all');
   const [expandedLog, setExpandedLog] = useState<string | null>(null);
@@ -40,19 +40,20 @@ export default function LogsViewer() {
   const filteredLogs = logs.filter((log) => {
     // Filter by type
     if (selectedType !== 'all' && log.type !== selectedType) return false;
-    
+
     // Filter by operation name
-    if (searchQuery && !log.operation.toLowerCase().includes(searchQuery.toLowerCase())) return false;
-    
+    if (searchQuery && !log.operation.toLowerCase().includes(searchQuery.toLowerCase()))
+      return false;
+
     return true;
   });
 
   const logStats = useMemo(() => {
     return {
       total: logs.length,
-      requests: logs.filter(l => l.type === 'request').length,
-      responses: logs.filter(l => l.type === 'response').length,
-      errors: logs.filter(l => l.type === 'error').length,
+      requests: logs.filter((l) => l.type === 'request').length,
+      responses: logs.filter((l) => l.type === 'response').length,
+      errors: logs.filter((l) => l.type === 'error').length,
     };
   }, [logs]);
 
@@ -139,11 +140,7 @@ export default function LogsViewer() {
             <DownloadIcon className="h-4 w-4 mr-2" strokeWidth={1.5} />
             Export
           </Button>
-          <Button
-            variant="destructive"
-            onClick={handleClear}
-            disabled={logs.length === 0}
-          >
+          <Button variant="destructive" onClick={handleClear} disabled={logs.length === 0}>
             <TrashIcon className="h-4 w-4 mr-2" strokeWidth={1.5} />
             Clear All
           </Button>
@@ -204,7 +201,10 @@ export default function LogsViewer() {
         <CardHeader className="pb-4">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div className="relative flex-1 max-w-md">
-              <SearchIcon className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" strokeWidth={1.5} />
+              <SearchIcon
+                className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+                strokeWidth={1.5}
+              />
               <Input
                 type="search"
                 placeholder="Search by operation name..."
@@ -218,7 +218,11 @@ export default function LogsViewer() {
                 variant={selectedType === 'all' ? 'default' : 'outline'}
                 size="sm"
                 onClick={() => setSelectedType('all')}
-                className={selectedType === 'all' ? '' : 'bg-transparent text-foreground border-border hover:bg-accent'}
+                className={
+                  selectedType === 'all'
+                    ? ''
+                    : 'bg-transparent text-foreground border-border hover:bg-accent'
+                }
               >
                 All
               </Button>
@@ -226,7 +230,11 @@ export default function LogsViewer() {
                 variant={selectedType === 'request' ? 'default' : 'outline'}
                 size="sm"
                 onClick={() => setSelectedType('request')}
-                className={selectedType === 'request' ? '' : 'bg-transparent text-foreground border-border hover:bg-accent'}
+                className={
+                  selectedType === 'request'
+                    ? ''
+                    : 'bg-transparent text-foreground border-border hover:bg-accent'
+                }
               >
                 Requests
               </Button>
@@ -234,7 +242,11 @@ export default function LogsViewer() {
                 variant={selectedType === 'response' ? 'default' : 'outline'}
                 size="sm"
                 onClick={() => setSelectedType('response')}
-                className={selectedType === 'response' ? '' : 'bg-transparent text-foreground border-border hover:bg-accent'}
+                className={
+                  selectedType === 'response'
+                    ? ''
+                    : 'bg-transparent text-foreground border-border hover:bg-accent'
+                }
               >
                 Responses
               </Button>
@@ -242,7 +254,11 @@ export default function LogsViewer() {
                 variant={selectedType === 'error' ? 'default' : 'outline'}
                 size="sm"
                 onClick={() => setSelectedType('error')}
-                className={selectedType === 'error' ? '' : 'bg-transparent text-foreground border-border hover:bg-accent'}
+                className={
+                  selectedType === 'error'
+                    ? ''
+                    : 'bg-transparent text-foreground border-border hover:bg-accent'
+                }
               >
                 Errors
               </Button>
@@ -306,11 +322,7 @@ export default function LogsViewer() {
                             <span className="truncate max-w-md">{log.url}</span>
                           </div>
                         </div>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-6 w-6 flex-shrink-0"
-                        >
+                        <Button variant="ghost" size="icon" className="h-6 w-6 flex-shrink-0">
                           {isExpanded ? (
                             <ChevronUpIcon className="h-4 w-4" strokeWidth={1.5} />
                           ) : (
@@ -325,7 +337,9 @@ export default function LogsViewer() {
                             <TabsList className="bg-muted">
                               <TabsTrigger value="request">Request</TabsTrigger>
                               <TabsTrigger value="response">Response</TabsTrigger>
-                              {log.requestHeaders && <TabsTrigger value="headers">Headers</TabsTrigger>}
+                              {log.requestHeaders && (
+                                <TabsTrigger value="headers">Headers</TabsTrigger>
+                              )}
                               {log.error && <TabsTrigger value="error">Error</TabsTrigger>}
                             </TabsList>
 
@@ -349,7 +363,9 @@ export default function LogsViewer() {
                               <TabsContent value="headers" className="mt-4">
                                 <div className="space-y-3">
                                   <div>
-                                    <h4 className="text-sm font-medium text-foreground mb-2">Request Headers</h4>
+                                    <h4 className="text-sm font-medium text-foreground mb-2">
+                                      Request Headers
+                                    </h4>
                                     <div className="rounded-lg bg-background border border-border p-4">
                                       <pre className="font-mono text-xs text-foreground overflow-x-auto">
                                         {JSON.stringify(log.requestHeaders, null, 2)}
@@ -358,7 +374,9 @@ export default function LogsViewer() {
                                   </div>
                                   {log.responseHeaders && (
                                     <div>
-                                      <h4 className="text-sm font-medium text-foreground mb-2">Response Headers</h4>
+                                      <h4 className="text-sm font-medium text-foreground mb-2">
+                                        Response Headers
+                                      </h4>
                                       <div className="rounded-lg bg-background border border-border p-4">
                                         <pre className="font-mono text-xs text-foreground overflow-x-auto">
                                           {JSON.stringify(log.responseHeaders, null, 2)}
@@ -374,12 +392,18 @@ export default function LogsViewer() {
                               <TabsContent value="error" className="mt-4">
                                 <div className="space-y-3">
                                   <div className="rounded-lg bg-destructive/10 border border-destructive p-4">
-                                    <h4 className="text-sm font-semibold text-destructive mb-2">Error Message</h4>
-                                    <p className="font-mono text-sm text-destructive whitespace-pre-wrap">{log.error}</p>
+                                    <h4 className="text-sm font-semibold text-destructive mb-2">
+                                      Error Message
+                                    </h4>
+                                    <p className="font-mono text-sm text-destructive whitespace-pre-wrap">
+                                      {log.error}
+                                    </p>
                                   </div>
                                   {log.responseBody && (
                                     <div>
-                                      <h4 className="text-sm font-medium text-foreground mb-2">Full Error Response</h4>
+                                      <h4 className="text-sm font-medium text-foreground mb-2">
+                                        Full Error Response
+                                      </h4>
                                       <div className="rounded-lg bg-background border border-destructive p-4">
                                         <pre className="font-mono text-xs text-foreground overflow-x-auto">
                                           {JSON.stringify(log.responseBody, null, 2)}

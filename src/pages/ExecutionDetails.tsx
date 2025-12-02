@@ -4,7 +4,19 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useWorkflowStore } from '@/stores/workflowStore';
-import { ArrowLeftIcon, CheckCircle2Icon, XCircleIcon, ActivityIcon, ClockIcon, ChevronDownIcon, ChevronRightIcon, CopyIcon, DownloadIcon, MaximizeIcon, NetworkIcon } from 'lucide-react';
+import {
+  ArrowLeftIcon,
+  CheckCircle2Icon,
+  XCircleIcon,
+  ActivityIcon,
+  ClockIcon,
+  ChevronDownIcon,
+  ChevronRightIcon,
+  CopyIcon,
+  DownloadIcon,
+  MaximizeIcon,
+  NetworkIcon,
+} from 'lucide-react';
 import { useState, useMemo, useCallback } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { JsonViewer } from '@/components/ui/json-viewer';
@@ -26,7 +38,7 @@ export function ExecutionDetails() {
   const execution = executions.find((e) => e.id === id);
 
   const toggleTaskExpansion = useCallback((taskIndex: number) => {
-    setExpandedTasks(prev => {
+    setExpandedTasks((prev) => {
       const newSet = new Set(prev);
       if (newSet.has(taskIndex)) {
         newSet.delete(taskIndex);
@@ -37,29 +49,35 @@ export function ExecutionDetails() {
     });
   }, []);
 
-  const handleCopyJson = useCallback((data: unknown, label: string) => {
-    navigator.clipboard.writeText(JSON.stringify(data, null, 2));
-    toast({
-      title: 'Copied to clipboard',
-      description: `${label} JSON copied successfully`,
-    });
-  }, [toast]);
+  const handleCopyJson = useCallback(
+    (data: unknown, label: string) => {
+      navigator.clipboard.writeText(JSON.stringify(data, null, 2));
+      toast({
+        title: 'Copied to clipboard',
+        description: `${label} JSON copied successfully`,
+      });
+    },
+    [toast]
+  );
 
-  const handleDownloadJson = useCallback((data: unknown, filename: string) => {
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(url);
-    toast({
-      title: 'Download started',
-      description: `${filename} is being downloaded`,
-    });
-  }, [toast]);
+  const handleDownloadJson = useCallback(
+    (data: unknown, filename: string) => {
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      toast({
+        title: 'Download started',
+        description: `${filename} is being downloaded`,
+      });
+    },
+    [toast]
+  );
 
   const getStatusBadgeClass = useCallback((status: string) => {
     if (status === 'completed') return 'bg-success text-white';
@@ -76,12 +94,15 @@ export function ExecutionDetails() {
 
   const taskStats = useMemo(() => {
     if (!execution) return { total: 0, completed: 0, failed: 0, running: 0, pending: 0 };
-    
-    return execution.tasks.reduce((acc, task) => {
-      acc.total++;
-      acc[task.status]++;
-      return acc;
-    }, { total: 0, completed: 0, failed: 0, running: 0, pending: 0 } as Record<string, number>);
+
+    return execution.tasks.reduce(
+      (acc, task) => {
+        acc.total++;
+        acc[task.status]++;
+        return acc;
+      },
+      { total: 0, completed: 0, failed: 0, running: 0, pending: 0 } as Record<string, number>
+    );
   }, [execution]);
 
   if (!execution) {
@@ -185,13 +206,22 @@ export function ExecutionDetails() {
 
       <Tabs defaultValue="tasks" className="space-y-6">
         <TabsList className="bg-muted">
-          <TabsTrigger value="tasks" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+          <TabsTrigger
+            value="tasks"
+            className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+          >
             Task Breakdown
           </TabsTrigger>
-          <TabsTrigger value="logs" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+          <TabsTrigger
+            value="logs"
+            className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+          >
             Logs
           </TabsTrigger>
-          <TabsTrigger value="input" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+          <TabsTrigger
+            value="input"
+            className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+          >
             Input/Output
           </TabsTrigger>
         </TabsList>
@@ -224,21 +254,32 @@ export function ExecutionDetails() {
             <div className="space-y-3">
               {execution.tasks.map((task, index) => {
                 const isExpanded = expandedTasks.has(index);
-                
+
                 return (
-                  <Card key={task.taskName + index} className="bg-background border-border overflow-hidden">
+                  <Card
+                    key={task.taskName + index}
+                    className="bg-background border-border overflow-hidden"
+                  >
                     <button
                       type="button"
                       className="w-full flex items-start gap-4 p-4 cursor-pointer hover:bg-muted/50 transition-colors text-left"
                       onClick={() => toggleTaskExpansion(index)}
                     >
                       <div className="mt-1 flex-shrink-0">
-                        {task.status === 'completed' && <CheckCircle2Icon className="w-5 h-5 text-success" />}
-                        {task.status === 'failed' && <XCircleIcon className="w-5 h-5 text-destructive" />}
-                        {task.status === 'running' && <ActivityIcon className="w-5 h-5 text-primary animate-pulse" />}
-                        {task.status === 'pending' && <ClockIcon className="w-5 h-5 text-muted-foreground" />}
+                        {task.status === 'completed' && (
+                          <CheckCircle2Icon className="w-5 h-5 text-success" />
+                        )}
+                        {task.status === 'failed' && (
+                          <XCircleIcon className="w-5 h-5 text-destructive" />
+                        )}
+                        {task.status === 'running' && (
+                          <ActivityIcon className="w-5 h-5 text-primary animate-pulse" />
+                        )}
+                        {task.status === 'pending' && (
+                          <ClockIcon className="w-5 h-5 text-muted-foreground" />
+                        )}
                       </div>
-                      
+
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between mb-2">
                           <div className="flex items-center gap-3">
@@ -264,7 +305,7 @@ export function ExecutionDetails() {
                             )}
                           </Button>
                         </div>
-                        
+
                         <div className="flex items-center gap-4 text-xs text-muted-foreground">
                           {task.startTime && (
                             <span>Started: {new Date(task.startTime).toLocaleTimeString()}</span>
@@ -274,7 +315,13 @@ export function ExecutionDetails() {
                           )}
                           {task.startTime && task.endTime && (
                             <span className="text-primary font-medium">
-                              Duration: {((new Date(task.endTime).getTime() - new Date(task.startTime).getTime()) / 1000).toFixed(2)}s
+                              Duration:{' '}
+                              {(
+                                (new Date(task.endTime).getTime() -
+                                  new Date(task.startTime).getTime()) /
+                                1000
+                              ).toFixed(2)}
+                              s
                             </span>
                           )}
                         </div>
@@ -301,7 +348,9 @@ export function ExecutionDetails() {
                                   <Button
                                     variant="ghost"
                                     size="sm"
-                                    onClick={() => handleDownloadJson(task.input, `task-${index + 1}-input.json`)}
+                                    onClick={() =>
+                                      handleDownloadJson(task.input, `task-${index + 1}-input.json`)
+                                    }
                                     className="h-7 px-2 text-xs"
                                   >
                                     <DownloadIcon className="w-3 h-3 mr-1" />
@@ -310,11 +359,13 @@ export function ExecutionDetails() {
                                   <Button
                                     variant="ghost"
                                     size="sm"
-                                    onClick={() => setSelectedTaskForModal({ 
-                                      type: 'input', 
-                                      data: task.input as Record<string, unknown>, 
-                                      taskName: task.taskName 
-                                    })}
+                                    onClick={() =>
+                                      setSelectedTaskForModal({
+                                        type: 'input',
+                                        data: task.input as Record<string, unknown>,
+                                        taskName: task.taskName,
+                                      })
+                                    }
                                     className="h-7 px-2 text-xs"
                                   >
                                     <MaximizeIcon className="w-3 h-3 mr-1" />
@@ -322,11 +373,7 @@ export function ExecutionDetails() {
                                   </Button>
                                 </div>
                               </div>
-                              <JsonViewer 
-                                data={task.input} 
-                                maxHeight="300px"
-                                collapsible={true}
-                              />
+                              <JsonViewer data={task.input} maxHeight="300px" collapsible={true} />
                             </div>
                           ) : (
                             <div>
@@ -354,7 +401,12 @@ export function ExecutionDetails() {
                                   <Button
                                     variant="ghost"
                                     size="sm"
-                                    onClick={() => handleDownloadJson(task.output, `task-${index + 1}-output.json`)}
+                                    onClick={() =>
+                                      handleDownloadJson(
+                                        task.output,
+                                        `task-${index + 1}-output.json`
+                                      )
+                                    }
                                     className="h-7 px-2 text-xs"
                                   >
                                     <DownloadIcon className="w-3 h-3 mr-1" />
@@ -363,11 +415,13 @@ export function ExecutionDetails() {
                                   <Button
                                     variant="ghost"
                                     size="sm"
-                                    onClick={() => setSelectedTaskForModal({ 
-                                      type: 'output', 
-                                      data: task.output as Record<string, unknown>, 
-                                      taskName: task.taskName 
-                                    })}
+                                    onClick={() =>
+                                      setSelectedTaskForModal({
+                                        type: 'output',
+                                        data: task.output as Record<string, unknown>,
+                                        taskName: task.taskName,
+                                      })
+                                    }
                                     className="h-7 px-2 text-xs"
                                   >
                                     <MaximizeIcon className="w-3 h-3 mr-1" />
@@ -375,11 +429,7 @@ export function ExecutionDetails() {
                                   </Button>
                                 </div>
                               </div>
-                              <JsonViewer 
-                                data={task.output} 
-                                maxHeight="300px"
-                                collapsible={true}
-                              />
+                              <JsonViewer data={task.output} maxHeight="300px" collapsible={true} />
                             </div>
                           ) : (
                             <div>
@@ -438,7 +488,7 @@ ${execution.endTime ? '[' + new Date(execution.endTime).toISOString() + '] Workf
       </Tabs>
 
       {selectedTaskForModal && (
-        <dialog 
+        <dialog
           open
           aria-labelledby="modal-title"
           className="fixed inset-0 z-50 w-full h-full bg-transparent backdrop:bg-black/80 m-0 max-w-none max-h-none p-0"
@@ -457,53 +507,55 @@ ${execution.endTime ? '[' + new Date(execution.endTime).toISOString() + '] Workf
             <span className="sr-only">Close modal</span>
           </button>
           <div className="flex items-center justify-center h-full p-8 relative pointer-events-none">
-            <Card 
-              className="w-full max-w-6xl h-full bg-card border-border flex flex-col pointer-events-auto"
-            >
-            <div className="flex items-center justify-between p-6 border-b border-border">
-              <div>
-                <h3 id="modal-title" className="text-xl font-semibold text-foreground">
-                  {selectedTaskForModal.taskName} - {selectedTaskForModal.type === 'input' ? 'Input' : 'Output'}
-                </h3>
-                <p className="text-sm text-muted-foreground mt-1">Full JSON view</p>
+            <Card className="w-full max-w-6xl h-full bg-card border-border flex flex-col pointer-events-auto">
+              <div className="flex items-center justify-between p-6 border-b border-border">
+                <div>
+                  <h3 id="modal-title" className="text-xl font-semibold text-foreground">
+                    {selectedTaskForModal.taskName} -{' '}
+                    {selectedTaskForModal.type === 'input' ? 'Input' : 'Output'}
+                  </h3>
+                  <p className="text-sm text-muted-foreground mt-1">Full JSON view</p>
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() =>
+                      handleCopyJson(
+                        selectedTaskForModal.data,
+                        selectedTaskForModal.type === 'input' ? 'Input' : 'Output'
+                      )
+                    }
+                  >
+                    <CopyIcon className="w-4 h-4 mr-2" />
+                    Copy
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() =>
+                      handleDownloadJson(
+                        selectedTaskForModal.data,
+                        `${selectedTaskForModal.taskName.replaceAll(/\s+/g, '-')}-${selectedTaskForModal.type}.json`
+                      )
+                    }
+                  >
+                    <DownloadIcon className="w-4 h-4 mr-2" />
+                    Download
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={() => setSelectedTaskForModal(null)}>
+                    Close
+                  </Button>
+                </div>
               </div>
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handleCopyJson(selectedTaskForModal.data, selectedTaskForModal.type === 'input' ? 'Input' : 'Output')}
-                >
-                  <CopyIcon className="w-4 h-4 mr-2" />
-                  Copy
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handleDownloadJson(
-                    selectedTaskForModal.data, 
-                    `${selectedTaskForModal.taskName.replaceAll(/\s+/g, '-')}-${selectedTaskForModal.type}.json`
-                  )}
-                >
-                  <DownloadIcon className="w-4 h-4 mr-2" />
-                  Download
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setSelectedTaskForModal(null)}
-                >
-                  Close
-                </Button>
+              <div className="flex-1 overflow-auto p-6">
+                <JsonViewer
+                  data={selectedTaskForModal.data}
+                  collapsible={true}
+                  defaultExpanded={false}
+                />
               </div>
-            </div>
-            <div className="flex-1 overflow-auto p-6">
-              <JsonViewer 
-                data={selectedTaskForModal.data} 
-                collapsible={true}
-                defaultExpanded={false}
-              />
-            </div>
-          </Card>
+            </Card>
           </div>
         </dialog>
       )}

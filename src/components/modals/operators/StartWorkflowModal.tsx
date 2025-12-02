@@ -100,9 +100,11 @@ export function StartWorkflowModal({
         <div className="flex items-start gap-3">
           <div className="text-blue-400 mt-0.5">ℹ️</div>
           <div className="flex-1">
-            <p className="text-sm text-blue-300 font-medium mb-1">Asynchronous Workflow Execution</p>
+            <p className="text-sm text-blue-300 font-medium mb-1">
+              Asynchronous Workflow Execution
+            </p>
             <p className="text-xs text-blue-200/80">
-              The START_WORKFLOW task starts another workflow asynchronously. The current workflow 
+              The START_WORKFLOW task starts another workflow asynchronously. The current workflow
               proceeds to the next task without waiting for the started workflow to complete.
             </p>
           </div>
@@ -274,7 +276,10 @@ export function StartWorkflowModal({
   };
 
   const validateConfig = (cfg: StartWorkflowConfig): string | null => {
-    if (!cfg.inputParameters.startWorkflow.name || cfg.inputParameters.startWorkflow.name.trim() === '') {
+    if (
+      !cfg.inputParameters.startWorkflow.name ||
+      cfg.inputParameters.startWorkflow.name.trim() === ''
+    ) {
       return 'Workflow Name is required';
     }
 

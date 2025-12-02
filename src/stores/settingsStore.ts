@@ -67,33 +67,42 @@ export const useSettingsStore = create<SettingsStore>((set) => ({
   isConnected: false,
   serverUrl: '',
 
-  setConductorApiEndpoint: (endpoint) => set((state) => ({
-    conductorApi: { ...state.conductorApi, endpoint }
-  })),
-  setConductorApiKey: (apiKey) => set((state) => ({
-    conductorApi: { ...state.conductorApi, apiKey }
-  })),
-  setProxyServerEnabled: (enabled) => set((state) => ({
-    proxyServer: { ...state.proxyServer, enabled }
-  })),
-  setProxyEndpoint: (endpoint) => set((state) => ({
-    proxyServer: { ...state.proxyServer, proxyEndpoint: endpoint }
-  })),
-  setConductorServerUrl: (url) => set((state) => ({
-    proxyServer: { ...state.proxyServer, conductorServerUrl: url }
-  })),
-  setConductorServerApiKey: (apiKey) => set((state) => ({
-    proxyServer: { ...state.proxyServer, conductorApiKey: apiKey }
-  })),
-  setProxyPort: (port) => set((state) => ({
-    proxyServer: { ...state.proxyServer, proxyPort: port }
-  })),
-  setOpenAiApiEndpoint: (endpoint) => set((state) => ({
-    openAiLlm: { ...state.openAiLlm, apiEndpoint: endpoint }
-  })),
-  setOpenAiApiKey: (apiKey) => set((state) => ({
-    openAiLlm: { ...state.openAiLlm, apiKey }
-  })),
+  setConductorApiEndpoint: (endpoint) =>
+    set((state) => ({
+      conductorApi: { ...state.conductorApi, endpoint },
+    })),
+  setConductorApiKey: (apiKey) =>
+    set((state) => ({
+      conductorApi: { ...state.conductorApi, apiKey },
+    })),
+  setProxyServerEnabled: (enabled) =>
+    set((state) => ({
+      proxyServer: { ...state.proxyServer, enabled },
+    })),
+  setProxyEndpoint: (endpoint) =>
+    set((state) => ({
+      proxyServer: { ...state.proxyServer, proxyEndpoint: endpoint },
+    })),
+  setConductorServerUrl: (url) =>
+    set((state) => ({
+      proxyServer: { ...state.proxyServer, conductorServerUrl: url },
+    })),
+  setConductorServerApiKey: (apiKey) =>
+    set((state) => ({
+      proxyServer: { ...state.proxyServer, conductorApiKey: apiKey },
+    })),
+  setProxyPort: (port) =>
+    set((state) => ({
+      proxyServer: { ...state.proxyServer, proxyPort: port },
+    })),
+  setOpenAiApiEndpoint: (endpoint) =>
+    set((state) => ({
+      openAiLlm: { ...state.openAiLlm, apiEndpoint: endpoint },
+    })),
+  setOpenAiApiKey: (apiKey) =>
+    set((state) => ({
+      openAiLlm: { ...state.openAiLlm, apiKey },
+    })),
   setEnableNotifications: (enabled) => set({ enableNotifications: enabled }),
   setAutoSaveWorkflows: (enabled) => set({ autoSaveWorkflows: enabled }),
   setIsConnected: (connected) => set({ isConnected: connected }),

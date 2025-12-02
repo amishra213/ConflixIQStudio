@@ -2,7 +2,13 @@ import { useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
 import { useWorkflowStore } from '@/stores/workflowStore';
 import { PlusIcon, Trash2Icon } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
@@ -11,12 +17,12 @@ import { useConductorApi } from '@/hooks/useConductorApi';
 // Config Modals (used in WorkflowDesigner, but imported here for type consistency if needed)
 import { HttpTaskModal } from '@/components/modals/system-tasks';
 
-
 const workerTaskTypes = [
   { id: 'HTTP', name: 'HTTP Task', description: 'Make HTTP API calls', color: '#00bcd4' },
 ];
 
-export default function Tasks() { // Default export
+export default function Tasks() {
+  // Default export
   const { tasks, addTask, deleteTask } = useWorkflowStore();
   const { toast } = useToast();
   const [isTaskTypeSelectOpen, setIsTaskTypeSelectOpen] = useState(false);
@@ -36,22 +42,27 @@ export default function Tasks() { // Default export
       // Create task definition in Conductor
       const success = await createTaskDefinition(config);
       if (success) {
-        addTask({ id: `task-${Date.now()}`, name: (config.name as string) || (config.taskId as string), type: 'HTTP', description: 'HTTP worker task' });
+        addTask({
+          id: `task-${Date.now()}`,
+          name: (config.name as string) || (config.taskId as string),
+          type: 'HTTP',
+          description: 'HTTP worker task',
+        });
         toast({ title: 'Success', description: 'HTTP task created successfully.' });
       } else {
-        toast({ 
-          title: 'Error', 
+        toast({
+          title: 'Error',
           description: 'Failed to create HTTP task. Please check the error details.',
-          variant: 'destructive'
+          variant: 'destructive',
         });
       }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
       console.error('Error creating HTTP task:', errorMessage);
-      toast({ 
-        title: 'Error', 
+      toast({
+        title: 'Error',
         description: errorMessage,
-        variant: 'destructive'
+        variant: 'destructive',
       });
     }
   };
@@ -71,17 +82,30 @@ export default function Tasks() { // Default export
         <Dialog open={isTaskTypeSelectOpen} onOpenChange={setIsTaskTypeSelectOpen}>
           <DialogTrigger asChild>
             <Button className="bg-cyan-500 text-white hover:bg-cyan-600 shadow-sm font-medium">
-              <PlusIcon className="w-5 h-5 mr-2" />Create Worker Task
+              <PlusIcon className="w-5 h-5 mr-2" />
+              Create Worker Task
             </Button>
           </DialogTrigger>
           <DialogContent className="bg-[#1a1f2e] text-white border-[#2a3142] max-w-2xl">
-            <DialogHeader><DialogTitle className="text-white text-xl">Select Worker Task Type</DialogTitle></DialogHeader>
+            <DialogHeader>
+              <DialogTitle className="text-white text-xl">Select Worker Task Type</DialogTitle>
+            </DialogHeader>
             <div className="grid grid-cols-2 gap-4 py-4">
               {workerTaskTypes.map((taskType) => (
-                <Card key={taskType.id} className="p-4 bg-[#0f1419] border-[#2a3142] cursor-pointer hover:border-cyan-500 transition-all duration-200" onClick={() => handleTaskTypeSelect(taskType.id)}>
+                <Card
+                  key={taskType.id}
+                  className="p-4 bg-[#0f1419] border-[#2a3142] cursor-pointer hover:border-cyan-500 transition-all duration-200"
+                  onClick={() => handleTaskTypeSelect(taskType.id)}
+                >
                   <div className="flex items-start gap-3">
-                    <div className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0" style={{ backgroundColor: `${taskType.color}20` }}>
-                      <div className="w-4 h-4 rounded-full" style={{ backgroundColor: taskType.color }} />
+                    <div
+                      className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0"
+                      style={{ backgroundColor: `${taskType.color}20` }}
+                    >
+                      <div
+                        className="w-4 h-4 rounded-full"
+                        style={{ backgroundColor: taskType.color }}
+                      />
                     </div>
                     <div className="flex-1">
                       <h3 className="text-sm font-semibold text-white mb-1">{taskType.name}</h3>
@@ -97,18 +121,29 @@ export default function Tasks() { // Default export
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {tasks.map((task) => (
-          <Card key={task.id} className="p-6 bg-[#1a1f2e] border-[#2a3142] shadow-sm hover:shadow-md transition-shadow duration-200">
+          <Card
+            key={task.id}
+            className="p-6 bg-[#1a1f2e] border-[#2a3142] shadow-sm hover:shadow-md transition-shadow duration-200"
+          >
             <div className="space-y-4">
               <div>
                 <h3 className="text-lg font-semibold text-white">{task.name}</h3>
                 <p className="text-sm text-gray-400 mt-3">{task.description}</p>
               </div>
               <div className="flex items-center gap-2 flex-wrap">
-                <Badge className="bg-cyan-500/20 text-cyan-400 border border-cyan-500/50 font-medium">{task.type}</Badge>
+                <Badge className="bg-cyan-500/20 text-cyan-400 border border-cyan-500/50 font-medium">
+                  {task.type}
+                </Badge>
               </div>
               <div className="flex gap-2 pt-4 border-t border-border">
-                <Button size="sm" onClick={() => handleDelete(task.id, task.name)} variant="outline" className="flex-1 text-destructive border-border hover:bg-destructive/10">
-                  <Trash2Icon className="w-4 h-4 mr-2" />Delete
+                <Button
+                  size="sm"
+                  onClick={() => handleDelete(task.id, task.name)}
+                  variant="outline"
+                  className="flex-1 text-destructive border-border hover:bg-destructive/10"
+                >
+                  <Trash2Icon className="w-4 h-4 mr-2" />
+                  Delete
                 </Button>
               </div>
             </div>
@@ -117,7 +152,11 @@ export default function Tasks() { // Default export
       </div>
 
       {/* Create Modals */}
-      <HttpTaskModal open={isHttpCreateModalOpen} onOpenChange={setIsHttpCreateModalOpen} onSave={handleSaveHttpTask} />
+      <HttpTaskModal
+        open={isHttpCreateModalOpen}
+        onOpenChange={setIsHttpCreateModalOpen}
+        onSave={handleSaveHttpTask}
+      />
     </div>
   );
 }

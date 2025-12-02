@@ -28,20 +28,15 @@ export function TaskLibrarySidebar({
       onDragStart={(e) => handleDragStart(e, task.id)}
     >
       <div className="flex items-start gap-3">
-        <div 
+        <div
           className="mt-0.5 w-8 h-8 rounded flex items-center justify-center flex-shrink-0"
           style={{ backgroundColor: `${task.color}20` }}
         >
-          <div 
-            className="w-3 h-3 rounded-full"
-            style={{ backgroundColor: task.color }}
-          />
+          <div className="w-3 h-3 rounded-full" style={{ backgroundColor: task.color }} />
         </div>
         <div className="flex-1 min-w-0">
           <p className="text-sm font-medium text-white truncate">{task.name}</p>
-          <p className="text-xs text-gray-400 mt-1 line-clamp-2">
-            {task.description}
-          </p>
+          <p className="text-xs text-gray-400 mt-1 line-clamp-2">{task.description}</p>
         </div>
       </div>
     </button>
@@ -87,9 +82,7 @@ export function TaskLibrarySidebar({
                 <div className="w-2 h-2 bg-cyan-400 rounded-full"></div>
                 Worker Tasks
               </h4>
-              <div className="space-y-2">
-                {workerTasks.map(renderTaskButton)}
-              </div>
+              <div className="space-y-2">{workerTasks.map(renderTaskButton)}</div>
             </div>
           )}
 
@@ -100,9 +93,7 @@ export function TaskLibrarySidebar({
                 <div className="w-2 h-2 bg-purple-400 rounded-full"></div>
                 Operators
               </h4>
-              <div className="space-y-2">
-                {operators.map(renderTaskButton)}
-              </div>
+              <div className="space-y-2">{operators.map(renderTaskButton)}</div>
             </div>
           )}
 
@@ -113,9 +104,7 @@ export function TaskLibrarySidebar({
                 <div className="w-2 h-2 bg-orange-400 rounded-full"></div>
                 System Tasks
               </h4>
-              <div className="space-y-2">
-                {systemTasks.map(renderTaskButton)}
-              </div>
+              <div className="space-y-2">{systemTasks.map(renderTaskButton)}</div>
             </div>
           )}
         </div>

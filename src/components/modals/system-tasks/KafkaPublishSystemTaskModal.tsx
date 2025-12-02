@@ -31,28 +31,34 @@ interface KafkaPublishTaskModalProps {
   readonly initialConfig?: KafkaPublishTaskConfig | null;
 }
 
-export function KafkaPublishTaskModal({ open, onOpenChange, onSave, initialConfig }: KafkaPublishTaskModalProps) {
+export function KafkaPublishTaskModal({
+  open,
+  onOpenChange,
+  onSave,
+  initialConfig,
+}: KafkaPublishTaskModalProps) {
   // Use state for kafka-specific fields to ensure they persist across tab changes
   const [topic, setTopic] = useState('userTopic');
   const [key, setKey] = useState('');
   const [bootStrapServers, setBootStrapServers] = useState('localhost:9092');
   const [keySerializer, setKeySerializer] = useState('');
-  const [headers, setHeaders] = useState<Array<{id: string; key: string; value: string}>>([]);
+  const [headers, setHeaders] = useState<Array<{ id: string; key: string; value: string }>>([]);
   const [valueText, setValueText] = useState('Message to publish');
 
   // Reset local state when modal opens
   useEffect(() => {
     if (open) {
       // Get kafka_request from either inputParameters or legacy kafka_request field
-      const kafkaReq = initialConfig?.inputParameters?.kafka_request || initialConfig?.kafka_request;
-      
+      const kafkaReq =
+        initialConfig?.inputParameters?.kafka_request || initialConfig?.kafka_request;
+
       if (kafkaReq) {
         // Load configuration from initialConfig
         setTopic(kafkaReq.topic || 'userTopic');
         setKey(kafkaReq.key || '');
         setBootStrapServers(kafkaReq.bootStrapServers || 'localhost:9092');
         setKeySerializer(kafkaReq.keySerializer || '');
-        
+
         const headerEntries = Object.entries(kafkaReq.headers || {});
         const headerList = headerEntries.map(([key, value], index) => ({
           id: `header-${Date.now()}-${index}`,
@@ -60,11 +66,13 @@ export function KafkaPublishTaskModal({ open, onOpenChange, onSave, initialConfi
           value: String(value),
         }));
         setHeaders(headerList);
-        
-        setValueText(typeof kafkaReq.value === 'object'
-          ? JSON.stringify(kafkaReq.value, null, 2)
-          : String(kafkaReq.value || 'Message to publish'));
-        
+
+        setValueText(
+          typeof kafkaReq.value === 'object'
+            ? JSON.stringify(kafkaReq.value, null, 2)
+            : String(kafkaReq.value || 'Message to publish')
+        );
+
         console.log('KafkaPublishTaskModal loaded with config:', initialConfig);
       } else {
         // Default configuration
@@ -74,9 +82,12 @@ export function KafkaPublishTaskModal({ open, onOpenChange, onSave, initialConfi
         setKeySerializer('');
         setHeaders([]);
         setValueText('Message to publish');
-        
+
         if (initialConfig) {
-          console.log('KafkaPublishTaskModal: initialConfig missing kafka_request property:', initialConfig);
+          console.log(
+            'KafkaPublishTaskModal: initialConfig missing kafka_request property:',
+            initialConfig
+          );
         }
       }
     }
@@ -84,17 +95,15 @@ export function KafkaPublishTaskModal({ open, onOpenChange, onSave, initialConfi
 
   const handleAddHeader = useCallback(() => {
     const newId = `header-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
-    setHeaders(prev => [...prev, { id: newId, key: '', value: '' }]);
+    setHeaders((prev) => [...prev, { id: newId, key: '', value: '' }]);
   }, []);
 
   const handleRemoveHeader = useCallback((id: string) => {
-    setHeaders(prev => prev.filter((h) => h.id !== id));
+    setHeaders((prev) => prev.filter((h) => h.id !== id));
   }, []);
 
   const handleHeaderChange = useCallback((id: string, field: 'key' | 'value', val: string) => {
-    setHeaders(prev => prev.map((h) =>
-      h.id === id ? { ...h, [field]: val } : h
-    ));
+    setHeaders((prev) => prev.map((h) => (h.id === id ? { ...h, [field]: val } : h)));
   }, []);
 
   const validateConfig = (): string | null => {
@@ -106,47 +115,51 @@ export function KafkaPublishTaskModal({ open, onOpenChange, onSave, initialConfi
   };
 
   // Before saving, merge headers and value into kafka_request
-  const handleSaveWithMerge = useCallback((cfg: KafkaPublishTaskConfig) => {
-    const timestamp = Date.now();
-    const headersObj: Record<string, string> = {};
-    for (const h of headers) {
-      if (h.key && h.value) {
-        headersObj[h.key] = h.value;
+  const handleSaveWithMerge = useCallback(
+    (cfg: KafkaPublishTaskConfig) => {
+      const timestamp = Date.now();
+      const headersObj: Record<string, string> = {};
+      for (const h of headers) {
+        if (h.key && h.value) {
+          headersObj[h.key] = h.value;
+        }
       }
-    }
 
-    let value: string | Record<string, unknown> = {};
-    if (valueText.trim()) {
-      try {
-        value = JSON.parse(valueText);
-      } catch {
-        value = valueText;
+      let value: string | Record<string, unknown> = {};
+      if (valueText.trim()) {
+        try {
+          value = JSON.parse(valueText);
+        } catch {
+          value = valueText;
+        }
       }
-    }
 
-    const kafkaRequest: KafkaRequest = {
-      topic: topic,
-      value: value,
-    };
-    
-    // Add optional fields if they have values
-    if (key) kafkaRequest.key = key;
-    if (bootStrapServers && bootStrapServers !== 'localhost:9092') kafkaRequest.bootStrapServers = bootStrapServers;
-    if (keySerializer) kafkaRequest.keySerializer = keySerializer;
-    if (Object.keys(headersObj).length > 0) kafkaRequest.headers = headersObj;
+      const kafkaRequest: KafkaRequest = {
+        topic: topic,
+        value: value,
+      };
 
-    const updatedConfig: KafkaPublishTaskConfig = {
-      name: cfg.name || `kafka_${timestamp}`,
-      taskReferenceName: cfg.taskReferenceName || `kafka_ref_${timestamp}`,
-      description: cfg.description,
-      type: 'KAFKA_PUBLISH',
-      inputParameters: {
-        kafka_request: kafkaRequest,
-      },
-    };
+      // Add optional fields if they have values
+      if (key) kafkaRequest.key = key;
+      if (bootStrapServers && bootStrapServers !== 'localhost:9092')
+        kafkaRequest.bootStrapServers = bootStrapServers;
+      if (keySerializer) kafkaRequest.keySerializer = keySerializer;
+      if (Object.keys(headersObj).length > 0) kafkaRequest.headers = headersObj;
 
-    onSave(updatedConfig);
-  }, [topic, key, bootStrapServers, keySerializer, valueText, headers, onSave]);
+      const updatedConfig: KafkaPublishTaskConfig = {
+        name: cfg.name || `kafka_${timestamp}`,
+        taskReferenceName: cfg.taskReferenceName || `kafka_ref_${timestamp}`,
+        description: cfg.description,
+        type: 'KAFKA_PUBLISH',
+        inputParameters: {
+          kafka_request: kafkaRequest,
+        },
+      };
+
+      onSave(updatedConfig);
+    },
+    [topic, key, bootStrapServers, keySerializer, valueText, headers, onSave]
+  );
 
   // Build current config with current kafka fields for JSON preview
   // This will update when kafka fields change, showing them in JSON tab
@@ -172,10 +185,11 @@ export function KafkaPublishTaskModal({ open, onOpenChange, onSave, initialConfi
       topic: topic,
       value: value as string | Record<string, unknown>,
     };
-    
+
     // Add optional fields if they have values
     if (key) kafkaRequest.key = key;
-    if (bootStrapServers && bootStrapServers !== 'localhost:9092') kafkaRequest.bootStrapServers = bootStrapServers;
+    if (bootStrapServers && bootStrapServers !== 'localhost:9092')
+      kafkaRequest.bootStrapServers = bootStrapServers;
     if (keySerializer) kafkaRequest.keySerializer = keySerializer;
     if (Object.keys(headersObj).length > 0) kafkaRequest.headers = headersObj;
 
@@ -191,107 +205,120 @@ export function KafkaPublishTaskModal({ open, onOpenChange, onSave, initialConfi
   }, [topic, key, bootStrapServers, keySerializer, valueText, headers, initialConfig]);
 
   // Create kafka tab content dynamically so it updates with state changes
-  const kafkaTab = useMemo(() => ({
-    id: 'kafka',
-    label: 'Kafka Config',
-    content: (
-      <div className="space-y-3" style={{ '--line-height': '1.5rem' } as React.CSSProperties}>
-        <div>
-          <Label className="text-white">Topic *</Label>
-          <Input
-            value={topic}
-            onChange={(e) => setTopic(e.target.value)}
-            placeholder="Kafka topic name"
-            className="mt-1 bg-[#1a1f2e] text-white border-[#2a3142]"
-          />
-        </div>
-
-        <div>
-          <Label className="text-white">Key</Label>
-          <Input
-            value={key}
-            onChange={(e) => setKey(e.target.value)}
-            placeholder="Optional message key"
-            className="mt-1 bg-[#1a1f2e] text-white border-[#2a3142]"
-          />
-        </div>
-
-        <div>
-          <Label className="text-white">Value *</Label>
-          <JsonTextarea
-            value={valueText}
-            onChange={(value) => {
-              setValueText(value);
-            }}
-            placeholder="Message to publish"
-            className="mt-1 bg-[#1a1f2e] text-white font-mono text-sm min-h-[100px]"
-          />
-        </div>
-
-        <div>
-          <Label className="text-white">Bootstrap Servers</Label>
-          <Input
-            value={bootStrapServers}
-            onChange={(e) => setBootStrapServers(e.target.value)}
-            placeholder="localhost:9092"
-            className="mt-1 bg-[#1a1f2e] text-white border-[#2a3142]"
-          />
-          <p className="text-xs text-gray-400 mt-1">Kafka broker addresses (comma-separated)</p>
-        </div>
-
-        <div>
-          <Label className="text-white">Key Serializer</Label>
-          <Input
-            value={keySerializer}
-            onChange={(e) => setKeySerializer(e.target.value)}
-            placeholder="org.apache.kafka.common.serialization.IntegerSerializer"
-            className="mt-1 bg-[#1a1f2e] text-white border-[#2a3142]"
-          />
-          <p className="text-xs text-gray-400 mt-1">Serializer class for message key</p>
-        </div>
-
-        <div>
-          <div className="flex justify-between items-center mb-2">
-            <Label className="text-white">Headers</Label>
-            <Button
-              size="sm"
-              onClick={handleAddHeader}
-              className="bg-cyan-500 text-white hover:bg-cyan-600 text-xs"
-            >
-              <Plus className="w-3 h-3 mr-1" />
-              Add Header
-            </Button>
+  const kafkaTab = useMemo(
+    () => ({
+      id: 'kafka',
+      label: 'Kafka Config',
+      content: (
+        <div className="space-y-3" style={{ '--line-height': '1.5rem' } as React.CSSProperties}>
+          <div>
+            <Label className="text-white">Topic *</Label>
+            <Input
+              value={topic}
+              onChange={(e) => setTopic(e.target.value)}
+              placeholder="Kafka topic name"
+              className="mt-1 bg-[#1a1f2e] text-white border-[#2a3142]"
+            />
           </div>
-          <div className="space-y-2">
-            {headers.map((header) => (
-              <div key={header.id} className="flex gap-2">
-                <Input
-                  value={header.key}
-                  onChange={(e) => handleHeaderChange(header.id, 'key', e.target.value)}
-                  placeholder="Header name"
-                  className="flex-1 bg-[#1a1f2e] text-white border-[#2a3142]"
-                />
-                <Input
-                  value={header.value}
-                  onChange={(e) => handleHeaderChange(header.id, 'value', e.target.value)}
-                  placeholder="Header value"
-                  className="flex-1 bg-[#1a1f2e] text-white border-[#2a3142]"
-                />
-                <Button
-                  size="sm"
-                  variant="destructive"
-                  onClick={() => handleRemoveHeader(header.id)}
-                  className="bg-red-500/20 text-red-400 hover:bg-red-500/30"
-                >
-                  <Trash2 className="w-3 h-3" />
-                </Button>
-              </div>
-            ))}
+
+          <div>
+            <Label className="text-white">Key</Label>
+            <Input
+              value={key}
+              onChange={(e) => setKey(e.target.value)}
+              placeholder="Optional message key"
+              className="mt-1 bg-[#1a1f2e] text-white border-[#2a3142]"
+            />
+          </div>
+
+          <div>
+            <Label className="text-white">Value *</Label>
+            <JsonTextarea
+              value={valueText}
+              onChange={(value) => {
+                setValueText(value);
+              }}
+              placeholder="Message to publish"
+              className="mt-1 bg-[#1a1f2e] text-white font-mono text-sm min-h-[100px]"
+            />
+          </div>
+
+          <div>
+            <Label className="text-white">Bootstrap Servers</Label>
+            <Input
+              value={bootStrapServers}
+              onChange={(e) => setBootStrapServers(e.target.value)}
+              placeholder="localhost:9092"
+              className="mt-1 bg-[#1a1f2e] text-white border-[#2a3142]"
+            />
+            <p className="text-xs text-gray-400 mt-1">Kafka broker addresses (comma-separated)</p>
+          </div>
+
+          <div>
+            <Label className="text-white">Key Serializer</Label>
+            <Input
+              value={keySerializer}
+              onChange={(e) => setKeySerializer(e.target.value)}
+              placeholder="org.apache.kafka.common.serialization.IntegerSerializer"
+              className="mt-1 bg-[#1a1f2e] text-white border-[#2a3142]"
+            />
+            <p className="text-xs text-gray-400 mt-1">Serializer class for message key</p>
+          </div>
+
+          <div>
+            <div className="flex justify-between items-center mb-2">
+              <Label className="text-white">Headers</Label>
+              <Button
+                size="sm"
+                onClick={handleAddHeader}
+                className="bg-cyan-500 text-white hover:bg-cyan-600 text-xs"
+              >
+                <Plus className="w-3 h-3 mr-1" />
+                Add Header
+              </Button>
+            </div>
+            <div className="space-y-2">
+              {headers.map((header) => (
+                <div key={header.id} className="flex gap-2">
+                  <Input
+                    value={header.key}
+                    onChange={(e) => handleHeaderChange(header.id, 'key', e.target.value)}
+                    placeholder="Header name"
+                    className="flex-1 bg-[#1a1f2e] text-white border-[#2a3142]"
+                  />
+                  <Input
+                    value={header.value}
+                    onChange={(e) => handleHeaderChange(header.id, 'value', e.target.value)}
+                    placeholder="Header value"
+                    className="flex-1 bg-[#1a1f2e] text-white border-[#2a3142]"
+                  />
+                  <Button
+                    size="sm"
+                    variant="destructive"
+                    onClick={() => handleRemoveHeader(header.id)}
+                    className="bg-red-500/20 text-red-400 hover:bg-red-500/30"
+                  >
+                    <Trash2 className="w-3 h-3" />
+                  </Button>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
-      </div>
-    ),
-  }), [topic, key, bootStrapServers, keySerializer, valueText, headers, handleAddHeader, handleHeaderChange, handleRemoveHeader]);
+      ),
+    }),
+    [
+      topic,
+      key,
+      bootStrapServers,
+      keySerializer,
+      valueText,
+      headers,
+      handleAddHeader,
+      handleHeaderChange,
+      handleRemoveHeader,
+    ]
+  );
 
   return (
     <BaseTaskModal

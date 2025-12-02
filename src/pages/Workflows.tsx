@@ -5,7 +5,22 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useWorkflowStore, Workflow } from '@/stores/workflowStore';
 import { useWorkflowCacheStore } from '@/stores/workflowCacheStore';
-import { PlusIcon, PlayIcon, Trash2Icon, EditIcon, NetworkIcon, CheckCircleIcon, DownloadIcon, ListIcon, XIcon, SearchIcon, CloudUploadIcon, ArrowLeftIcon, ChevronLeftIcon, ChevronRightIcon } from 'lucide-react';
+import {
+  PlusIcon,
+  PlayIcon,
+  Trash2Icon,
+  EditIcon,
+  NetworkIcon,
+  CheckCircleIcon,
+  DownloadIcon,
+  ListIcon,
+  XIcon,
+  SearchIcon,
+  CloudUploadIcon,
+  ArrowLeftIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
+} from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { ExecuteWorkflowModal } from '@/components/modals/ExecuteWorkflowModal';
 import { useConductorApi } from '@/hooks/useConductorApi';
@@ -19,7 +34,7 @@ import { generateUniqueWorkflowName } from '@/utils/nameGenerator';
 function filterAndDeduplicate(workflows: Workflow[]): Workflow[] {
   // Group by name to identify duplicates
   const workflowsByName = new Map<string, Workflow[]>();
-  
+
   for (const workflow of workflows) {
     const key = workflow.name;
     if (!workflowsByName.has(key)) {
@@ -37,7 +52,7 @@ function filterAndDeduplicate(workflows: Workflow[]): Workflow[] {
       const bTime = new Date(b.createdAt || 0).getTime();
       return bTime - aTime;
     });
-    
+
     // Keep the most recent workflow (even if it's a draft or has no nodes)
     const recent = sorted[0];
     if (recent) {
@@ -78,10 +93,30 @@ function savePaginationSettings(settings: PaginationSettings) {
 
 export function Workflows() {
   const navigate = useNavigate();
-  const { workflows: allWorkflows, deleteWorkflow, executeWorkflow, addWorkflow, persistWorkflows, updateWorkflow } = useWorkflowStore();
-  const { getAllWorkflows, markAsPublished, markAsSyncing, syncToFileStore, setServerWorkflows: setCachedServerWorkflows, getServerWorkflows } = useWorkflowCacheStore();
+  const {
+    workflows: allWorkflows,
+    deleteWorkflow,
+    executeWorkflow,
+    addWorkflow,
+    persistWorkflows,
+    updateWorkflow,
+  } = useWorkflowStore();
+  const {
+    getAllWorkflows,
+    markAsPublished,
+    markAsSyncing,
+    syncToFileStore,
+    setServerWorkflows: setCachedServerWorkflows,
+    getServerWorkflows,
+  } = useWorkflowCacheStore();
   const { toast } = useToast();
-  const { syncWorkflows, loading: syncLoading, fetchWorkflowByVersion, saveWorkflow, deleteWorkflow: deleteWorkflowFromServer } = useConductorApi();
+  const {
+    syncWorkflows,
+    loading: syncLoading,
+    fetchWorkflowByVersion,
+    saveWorkflow,
+    deleteWorkflow: deleteWorkflowFromServer,
+  } = useConductorApi();
   const [executeModalOpen, setExecuteModalOpen] = useState(false);
   const [selectedWorkflow, setSelectedWorkflow] = useState<Workflow | null>(null);
   const [listLoading, setListLoading] = useState(false);
@@ -95,7 +130,8 @@ export function Workflows() {
   const [nameFilter, setNameFilter] = useState('');
   const [descriptionFilter, setDescriptionFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'UNPUBLISHED' | 'PUBLISHED'>('all');
-  const [paginationSettings, setPaginationSettings] = useState<PaginationSettings>(loadPaginationSettings());
+  const [paginationSettings, setPaginationSettings] =
+    useState<PaginationSettings>(loadPaginationSettings());
 
   // Filter and deduplicate workflows for display
   const allDeduplicatedWorkflows = filterAndDeduplicate(allWorkflows);
@@ -108,13 +144,17 @@ export function Workflows() {
     }
 
     // Description filter
-    if (descriptionFilter && !(workflow.description || '').toLowerCase().includes(descriptionFilter.toLowerCase())) {
+    if (
+      descriptionFilter &&
+      !(workflow.description || '').toLowerCase().includes(descriptionFilter.toLowerCase())
+    ) {
       return false;
     }
 
     // Status filter - map workflow publicationStatus to display status
     if (statusFilter !== 'all') {
-      const workflowStatus = workflow.publicationStatus === 'PUBLISHED' ? 'PUBLISHED' : 'UNPUBLISHED';
+      const workflowStatus =
+        workflow.publicationStatus === 'PUBLISHED' ? 'PUBLISHED' : 'UNPUBLISHED';
       if (workflowStatus !== statusFilter) {
         return false;
       }
@@ -156,7 +196,7 @@ export function Workflows() {
   const handleCreateWorkflow = () => {
     // Create a new workflow immediately with an ID and unique name
     const uniqueName = generateUniqueWorkflowName();
-    
+
     const newWorkflow: Workflow = {
       id: `workflow-${Date.now()}`,
       name: uniqueName,
@@ -168,18 +208,18 @@ export function Workflows() {
       syncStatus: 'local-only', // Conductor sync status
       publicationStatus: 'LOCAL', // Internal publication status
     };
-    
+
     // Add to store
     addWorkflow(newWorkflow);
-    
+
     // Persist immediately
-    persistWorkflows().catch(err => {
+    persistWorkflows().catch((err) => {
       console.warn('Failed to persist new workflow:', err);
     });
-    
+
     // Save as last active workflow
     sessionStorage.setItem('lastActiveWorkflow', newWorkflow.id);
-    
+
     // Navigate to the designer with the ID
     navigate(`/workflows/${newWorkflow.id}`);
   };
@@ -187,7 +227,7 @@ export function Workflows() {
   const handleSyncFromFileStore = async () => {
     try {
       const conductorWorkflows = await syncWorkflows();
-      
+
       if (conductorWorkflows.length === 0) {
         toast({
           title: 'No workflows found',
@@ -215,7 +255,8 @@ export function Workflows() {
     } catch (error) {
       toast({
         title: 'Sync failed',
-        description: error instanceof Error ? error.message : 'Failed to sync workflows from Conductor server',
+        description:
+          error instanceof Error ? error.message : 'Failed to sync workflows from Conductor server',
         variant: 'destructive',
       });
     }
@@ -245,7 +286,8 @@ export function Workflows() {
         importedCount += 1;
       } catch (conversionError) {
         const workflowName = getWorkflowName(conductorWorkflow);
-        const errorMsg = conversionError instanceof Error ? conversionError.message : 'Unknown error';
+        const errorMsg =
+          conversionError instanceof Error ? conversionError.message : 'Unknown error';
         console.error(`[Workflows] Error converting workflow ${workflowName}:`, conversionError);
         conversionErrors.push(`${workflowName}: ${errorMsg}`);
       }
@@ -256,10 +298,7 @@ export function Workflows() {
   };
 
   // Helper to handle workflow fetch results
-  const handleWorkflowFetchResult = (
-    count: number,
-    errors: string[]
-  ) => {
+  const handleWorkflowFetchResult = (count: number, errors: string[]) => {
     if (errors.length > 0) {
       console.warn(`[Workflows] Conversion errors for ${errors.length} workflows:`, errors);
       toast({
@@ -279,7 +318,7 @@ export function Workflows() {
     setListLoading(true);
     try {
       const conductorWorkflows = await syncWorkflows();
-      
+
       if (conductorWorkflows.length === 0) {
         toast({
           title: 'No workflows found',
@@ -291,20 +330,27 @@ export function Workflows() {
       }
 
       console.log('[Workflows] Clearing old cache before storing new complete workflows');
-      setCachedServerWorkflows(conductorWorkflows as Parameters<typeof setCachedServerWorkflows>[0]);
+      setCachedServerWorkflows(
+        conductorWorkflows as Parameters<typeof setCachedServerWorkflows>[0]
+      );
 
       // Import workflows and collect any conversion errors
-      const conversionErrors = await importWorkflowsFromServer(
-        conductorWorkflows,
-        (count) => console.log(`[Workflows] Imported ${count} workflows`)
+      const conversionErrors = await importWorkflowsFromServer(conductorWorkflows, (count) =>
+        console.log(`[Workflows] Imported ${count} workflows`)
       );
 
       await persistWorkflows();
-      handleWorkflowFetchResult(conductorWorkflows.length - conversionErrors.length, conversionErrors);
+      handleWorkflowFetchResult(
+        conductorWorkflows.length - conversionErrors.length,
+        conversionErrors
+      );
     } catch (error) {
       toast({
         title: 'Failed to fetch workflow list',
-        description: error instanceof Error ? error.message : 'Failed to fetch workflows from Conductor server',
+        description:
+          error instanceof Error
+            ? error.message
+            : 'Failed to fetch workflows from Conductor server',
         variant: 'destructive',
       });
     } finally {
@@ -345,13 +391,13 @@ export function Workflows() {
       }
 
       console.log(`[Workflows] Loading workflow: ${workflowNameInput.trim()} v${version}`);
-      
+
       // Use the GraphQL proxy-aware hook
       const workflowDef = await fetchWorkflowByVersion(workflowNameInput.trim(), version);
-      
+
       console.log(`[Workflows] API returned:`, workflowDef);
       console.log(`[Workflows] Tasks from API:`, workflowDef?.tasks?.length || 0);
-      
+
       if (!workflowDef?.name) {
         console.error(`[Workflows] Failed to load workflow - null result`);
         toast({
@@ -363,7 +409,9 @@ export function Workflows() {
         return;
       }
 
-      console.log(`[Workflows] Workflow loaded successfully: ${workflowDef.name} v${workflowDef.version}`);
+      console.log(
+        `[Workflows] Workflow loaded successfully: ${workflowDef.name} v${workflowDef.version}`
+      );
 
       // Convert to local workflow format
       // Type assertion needed because WorkflowDefinition.tasks is strictly typed
@@ -375,11 +423,14 @@ export function Workflows() {
 
       // Add to store
       addWorkflow(localWorkflow);
-      console.log(`[Workflows] Added to store. Current store workflows:`, useWorkflowStore.getState().workflows);
-      
+      console.log(
+        `[Workflows] Added to store. Current store workflows:`,
+        useWorkflowStore.getState().workflows
+      );
+
       // Persist to storage
       await persistWorkflows();
-      
+
       toast({
         title: 'Workflow loaded',
         description: `Workflow "${workflowDef.name}" (v${workflowDef.version}) has been loaded successfully.`,
@@ -401,7 +452,8 @@ export function Workflows() {
       console.error('Load workflow error:', error);
       toast({
         title: 'Failed to load workflow',
-        description: error instanceof Error ? error.message : 'Failed to load workflow from Conductor server',
+        description:
+          error instanceof Error ? error.message : 'Failed to load workflow from Conductor server',
         variant: 'destructive',
       });
     } finally {
@@ -410,8 +462,8 @@ export function Workflows() {
   };
 
   const handleDelete = async (id: string, name: string) => {
-    const workflow = allWorkflows.find(w => w.id === id);
-    
+    const workflow = allWorkflows.find((w) => w.id === id);
+
     // If workflow is published, delete from Conductor server first
     if (workflow?.publicationStatus === 'PUBLISHED') {
       const deleted = await deleteWorkflowFromServer(name, workflow.version || 1);
@@ -424,7 +476,7 @@ export function Workflows() {
         return;
       }
     }
-    
+
     // Remove from cache
     deleteWorkflow(id);
     await persistWorkflows();
@@ -459,7 +511,7 @@ export function Workflows() {
   const handleExecuteWorkflow = (workflowId: string, input: unknown) => {
     try {
       const execution = executeWorkflow(workflowId, input);
-      
+
       toast({
         title: 'Workflow execution started',
         description: `Execution ID: ${execution.id}`,
@@ -480,7 +532,7 @@ export function Workflows() {
 
   const handlePublishWorkflow = async (workflowId: string) => {
     try {
-      const workflow = allDeduplicatedWorkflows.find(w => w.id === workflowId);
+      const workflow = allDeduplicatedWorkflows.find((w) => w.id === workflowId);
       if (!workflow) {
         toast({
           title: 'Workflow not found',
@@ -503,20 +555,20 @@ export function Workflows() {
       if (success) {
         // Update the workflow store with published status
         updateWorkflow(workflowId, { publicationStatus: 'PUBLISHED' });
-        
+
         // Mark as published in cache store
         markAsPublished(workflowId);
-        
+
         // Sync to filestore
         await syncToFileStore();
-        
+
         toast({
           title: 'Workflow published',
           description: `Workflow "${workflow.name}" has been successfully published to Conductor`,
         });
       } else {
         // Revert to draft if publish fails
-        const cacheStatus = getAllWorkflows().find(w => w.id === workflowId);
+        const cacheStatus = getAllWorkflows().find((w) => w.id === workflowId);
         if (cacheStatus?.isLocalOnly) {
           toast({
             title: 'Publish failed',
@@ -616,7 +668,12 @@ export function Workflows() {
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 {/* Name Filter */}
                 <div>
-                  <label htmlFor="nameFilterInput" className="block text-xs font-medium text-gray-400 mb-2">Workflow Name</label>
+                  <label
+                    htmlFor="nameFilterInput"
+                    className="block text-xs font-medium text-gray-400 mb-2"
+                  >
+                    Workflow Name
+                  </label>
                   <input
                     id="nameFilterInput"
                     type="text"
@@ -629,7 +686,12 @@ export function Workflows() {
 
                 {/* Description Filter */}
                 <div>
-                  <label htmlFor="descriptionFilterInput" className="block text-xs font-medium text-gray-400 mb-2">Description</label>
+                  <label
+                    htmlFor="descriptionFilterInput"
+                    className="block text-xs font-medium text-gray-400 mb-2"
+                  >
+                    Description
+                  </label>
                   <input
                     id="descriptionFilterInput"
                     type="text"
@@ -642,11 +704,18 @@ export function Workflows() {
 
                 {/* Status Filter */}
                 <div>
-                  <label htmlFor="statusFilterSelect" className="block text-xs font-medium text-gray-400 mb-2">Publication Status</label>
+                  <label
+                    htmlFor="statusFilterSelect"
+                    className="block text-xs font-medium text-gray-400 mb-2"
+                  >
+                    Publication Status
+                  </label>
                   <select
                     id="statusFilterSelect"
                     value={statusFilter}
-                    onChange={(e) => setStatusFilter(e.target.value as 'all' | 'UNPUBLISHED' | 'PUBLISHED')}
+                    onChange={(e) =>
+                      setStatusFilter(e.target.value as 'all' | 'UNPUBLISHED' | 'PUBLISHED')
+                    }
                     className="w-full px-3 py-2 bg-[#0f1419] border border-[#2a3142] rounded text-white text-sm focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500"
                   >
                     <option value="all">All Statuses</option>
@@ -686,38 +755,54 @@ export function Workflows() {
                 <thead className="bg-[#0f1419]">
                   <tr>
                     <th className="px-6 py-4 text-left text-sm font-semibold text-white">Name</th>
-                    <th className="px-6 py-4 text-left text-sm font-semibold text-white">Description</th>
+                    <th className="px-6 py-4 text-left text-sm font-semibold text-white">
+                      Description
+                    </th>
                     <th className="px-6 py-4 text-left text-sm font-semibold text-white">Status</th>
-                    <th className="px-6 py-4 text-left text-sm font-semibold text-white">Version</th>
-                    <th className="px-6 py-4 text-left text-sm font-semibold text-white">Actions</th>
+                    <th className="px-6 py-4 text-left text-sm font-semibold text-white">
+                      Version
+                    </th>
+                    <th className="px-6 py-4 text-left text-sm font-semibold text-white">
+                      Actions
+                    </th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#2a3142]">
                   {paginatedWorkflows.length > 0 ? (
                     paginatedWorkflows.map((workflow) => (
-                      <tr 
-                        key={workflow.id} 
+                      <tr
+                        key={workflow.id}
                         className="hover:bg-[#2a3142]/30 transition-colors duration-150 cursor-pointer"
                         onClick={() => navigate(`/workflows/${workflow.id}`)}
                       >
                         <td className="px-6 py-4">
                           <div className="flex items-center gap-3">
                             <div className="w-8 h-8 bg-cyan-500/10 rounded flex items-center justify-center flex-shrink-0">
-                              <svg className="w-4 h-4 text-cyan-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                              <svg
+                                className="w-4 h-4 text-cyan-500"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
+                                />
                               </svg>
                             </div>
                             <span className="text-sm font-medium text-white">{workflow.name}</span>
                           </div>
                         </td>
                         <td className="px-6 py-4">
-                          <span className="text-sm text-gray-400 line-clamp-1">{workflow.description}</span>
+                          <span className="text-sm text-gray-400 line-clamp-1">
+                            {workflow.description}
+                          </span>
                         </td>
                         <td className="px-6 py-4">
                           <div className="flex items-center gap-2">
-                            <Badge
-                              className={getStatusBadgeClass(workflow.publicationStatus)}
-                            >
+                            <Badge className={getStatusBadgeClass(workflow.publicationStatus)}>
                               {getDisplayStatus(workflow.publicationStatus)}
                             </Badge>
                             {workflow.publicationStatus !== 'PUBLISHED' && (
@@ -742,7 +827,11 @@ export function Workflows() {
                           <span className="text-sm text-gray-400">v{workflow.version || 1}</span>
                         </td>
                         <td className="px-6 py-4">
-                          <div className="flex items-center gap-2" role="toolbar" aria-label="Workflow actions">
+                          <div
+                            className="flex items-center gap-2"
+                            role="toolbar"
+                            aria-label="Workflow actions"
+                          >
                             <Button
                               size="sm"
                               variant="ghost"
@@ -841,9 +930,10 @@ export function Workflows() {
                         key={page}
                         size="sm"
                         variant={currentPage === page ? 'default' : 'outline'}
-                        className={currentPage === page
-                          ? 'bg-cyan-500 text-white hover:bg-cyan-600'
-                          : 'border-gray-600 text-gray-400 hover:bg-[#2a3142]'
+                        className={
+                          currentPage === page
+                            ? 'bg-cyan-500 text-white hover:bg-cyan-600'
+                            : 'border-gray-600 text-gray-400 hover:bg-[#2a3142]'
                         }
                         onClick={() => updatePagination(page, itemsPerPage)}
                       >
@@ -864,7 +954,9 @@ export function Workflows() {
                 </div>
 
                 <div className="flex items-center gap-2">
-                  <label htmlFor="itemsPerPageSelect" className="text-sm text-gray-400">Items per page:</label>
+                  <label htmlFor="itemsPerPageSelect" className="text-sm text-gray-400">
+                    Items per page:
+                  </label>
                   <select
                     id="itemsPerPageSelect"
                     value={itemsPerPage}
@@ -911,7 +1003,10 @@ export function Workflows() {
 
             <div className="p-6 space-y-4">
               <div className="space-y-2">
-                <label htmlFor="workflowNameInput" className="block text-sm font-medium text-gray-300">
+                <label
+                  htmlFor="workflowNameInput"
+                  className="block text-sm font-medium text-gray-300"
+                >
                   Workflow Name
                 </label>
                 <input
@@ -930,7 +1025,10 @@ export function Workflows() {
               </div>
 
               <div className="space-y-2">
-                <label htmlFor="workflowVersionInput" className="block text-sm font-medium text-gray-300">
+                <label
+                  htmlFor="workflowVersionInput"
+                  className="block text-sm font-medium text-gray-300"
+                >
                   Version
                 </label>
                 <input
@@ -947,7 +1045,8 @@ export function Workflows() {
                   className="w-full px-4 py-2 bg-[#0f1419] border border-[#2a3142] rounded text-white placeholder-gray-500 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500"
                 />
                 <p className="text-xs text-gray-500">
-                  Load workflow definition from Conductor server (GET /api/metadata/workflow/{'<name>'}?version={'<version>'})
+                  Load workflow definition from Conductor server (GET /api/metadata/workflow/
+                  {'<name>'}?version={'<version>'})
                 </p>
               </div>
 
@@ -965,7 +1064,9 @@ export function Workflows() {
                 </Button>
                 <Button
                   className="bg-orange-500 text-white hover:bg-orange-600"
-                  disabled={isLoadingExecution || !workflowNameInput.trim() || !workflowVersionInput.trim()}
+                  disabled={
+                    isLoadingExecution || !workflowNameInput.trim() || !workflowVersionInput.trim()
+                  }
                   onClick={handleLoadWorkflowById}
                 >
                   {isLoadingExecution ? 'Loading...' : 'Load Workflow'}

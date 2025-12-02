@@ -84,7 +84,9 @@ interface TaskModalState {
 
 export function SwitchModal({ open, onOpenChange, onSave, initialConfig }: SwitchModalProps) {
   // Generate unique ID for this modal instance to avoid conflicts with nested Switch modals
-  const [instanceId] = useState(() => `switch-modal-${Math.random().toString(36).substring(2, 11)}`);
+  const [instanceId] = useState(
+    () => `switch-modal-${Math.random().toString(36).substring(2, 11)}`
+  );
 
   const [config, setConfig] = useState<SwitchConfig>({
     taskRefId: 'switch-1',
@@ -271,15 +273,23 @@ export function SwitchModal({ open, onOpenChange, onSave, initialConfig }: Switc
     setExpandedCases(newExpanded);
   };
 
-  const renderTaskCard = (task: Record<string, unknown>, index: number, caseName: string | null) => {
+  const renderTaskCard = (
+    task: Record<string, unknown>,
+    index: number,
+    caseName: string | null
+  ) => {
     return (
       <Card key={index} className="p-4 bg-[#0f1419] border-[#2a3142] mb-2">
         <div className="flex justify-between items-start">
           <div className="flex-1">
             <div className="flex items-center gap-2 mb-2">
-              <span className="text-sm font-semibold text-cyan-400">{(task.type as string) || (task.taskType as string)}</span>
+              <span className="text-sm font-semibold text-cyan-400">
+                {(task.type as string) || (task.taskType as string)}
+              </span>
               <span className="text-xs text-gray-400">•</span>
-              <span className="text-sm text-white">{(task.name as string) || (task.taskReferenceName as string)}</span>
+              <span className="text-sm text-white">
+                {(task.name as string) || (task.taskReferenceName as string)}
+              </span>
             </div>
             <p className="text-xs text-gray-400">
               Ref: {(task.taskReferenceName as string) || 'N/A'}
@@ -497,7 +507,7 @@ export function SwitchModal({ open, onOpenChange, onSave, initialConfig }: Switc
 
                 {expandedCases.has(caseName) && (
                   <div className="space-y-3">
-                    {(config.decisionCases?.[caseName] as unknown[] || []).map((task, idx) =>
+                    {((config.decisionCases?.[caseName] as unknown[]) || []).map((task, idx) =>
                       renderTaskCard(task as Record<string, unknown>, idx, caseName)
                     )}
 
@@ -539,7 +549,9 @@ export function SwitchModal({ open, onOpenChange, onSave, initialConfig }: Switc
           />
           <Button
             onClick={() => {
-              const input = document.getElementById(`newCaseName-${instanceId}`) as HTMLInputElement;
+              const input = document.getElementById(
+                `newCaseName-${instanceId}`
+              ) as HTMLInputElement;
               if (input?.value.trim()) {
                 handleAddCase(input.value.trim());
                 input.value = '';
@@ -560,7 +572,7 @@ export function SwitchModal({ open, onOpenChange, onSave, initialConfig }: Switc
         </h3>
 
         <div className="space-y-3 mb-4">
-          {(config.defaultCase as unknown[] || []).map((task, idx) =>
+          {((config.defaultCase as unknown[]) || []).map((task, idx) =>
             renderTaskCard(task as Record<string, unknown>, idx, null)
           )}
         </div>

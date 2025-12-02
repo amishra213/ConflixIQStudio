@@ -5,6 +5,7 @@ This guide explains how to extend ConductorDesigner to support different variant
 ## ⚠️ CRITICAL: Never Modify Base Files
 
 **DO NOT modify these files:**
+
 - `src/components/modals/` (system-tasks, operators, or any base modals)
 - `src/constants/taskDefinitions.ts`
 - `src/types/taskDefinition.ts`
@@ -56,6 +57,7 @@ src/variants/                           # NEW: Isolated extensions folder
 ```
 
 **IMPORTANT RULES:**
+
 - ✅ Copy base modal files to your variant folder if you need to customize them
 - ✅ Create new files in your variant folder for extensions
 - ✅ Reference base types where appropriate (import from `@/components/modals/`)
@@ -68,9 +70,11 @@ src/variants/                           # NEW: Isolated extensions folder
 When you need to customize an existing modal, **copy it to your variant folder** and modify the copy:
 
 ### DO NOT MODIFY ORIGINAL
+
 ❌ Do NOT edit `src/components/modals/operators/ForkJoinModal.tsx`
 
 ### DO COPY AND CUSTOMIZE
+
 ✅ Copy to: `src/variants/conductor-custom-v1/operators/ForkJoinModal.tsx`
 ✅ Modify your copy
 ✅ Keep the original untouched
@@ -103,11 +107,11 @@ interface CustomForkJoinModalProps {
   readonly initialConfig?: CustomForkJoinConfig;
 }
 
-export function ForkJoinModal({ 
-  open, 
-  onOpenChange, 
-  onSave, 
-  initialConfig 
+export function ForkJoinModal({
+  open,
+  onOpenChange,
+  onSave,
+  initialConfig,
 }: CustomForkJoinModalProps) {
   const [config, setConfig] = useState<CustomForkJoinConfig>({
     name: 'Custom Fork Join',
@@ -157,7 +161,7 @@ export function ForkJoinModal({
                 <input
                   type="checkbox"
                   checked={config.enableAdvancedParallelization}
-                  onChange={(e) => 
+                  onChange={(e) =>
                     setConfig({
                       ...config,
                       enableAdvancedParallelization: e.target.checked,
@@ -174,7 +178,7 @@ export function ForkJoinModal({
                 <input
                   type="number"
                   value={config.maxParallelBranches}
-                  onChange={(e) => 
+                  onChange={(e) =>
                     setConfig({
                       ...config,
                       maxParallelBranches: parseInt(e.target.value, 10),
@@ -202,8 +206,8 @@ export function ForkJoinModal({
 // Fork and Join Operators (custom variants)
 export { ForkJoinModal, type CustomForkJoinConfig } from './ForkJoinModal';
 // Re-export unmodified operators from base if you're not customizing them
-export { 
-  JoinModal, 
+export {
+  JoinModal,
   type JoinConfig,
   DynamicForkModal,
   type ForkJoinDynamicConfig,
@@ -220,7 +224,7 @@ export {
 /**
  * Variant configuration for Conductor Custom V1
  * Defines variant-specific settings and behaviors
- * 
+ *
  * CRITICAL: This does NOT modify any base files or schemas!
  * This purely defines configuration for your variant's modals and UI behavior.
  */
@@ -263,14 +267,7 @@ export const CONDUCTOR_CUSTOM_V1_CONFIG: VariantConfig = {
     'DYNAMIC',
     'JOIN',
   ],
-  supportedOperators: [
-    'FORK_JOIN',
-    'FORK_JOIN_DYNAMIC',
-    'SWITCH',
-    'DO_WHILE',
-    'DYNAMIC',
-    'JOIN',
-  ],
+  supportedOperators: ['FORK_JOIN', 'FORK_JOIN_DYNAMIC', 'SWITCH', 'DO_WHILE', 'DYNAMIC', 'JOIN'],
   features: {
     enableAdvancedParallelization: true,
     enableCustomValidation: true,
@@ -289,7 +286,7 @@ export const CONDUCTOR_CUSTOM_V1_CONFIG: VariantConfig = {
 /**
  * Variant Registry
  * Central registry for all available Conductor variants
- * 
+ *
  * CRITICAL: This only orchestrates variant-specific code.
  * Base modals and definitions remain untouched.
  */
@@ -416,11 +413,8 @@ import { useVariant } from '@/hooks/useVariant';
 
 export function WorkflowDesigner() {
   // ... existing code ...
-  
-  const { 
-    operators: variantOperators, 
-    config: variantConfig 
-  } = useVariant();
+
+  const { operators: variantOperators, config: variantConfig } = useVariant();
 
   // Use variant-specific modals
   const [operatorModals, setOperatorModals] = useState({
@@ -433,14 +427,13 @@ export function WorkflowDesigner() {
   return (
     <>
       {/* Use variant-specific ForkJoinModal */}
-      {variantOperators.ForkJoinModal && 
+      {variantOperators.ForkJoinModal &&
         variantOperators.ForkJoinModal({
           open: operatorModals.forkJoin,
           onOpenChange: (open) => setOperatorModals({ ...operatorModals, forkJoin: open }),
           onSave: handleForkJoinSave,
           initialConfig: selectedConfig,
-        })
-      }
+        })}
       {/* ... other modals */}
     </>
   );
@@ -453,7 +446,7 @@ export function WorkflowDesigner() {
 
 ```tsx
 import { useVariant } from '@/hooks/useVariant';
-import { 
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -481,11 +474,7 @@ export function VariantSelector() {
           ))}
         </SelectContent>
       </Select>
-      {config && (
-        <div className="text-xs text-gray-500">
-          v{config.version}
-        </div>
-      )}
+      {config && <div className="text-xs text-gray-500">v{config.version}</div>}
     </div>
   );
 }
@@ -513,6 +502,7 @@ export function HeaderBar() {
 To add a new variant (e.g., `conductor-enterprise-v2`):
 
 1. **Create directory structure:**
+
    ```
    src/components/modals/variants/conductor-enterprise-v2/
    ├── operators/
@@ -525,10 +515,11 @@ To add a new variant (e.g., `conductor-enterprise-v2`):
 3. **Create config.ts** with variant-specific settings
 
 4. **Register in `src/components/modals/variants/index.ts`:**
+
    ```tsx
    import * as ConductorEnterpriseV2Operators from './conductor-enterprise-v2/operators';
    import { CONDUCTOR_ENTERPRISE_V2_CONFIG } from './conductor-enterprise-v2/config';
-   
+
    const variants: VariantRegistry = {
      // ... existing variants ...
      'conductor-enterprise-v2': {
@@ -559,15 +550,18 @@ To add a new variant (e.g., `conductor-enterprise-v2`):
 ## Troubleshooting
 
 ### Modal not rendering
+
 - Check that variant name is registered in `index.ts`
 - Verify exports are correct in variant's `index.ts`
 - Ensure component names match expected interface
 
 ### Variant not persisting
+
 - Clear localStorage: `localStorage.removeItem('variant-store')`
 - Check Zustand persist middleware configuration
 
 ### Type errors
+
 - Ensure all variant components implement required props
 - Verify extended config types are properly exported
 
@@ -585,7 +579,7 @@ To add a new variant (e.g., `conductor-enterprise-v2`):
 /**
  * Workflow Extension System
  * Allows adding custom fields to workflow definitions WITHOUT modifying base types
- * 
+ *
  * This is a PURE ADDITION - the base Workflow type remains untouched.
  * Extensions only exist in your variant's context.
  */
@@ -681,7 +675,7 @@ console.log(extendedWorkflow.customMetadata); // { category: 'payment-flows' }
 /**
  * Task Definition Extension System
  * Allows adding custom fields to task definitions WITHOUT modifying base types
- * 
+ *
  * This is a PURE ADDITION - the base task definition types remain untouched.
  */
 
@@ -693,7 +687,7 @@ export interface ExtendedTaskDefinition {
   retryCount?: number;
   retryLogic?: string;
   retryDelaySeconds?: number;
-  
+
   // NEW FIELDS - Only in this variant's context
   extensions?: {
     [key: string]: unknown;
@@ -715,11 +709,7 @@ export function getTaskExtension(taskDef: any, key: string): unknown {
   return taskDef.extensions?.[key];
 }
 
-export function setTaskExtension(
-  taskDef: any,
-  key: string,
-  value: unknown
-): any {
+export function setTaskExtension(taskDef: any, key: string, value: unknown): any {
   return {
     ...taskDef,
     extensions: {
@@ -733,11 +723,7 @@ export function getTaskCustomMetadata(taskDef: any, key: string): unknown {
   return taskDef.customMetadata?.[key];
 }
 
-export function setTaskCustomMetadata(
-  taskDef: any,
-  key: string,
-  value: unknown
-): any {
+export function setTaskCustomMetadata(taskDef: any, key: string, value: unknown): any {
   return {
     ...taskDef,
     customMetadata: {
@@ -750,10 +736,7 @@ export function setTaskCustomMetadata(
 /**
  * EXAMPLE: Adding variant-specific retry policy
  */
-export function setTaskRetryPolicy(
-  taskDef: any,
-  policy: 'exponential' | 'linear' | 'none'
-): any {
+export function setTaskRetryPolicy(taskDef: any, policy: 'exponential' | 'linear' | 'none'): any {
   return setTaskCustomMetadata(taskDef, 'retryPolicy', policy);
 }
 ```
@@ -762,11 +745,7 @@ export function setTaskRetryPolicy(
 
 ```typescript
 // SAFE: This creates an extended version without modifying the base
-const extendedTask = setTaskCustomMetadata(
-  baseTaskDef,
-  'category',
-  'payment-processing'
-);
+const extendedTask = setTaskCustomMetadata(baseTaskDef, 'category', 'payment-processing');
 
 // Base task definition is unchanged
 console.log(baseTaskDef.customMetadata); // undefined - still works normally
@@ -787,7 +766,7 @@ console.log(extendedTask.customMetadata); // { category: 'payment-processing' }
 /**
  * Custom task type registry
  * Define NEW task types specific to your variant (no base file modifications!)
- * 
+ *
  * These are entirely NEW task types - not modifications of existing ones.
  */
 
@@ -962,9 +941,10 @@ export function CustomApiCallModal({
 
           <div>
             <Label className="text-white">HTTP Method *</Label>
-            <Select value={config.method} onValueChange={(value: any) => 
-              setConfig({ ...config, method: value })
-            }>
+            <Select
+              value={config.method}
+              onValueChange={(value: any) => setConfig({ ...config, method: value })}
+            >
               <SelectTrigger className="mt-2 bg-[#1a1f2e] text-white border-[#2a3142]">
                 <SelectValue />
               </SelectTrigger>
@@ -980,12 +960,12 @@ export function CustomApiCallModal({
 
           <div>
             <Label className="text-white">Authentication Type</Label>
-            <Select 
-              value={config.authType || 'none'} 
-              onValueChange={(value) => 
-                setConfig({ 
-                  ...config, 
-                  authType: value === 'none' ? undefined : (value as any)
+            <Select
+              value={config.authType || 'none'}
+              onValueChange={(value) =>
+                setConfig({
+                  ...config,
+                  authType: value === 'none' ? undefined : (value as any),
                 })
               }
             >
@@ -1044,7 +1024,10 @@ export {
 
 // CUSTOM task type modals (NEW - not in base)
 export { CustomApiCallModal, type CustomApiCallConfig } from './CustomApiCallModal';
-export { CustomDatabaseQueryModal, type CustomDatabaseQueryConfig } from './CustomDatabaseQueryModal';
+export {
+  CustomDatabaseQueryModal,
+  type CustomDatabaseQueryConfig,
+} from './CustomDatabaseQueryModal';
 
 // Custom task type definitions
 export { CUSTOM_TASK_TYPES } from './config';
@@ -1103,14 +1086,7 @@ export const CONDUCTOR_CUSTOM_V1_CONFIG: VariantConfig = {
     // Add custom task types (NEW - just listed, not modifying base)
     ...Object.keys(CUSTOM_TASK_TYPES),
   ],
-  supportedOperators: [
-    'FORK_JOIN',
-    'FORK_JOIN_DYNAMIC',
-    'SWITCH',
-    'DO_WHILE',
-    'DYNAMIC',
-    'JOIN',
-  ],
+  supportedOperators: ['FORK_JOIN', 'FORK_JOIN_DYNAMIC', 'SWITCH', 'DO_WHILE', 'DYNAMIC', 'JOIN'],
   customTaskTypes: CUSTOM_TASK_TYPES,
   features: {
     enableAdvancedParallelization: true,
@@ -1173,7 +1149,7 @@ export function useTaskTypeRegistry() {
       taskTypeRegistry,
       supportedTaskTypes: variantConfig?.supportedTaskTypes || [],
       customTaskTypes: variantConfig?.customTaskTypes || {},
-      isCustomTaskType: (taskType: string) => 
+      isCustomTaskType: (taskType: string) =>
         Object.keys(variantConfig?.customTaskTypes || {}).includes(taskType),
     };
   }, [variantConfig]);
@@ -1190,7 +1166,7 @@ import { ExtendedWorkflow, setCustomMetadata } from '@/types/workflowExtensions'
 
 export function WorkflowDesigner() {
   const { taskTypeRegistry, supportedTaskTypes, customTaskTypes } = useTaskTypeRegistry();
-  
+
   // When adding a task to workflow
   const handleAddCustomTask = (taskType: string) => {
     if (customTaskTypes[taskType]) {
@@ -1200,20 +1176,23 @@ export function WorkflowDesigner() {
         type: taskType,
         // ... other task properties
       };
-      
+
       // Add to nodes
-      setNodes((nodes) => [...nodes, {
-        id: newTask.taskReferenceName,
-        data: { label: newTask.name, type: taskType },
-        position: { x: 0, y: 0 },
-      }]);
+      setNodes((nodes) => [
+        ...nodes,
+        {
+          id: newTask.taskReferenceName,
+          data: { label: newTask.name, type: taskType },
+          position: { x: 0, y: 0 },
+        },
+      ]);
     }
   };
 
   return (
     <>
       {/* Task Library Sidebar - show custom task types */}
-      <TaskLibrarySidebar 
+      <TaskLibrarySidebar
         customTaskTypes={customTaskTypes}
         onSelectCustomTask={handleAddCustomTask}
       />
@@ -1253,7 +1232,7 @@ export function exportWorkflowWithExtensions(workflow: ExtendedWorkflow): string
     tasks: workflow.tasks,
     inputParameters: workflow.inputParameters,
     outputParameters: workflow.outputParameters,
-    
+
     // VARIANT EXTENSIONS ONLY (new fields in your variant)
     extensions: workflow.extensions,
     customMetadata: workflow.customMetadata,
@@ -1268,7 +1247,7 @@ export function exportWorkflowWithExtensions(workflow: ExtendedWorkflow): string
  */
 export function importWorkflowWithExtensions(jsonString: string): ExtendedWorkflow {
   const data = JSON.parse(jsonString);
-  
+
   return {
     ...data,
     extensions: data.extensions || {},
@@ -1306,20 +1285,20 @@ export function validateWorkflowForVariant(
 
 This table shows what you MUST and MUST NOT do:
 
-| What | Location | Modify? | Notes |
-|------|----------|---------|-------|
-| **Base Modals** | `src/components/modals/` | ❌ NO | NEVER modify. These are read-only reference implementations. |
-| **Base Task Defs** | `src/constants/taskDefinitions.ts` | ❌ NO | NEVER modify. This is the source of truth. |
-| **Base Task Types** | `src/types/taskDefinition.ts` | ❌ NO | NEVER modify. Only import from this. |
-| **Base Workflow Store** | `src/stores/workflowStore.ts` | ❌ NO | NEVER modify. Only use through hooks. |
-| **Base Operators** | `src/components/modals/operators/` | ❌ NO | NEVER modify. These are read-only. |
-| **System Task Modals** | `src/components/modals/system-tasks/` | ❌ NO | NEVER modify. These are read-only. |
-| **Variant Modals** | `src/variants/conductor-custom-v1/operators/` | ✅ YES | COPY base modals here if customizing. |
-| **Variant Task Modals** | `src/variants/conductor-custom-v1/system-tasks/` | ✅ YES | Create custom task type modals here. |
-| **Variant Config** | `src/variants/conductor-custom-v1/config.ts` | ✅ YES | Define variant-specific configuration. |
-| **Extension Types** | `src/variants/conductor-custom-v1/extensions/` | ✅ YES | Create extension types for new fields. |
-| **Variant Hooks** | `src/variants/conductor-custom-v1/hooks/` | ✅ YES | Create variant-specific logic here. |
-| **Variant Registry** | `src/variants/index.ts` | ✅ YES | Register your variant here. |
+| What                    | Location                                         | Modify? | Notes                                                        |
+| ----------------------- | ------------------------------------------------ | ------- | ------------------------------------------------------------ |
+| **Base Modals**         | `src/components/modals/`                         | ❌ NO   | NEVER modify. These are read-only reference implementations. |
+| **Base Task Defs**      | `src/constants/taskDefinitions.ts`               | ❌ NO   | NEVER modify. This is the source of truth.                   |
+| **Base Task Types**     | `src/types/taskDefinition.ts`                    | ❌ NO   | NEVER modify. Only import from this.                         |
+| **Base Workflow Store** | `src/stores/workflowStore.ts`                    | ❌ NO   | NEVER modify. Only use through hooks.                        |
+| **Base Operators**      | `src/components/modals/operators/`               | ❌ NO   | NEVER modify. These are read-only.                           |
+| **System Task Modals**  | `src/components/modals/system-tasks/`            | ❌ NO   | NEVER modify. These are read-only.                           |
+| **Variant Modals**      | `src/variants/conductor-custom-v1/operators/`    | ✅ YES  | COPY base modals here if customizing.                        |
+| **Variant Task Modals** | `src/variants/conductor-custom-v1/system-tasks/` | ✅ YES  | Create custom task type modals here.                         |
+| **Variant Config**      | `src/variants/conductor-custom-v1/config.ts`     | ✅ YES  | Define variant-specific configuration.                       |
+| **Extension Types**     | `src/variants/conductor-custom-v1/extensions/`   | ✅ YES  | Create extension types for new fields.                       |
+| **Variant Hooks**       | `src/variants/conductor-custom-v1/hooks/`        | ✅ YES  | Create variant-specific logic here.                          |
+| **Variant Registry**    | `src/variants/index.ts`                          | ✅ YES  | Register your variant here.                                  |
 
 ### Golden Rules
 

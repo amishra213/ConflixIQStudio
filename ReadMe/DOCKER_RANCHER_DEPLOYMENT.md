@@ -49,6 +49,7 @@ nerdctl run -d `
 ### 3. Access the Application
 
 Open your browser and navigate to:
+
 - **Application UI**: http://localhost:4000
 - **Development Server** (if running): http://localhost:5173
 
@@ -133,12 +134,14 @@ VITE_LOG_LEVEL=info
 ### Port Mapping
 
 Default ports (can be changed in docker-compose.yml):
+
 - **4000**: Backend API and GraphQL server
 - **5173**: Frontend development server (optional)
 
 ### Volume Mounts
 
 The application uses persistent volumes:
+
 - **conductor-logs**: Application log files
 - **conductor-filestore**: Workflow and configuration cache
 
@@ -253,20 +256,23 @@ nerdctl compose up -d --force-recreate
 ### Container Won't Start
 
 1. **Check Rancher Desktop is running**
+
    ```powershell
    nerdctl version
    ```
 
 2. **Check for port conflicts**
+
    ```powershell
    # Check if port 4000 is in use
    netstat -ano | Select-String ":4000"
-   
+
    # Kill process if needed (replace PID)
    Stop-Process -Id <PID> -Force
    ```
 
 3. **Check container logs**
+
    ```powershell
    nerdctl logs conductor-designer
    ```
@@ -279,17 +285,20 @@ nerdctl compose up -d --force-recreate
 ### Can't Access on localhost:4000
 
 1. **Verify container is running**
+
    ```powershell
    nerdctl ps | Select-String "conductor-designer"
    ```
 
 2. **Check port binding**
+
    ```powershell
    nerdctl port conductor-designer
    # Should show: 4000/tcp -> 0.0.0.0:4000
    ```
 
 3. **Test from inside container**
+
    ```powershell
    nerdctl exec conductor-designer wget -qO- http://localhost:4000/health
    ```
@@ -301,12 +310,14 @@ nerdctl compose up -d --force-recreate
 ### Logs Not Appearing
 
 1. **Check volume mount**
+
    ```powershell
    nerdctl volume ls | Select-String "conductor-logs"
    nerdctl volume inspect conductor-logs
    ```
 
 2. **Check inside container**
+
    ```powershell
    nerdctl exec conductor-designer ls -la /app/logs
    ```
@@ -323,6 +334,7 @@ This is **expected** if you don't have a Conductor server running. The applicati
 To connect to a Conductor server:
 
 1. **Update environment variable**
+
    ```powershell
    # Edit .env file or docker-compose.yml
    # Set: VITE_CONDUCTOR_SERVER_URL=http://your-conductor-host:8080
@@ -376,11 +388,11 @@ services:
       - VITE_CONDUCTOR_SERVER_URL=http://conductor-server:8080
     depends_on:
       - conductor-server
-  
+
   conductor-server:
     image: netflix/conductor:latest
     ports:
-      - "8080:8080"
+      - '8080:8080'
 ```
 
 ### Volume Backup
@@ -453,7 +465,7 @@ nerdctl push registry.example.com/conductor-designer:latest
 ### Windows Specific
 
 1. **WSL2 Backend**: Ensure Rancher Desktop uses WSL2 for better performance
-2. **Resource Allocation**: 
+2. **Resource Allocation**:
    - Go to Rancher Desktop → Preferences → WSL
    - Allocate sufficient CPU and Memory (recommended: 4GB RAM, 2 CPUs)
 
@@ -505,16 +517,16 @@ nerdctl system prune -a --volumes
 
 ## Common Commands Reference
 
-| Task | Command |
-|------|---------|
-| Build image | `nerdctl build -t conductor-designer:latest .` |
-| Start app | `nerdctl compose up -d` |
-| Stop app | `nerdctl compose stop` |
-| View logs | `nerdctl logs -f conductor-designer` |
-| Shell access | `nerdctl exec -it conductor-designer /bin/sh` |
-| Restart | `nerdctl compose restart` |
-| Update & rebuild | `nerdctl compose up -d --build` |
-| Remove everything | `nerdctl compose down -v` |
+| Task              | Command                                        |
+| ----------------- | ---------------------------------------------- |
+| Build image       | `nerdctl build -t conductor-designer:latest .` |
+| Start app         | `nerdctl compose up -d`                        |
+| Stop app          | `nerdctl compose stop`                         |
+| View logs         | `nerdctl logs -f conductor-designer`           |
+| Shell access      | `nerdctl exec -it conductor-designer /bin/sh`  |
+| Restart           | `nerdctl compose restart`                      |
+| Update & rebuild  | `nerdctl compose up -d --build`                |
+| Remove everything | `nerdctl compose down -v`                      |
 
 ## Getting Help
 

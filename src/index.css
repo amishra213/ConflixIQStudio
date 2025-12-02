@@ -262,7 +262,7 @@ textarea::-webkit-scrollbar-corner {
 }
 
 /* Custom scrollbar for line numbers */
-div[style*="overflow-y"]::-webkit-scrollbar {
+div[style*='overflow-y']::-webkit-scrollbar {
   width: 0px;
 }
 

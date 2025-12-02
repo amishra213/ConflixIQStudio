@@ -176,33 +176,41 @@ export const useWorkflowStore = create<WorkflowStore>((set) => {
         data: {
           taskId: `task_${taskIndex}`,
           executionTime: Math.floor(Math.random() * 1000) + 100,
-          recordsProcessed: Math.floor(Math.random() * 100) + 1
-        }
+          recordsProcessed: Math.floor(Math.random() * 100) + 1,
+        },
       };
     }
     return {
       error: 'Task failed',
       errorCode: 'TASK_ERROR',
       message: `Task ${taskIndex + 1} encountered an error`,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     };
   };
 
   // Helper function to map task with completion data
-  const mapCompletedTask = (task: Execution['tasks'][0], index: number, isSuccess: boolean): Execution['tasks'][0] => ({
+  const mapCompletedTask = (
+    task: Execution['tasks'][0],
+    index: number,
+    isSuccess: boolean
+  ): Execution['tasks'][0] => ({
     ...task,
     status: getTaskStatus(isSuccess, index),
     endTime: new Date().toISOString(),
     input: task.input || {
       workflowInput: {},
       taskIndex: index,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     },
-    output: createTaskOutput(isSuccess, index)
+    output: createTaskOutput(isSuccess, index),
   });
 
   // Helper function to map completed execution
-  const mapCompletedExecution = (exec: Execution, executionId: string, isSuccess: boolean): Execution => {
+  const mapCompletedExecution = (
+    exec: Execution,
+    executionId: string,
+    isSuccess: boolean
+  ): Execution => {
     if (exec.id !== executionId) {
       return exec;
     }
@@ -212,7 +220,9 @@ export const useWorkflowStore = create<WorkflowStore>((set) => {
       ? { status: 'success', result: 'Workflow completed successfully' }
       : { status: 'error', message: 'Workflow failed' };
 
-    const completedTasks = exec.tasks.map((task, index) => mapCompletedTask(task, index, isSuccess));
+    const completedTasks = exec.tasks.map((task, index) =>
+      mapCompletedTask(task, index, isSuccess)
+    );
 
     return {
       ...exec,
@@ -220,7 +230,7 @@ export const useWorkflowStore = create<WorkflowStore>((set) => {
       endTime: new Date().toISOString(),
       duration: Math.floor(Math.random() * 5000) + 1000,
       output: executionOutput,
-      tasks: completedTasks
+      tasks: completedTasks,
     };
   };
 
@@ -228,182 +238,193 @@ export const useWorkflowStore = create<WorkflowStore>((set) => {
   const completeExecutionSimulation = (executionId: string): void => {
     const isSuccess = Math.random() > 0.2;
     set((state) => ({
-      executions: state.executions.map((exec) => mapCompletedExecution(exec, executionId, isSuccess))
+      executions: state.executions.map((exec) =>
+        mapCompletedExecution(exec, executionId, isSuccess)
+      ),
     }));
   };
 
   return {
-  workflows: [],
-  tasks: [],
-  executions: [],
-  selectedWorkflow: null,
-  selectedExecution: null,
-  canvasNodes: [],
-  canvasEdges: [],
-  addWorkflow: (workflow) =>
-    set((state) => {
-      // Check if workflow with same name already exists
-      const existingIndex = state.workflows.findIndex((w) => w.name === workflow.name);
-      
-      if (existingIndex >= 0) {
-        // Replace existing workflow with updated version
-        console.log(`[WorkflowStore] Replacing existing workflow "${workflow.name}" with updated version`);
-        const updatedWorkflows = [...state.workflows];
-        updatedWorkflows[existingIndex] = workflow;
-        return { workflows: updatedWorkflows };
-      }
-      
-      // Add as new workflow if it doesn't exist
-      console.log(`[WorkflowStore] Adding new workflow "${workflow.name}"`);
-      return { workflows: [...state.workflows, workflow] };
-    }),
-  updateWorkflow: (id, workflow) =>
-    set((state) => ({
-      workflows: state.workflows.map((w) => (w.id === id ? { ...w, ...workflow } : w)),
-      selectedWorkflow: state.selectedWorkflow?.id === id ? { ...state.selectedWorkflow, ...workflow } : state.selectedWorkflow,
-    })),
-  deleteWorkflow: (id) =>
-    set((state) => ({
-      workflows: state.workflows.filter((w) => w.id !== id),
-    })),
-  setSelectedWorkflow: (workflow) => set({ selectedWorkflow: workflow }),
-  addTask: (task) => set((state) => ({ tasks: [...state.tasks, task] })),
-  updateTask: (id, task) =>
-    set((state) => ({
-      tasks: state.tasks.map((t) => (t.id === id ? { ...t, ...task } : t)),
-    })),
-  deleteTask: (id) =>
-    set((state) => ({
-      tasks: state.tasks.filter((t) => t.id !== id),
-    })),
-  addExecution: (execution) => set((state) => ({ executions: [execution, ...state.executions] })),
-  setSelectedExecution: (execution) => set({ selectedExecution: execution }),
-  setCanvasNodes: (nodes) => set({ canvasNodes: nodes }),
-  setCanvasEdges: (edges) => set({ canvasEdges: edges }),
-  executeWorkflow: (workflowId, input = {}) => {
-    const state = useWorkflowStore.getState();
-    const workflow = state.workflows.find((w) => w.id === workflowId);
-    if (!workflow) {
-      throw new Error('Workflow not found');
-    }
+    workflows: [],
+    tasks: [],
+    executions: [],
+    selectedWorkflow: null,
+    selectedExecution: null,
+    canvasNodes: [],
+    canvasEdges: [],
+    addWorkflow: (workflow) =>
+      set((state) => {
+        // Check if workflow with same name already exists
+        const existingIndex = state.workflows.findIndex((w) => w.name === workflow.name);
 
-    const newExecution: Execution = {
-      id: `exec-${Date.now()}`,
-      workflowId: workflow.id,
-      workflowName: workflow.name,
-      status: 'running',
-      startTime: new Date().toISOString(),
-      endTime: undefined,
-      duration: undefined,
-      input: input,
-      output: undefined,
-      tasks: [
-        {
-          taskId: '1',
-          taskName: 'Initialize Workflow',
-          status: 'running',
-          startTime: new Date().toISOString(),
-          input: input,
-          output: undefined,
-        },
-        {
-          taskId: '2',
-          taskName: 'Process Data',
-          status: 'pending',
-          input: undefined,
-          output: undefined,
-        },
-        {
-          taskId: '3',
-          taskName: 'Finalize',
-          status: 'pending',
-          input: undefined,
-          output: undefined,
-        },
-      ],
-    };
-
-    set((state) => ({
-      executions: [newExecution, ...state.executions],
-    }));
-
-    // Simulate execution completion after 3 seconds
-    setTimeout(() => {
-      completeExecutionSimulation(newExecution.id);
-    }, 3000);
-
-    return newExecution;
-  },
-  loadWorkflows: (workflows) => set({ workflows }),
-  persistWorkflows: async () => {
-    // Get current state and persist to filestore
-    const state = useWorkflowStore.getState();
-    const workflows = state.workflows;
-    
-    // Also save to localStorage for quick access
-    try {
-      localStorage.setItem('workflows', JSON.stringify(workflows));
-      console.log('Workflows persisted to localStorage');
-    } catch (err) {
-      console.warn('Failed to save workflows to localStorage:', err);
-    }
-    
-    // Save each workflow to filestore as individual file for scalability and Git compatibility
-    try {
-      let savedCount = 0;
-      for (const wf of workflows) {
-        const workflowToSave = {
-          id: wf.id,
-          name: wf.name,
-          description: wf.description,
-          version: wf.version,
-          schemaVersion: wf.schemaVersion,
-          ownerEmail: wf.ownerEmail,
-          ownerApp: wf.ownerApp,
-          createdBy: wf.createdBy,
-          updatedBy: wf.updatedBy,
-          createTime: wf.createTime,
-          updateTime: wf.updateTime,
-          nodes: wf.nodes, // Complete node data with all task configurations
-          edges: wf.edges, // All edge connections
-          createdAt: wf.createdAt,
-          status: wf.status,
-          syncStatus: wf.syncStatus,
-          restartable: wf.restartable,
-          timeoutSeconds: wf.timeoutSeconds,
-          timeoutPolicy: wf.timeoutPolicy,
-          workflowStatusListenerEnabled: wf.workflowStatusListenerEnabled,
-          failureWorkflow: wf.failureWorkflow,
-          inputParameters: wf.inputParameters,
-          outputParameters: wf.outputParameters,
-          inputTemplate: wf.inputTemplate,
-          accessPolicy: wf.accessPolicy,
-          variables: wf.variables,
-          tasks: wf.tasks, // OSS Conductor task definitions
-          settings: wf.settings, // Complete workflow settings
-          publicationStatus: wf.publicationStatus,
-        };
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const result = await fileStoreClient.saveWorkflow(workflowToSave as any);
-        if (result) {
-          savedCount++;
-          console.log(`Persisted workflow ${wf.name} to filestore (${savedCount}/${workflows.length})`);
-        } else {
-          console.warn(`Failed to persist workflow ${wf.name} to filestore`);
+        if (existingIndex >= 0) {
+          // Replace existing workflow with updated version
+          console.log(
+            `[WorkflowStore] Replacing existing workflow "${workflow.name}" with updated version`
+          );
+          const updatedWorkflows = [...state.workflows];
+          updatedWorkflows[existingIndex] = workflow;
+          return { workflows: updatedWorkflows };
         }
+
+        // Add as new workflow if it doesn't exist
+        console.log(`[WorkflowStore] Adding new workflow "${workflow.name}"`);
+        return { workflows: [...state.workflows, workflow] };
+      }),
+    updateWorkflow: (id, workflow) =>
+      set((state) => ({
+        workflows: state.workflows.map((w) => (w.id === id ? { ...w, ...workflow } : w)),
+        selectedWorkflow:
+          state.selectedWorkflow?.id === id
+            ? { ...state.selectedWorkflow, ...workflow }
+            : state.selectedWorkflow,
+      })),
+    deleteWorkflow: (id) =>
+      set((state) => ({
+        workflows: state.workflows.filter((w) => w.id !== id),
+      })),
+    setSelectedWorkflow: (workflow) => set({ selectedWorkflow: workflow }),
+    addTask: (task) => set((state) => ({ tasks: [...state.tasks, task] })),
+    updateTask: (id, task) =>
+      set((state) => ({
+        tasks: state.tasks.map((t) => (t.id === id ? { ...t, ...task } : t)),
+      })),
+    deleteTask: (id) =>
+      set((state) => ({
+        tasks: state.tasks.filter((t) => t.id !== id),
+      })),
+    addExecution: (execution) => set((state) => ({ executions: [execution, ...state.executions] })),
+    setSelectedExecution: (execution) => set({ selectedExecution: execution }),
+    setCanvasNodes: (nodes) => set({ canvasNodes: nodes }),
+    setCanvasEdges: (edges) => set({ canvasEdges: edges }),
+    executeWorkflow: (workflowId, input = {}) => {
+      const state = useWorkflowStore.getState();
+      const workflow = state.workflows.find((w) => w.id === workflowId);
+      if (!workflow) {
+        throw new Error('Workflow not found');
       }
-      console.log(`Successfully persisted ${savedCount}/${workflows.length} workflows to filestore with individual files`);
-    } catch (err) {
-      console.warn('Failed to save workflows to filestore:', err);
-    }
-  },
-  clearWorkflows: () => {
-    set({ workflows: [] });
-    try {
-      localStorage.removeItem('workflows');
-    } catch (err) {
-      console.warn('Failed to clear workflows from localStorage:', err);
-    }
-  },
+
+      const newExecution: Execution = {
+        id: `exec-${Date.now()}`,
+        workflowId: workflow.id,
+        workflowName: workflow.name,
+        status: 'running',
+        startTime: new Date().toISOString(),
+        endTime: undefined,
+        duration: undefined,
+        input: input,
+        output: undefined,
+        tasks: [
+          {
+            taskId: '1',
+            taskName: 'Initialize Workflow',
+            status: 'running',
+            startTime: new Date().toISOString(),
+            input: input,
+            output: undefined,
+          },
+          {
+            taskId: '2',
+            taskName: 'Process Data',
+            status: 'pending',
+            input: undefined,
+            output: undefined,
+          },
+          {
+            taskId: '3',
+            taskName: 'Finalize',
+            status: 'pending',
+            input: undefined,
+            output: undefined,
+          },
+        ],
+      };
+
+      set((state) => ({
+        executions: [newExecution, ...state.executions],
+      }));
+
+      // Simulate execution completion after 3 seconds
+      setTimeout(() => {
+        completeExecutionSimulation(newExecution.id);
+      }, 3000);
+
+      return newExecution;
+    },
+    loadWorkflows: (workflows) => set({ workflows }),
+    persistWorkflows: async () => {
+      // Get current state and persist to filestore
+      const state = useWorkflowStore.getState();
+      const workflows = state.workflows;
+
+      // Also save to localStorage for quick access
+      try {
+        localStorage.setItem('workflows', JSON.stringify(workflows));
+        console.log('Workflows persisted to localStorage');
+      } catch (err) {
+        console.warn('Failed to save workflows to localStorage:', err);
+      }
+
+      // Save each workflow to filestore as individual file for scalability and Git compatibility
+      try {
+        let savedCount = 0;
+        for (const wf of workflows) {
+          const workflowToSave = {
+            id: wf.id,
+            name: wf.name,
+            description: wf.description,
+            version: wf.version,
+            schemaVersion: wf.schemaVersion,
+            ownerEmail: wf.ownerEmail,
+            ownerApp: wf.ownerApp,
+            createdBy: wf.createdBy,
+            updatedBy: wf.updatedBy,
+            createTime: wf.createTime,
+            updateTime: wf.updateTime,
+            nodes: wf.nodes, // Complete node data with all task configurations
+            edges: wf.edges, // All edge connections
+            createdAt: wf.createdAt,
+            status: wf.status,
+            syncStatus: wf.syncStatus,
+            restartable: wf.restartable,
+            timeoutSeconds: wf.timeoutSeconds,
+            timeoutPolicy: wf.timeoutPolicy,
+            workflowStatusListenerEnabled: wf.workflowStatusListenerEnabled,
+            failureWorkflow: wf.failureWorkflow,
+            inputParameters: wf.inputParameters,
+            outputParameters: wf.outputParameters,
+            inputTemplate: wf.inputTemplate,
+            accessPolicy: wf.accessPolicy,
+            variables: wf.variables,
+            tasks: wf.tasks, // OSS Conductor task definitions
+            settings: wf.settings, // Complete workflow settings
+            publicationStatus: wf.publicationStatus,
+          };
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const result = await fileStoreClient.saveWorkflow(workflowToSave as any);
+          if (result) {
+            savedCount++;
+            console.log(
+              `Persisted workflow ${wf.name} to filestore (${savedCount}/${workflows.length})`
+            );
+          } else {
+            console.warn(`Failed to persist workflow ${wf.name} to filestore`);
+          }
+        }
+        console.log(
+          `Successfully persisted ${savedCount}/${workflows.length} workflows to filestore with individual files`
+        );
+      } catch (err) {
+        console.warn('Failed to save workflows to filestore:', err);
+      }
+    },
+    clearWorkflows: () => {
+      set({ workflows: [] });
+      try {
+        localStorage.removeItem('workflows');
+      } catch (err) {
+        console.warn('Failed to clear workflows from localStorage:', err);
+      }
+    },
   };
 });

@@ -22,9 +22,7 @@ const initialAlerts: AlertConfig[] = [
       conditionGroups: [
         {
           id: uuidv4(),
-          conditions: [
-            { id: uuidv4(), conditionType: 'EQUAL', name: 'orderType', value: 'BOPIS' },
-          ],
+          conditions: [{ id: uuidv4(), conditionType: 'EQUAL', name: 'orderType', value: 'BOPIS' }],
           joinType: 'AND',
         },
       ],
@@ -57,7 +55,7 @@ const initialAlerts: AlertConfig[] = [
         ],
         description: 'Order stage validation',
         joinType: 'AND',
-        id: 0
+        id: 0,
       },
     ],
     version: 1,
@@ -74,9 +72,7 @@ const initialAlerts: AlertConfig[] = [
       conditionGroups: [
         {
           id: uuidv4(),
-          conditions: [
-            { id: uuidv4(), conditionType: 'EQUAL', name: 'region', value: 'EAST' },
-          ],
+          conditions: [{ id: uuidv4(), conditionType: 'EQUAL', name: 'region', value: 'EAST' }],
           joinType: 'AND',
         },
       ],
@@ -107,7 +103,7 @@ const initialAlerts: AlertConfig[] = [
         ],
         description: 'Order expiration check',
         joinType: 'AND',
-        id: 0
+        id: 0,
       },
     ],
     version: 1,

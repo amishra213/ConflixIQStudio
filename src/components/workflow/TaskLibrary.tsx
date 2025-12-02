@@ -2,7 +2,20 @@ import { useState } from 'react';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { SearchIcon, BoxIcon, GitBranchIcon, TimerIcon, DatabaseIcon, WebhookIcon, MailIcon, FunctionSquareIcon, ClockIcon, XCircleIcon, RepeatIcon, ZapIcon } from 'lucide-react';
+import {
+  SearchIcon,
+  BoxIcon,
+  GitBranchIcon,
+  TimerIcon,
+  DatabaseIcon,
+  WebhookIcon,
+  MailIcon,
+  FunctionSquareIcon,
+  ClockIcon,
+  XCircleIcon,
+  RepeatIcon,
+  ZapIcon,
+} from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface Task {
@@ -21,7 +34,7 @@ const systemTasks: Task[] = [
     type: 'system',
     category: 'Integration',
     icon: WebhookIcon,
-    description: 'Make HTTP API calls'
+    description: 'Make HTTP API calls',
   },
   {
     id: 'FORK_AND_CONVERGE',
@@ -29,7 +42,7 @@ const systemTasks: Task[] = [
     type: 'system',
     category: 'Control',
     icon: GitBranchIcon,
-    description: 'Execute tasks in parallel and wait for all branches to complete'
+    description: 'Execute tasks in parallel and wait for all branches to complete',
   },
   {
     id: 'DECISION',
@@ -37,7 +50,7 @@ const systemTasks: Task[] = [
     type: 'system',
     category: 'Control',
     icon: GitBranchIcon,
-    description: 'Conditional branching logic'
+    description: 'Conditional branching logic',
   },
   {
     id: 'DO_WHILE',
@@ -45,7 +58,7 @@ const systemTasks: Task[] = [
     type: 'system',
     category: 'Control',
     icon: RepeatIcon,
-    description: 'Loop until condition is met'
+    description: 'Loop until condition is met',
   },
   {
     id: 'DYNAMIC',
@@ -53,7 +66,7 @@ const systemTasks: Task[] = [
     type: 'system',
     category: 'Control',
     icon: ZapIcon,
-    description: 'Execute a task determined dynamically at runtime'
+    description: 'Execute a task determined dynamically at runtime',
   },
   {
     id: 'MAPPER',
@@ -61,7 +74,7 @@ const systemTasks: Task[] = [
     type: 'system',
     category: 'Advanced',
     icon: FunctionSquareIcon,
-    description: 'Maps input JSON to output JSON'
+    description: 'Maps input JSON to output JSON',
   },
   {
     id: 'SIGNAL',
@@ -69,7 +82,7 @@ const systemTasks: Task[] = [
     type: 'system',
     category: 'Integration',
     icon: WebhookIcon,
-    description: 'Send signals to unblock waiting tasks in workflows'
+    description: 'Send signals to unblock waiting tasks in workflows',
   },
   {
     id: 'SIGNAL_WAIT',
@@ -77,7 +90,7 @@ const systemTasks: Task[] = [
     type: 'system',
     category: 'Control',
     icon: WebhookIcon,
-    description: 'Wait for a signal before proceeding'
+    description: 'Wait for a signal before proceeding',
   },
   {
     id: 'SIGNAL_OR_SCHEDULED_WAIT',
@@ -85,7 +98,7 @@ const systemTasks: Task[] = [
     type: 'system',
     category: 'Control',
     icon: TimerIcon,
-    description: 'Wait for signal or timeout, whichever comes first'
+    description: 'Wait for signal or timeout, whichever comes first',
   },
   {
     id: 'SCHEDULED_WAIT',
@@ -93,7 +106,7 @@ const systemTasks: Task[] = [
     type: 'system',
     category: 'Control',
     icon: ClockIcon,
-    description: 'Wait for a specified duration before continuing'
+    description: 'Wait for a specified duration before continuing',
   },
   {
     id: 'LAMBDA',
@@ -101,7 +114,7 @@ const systemTasks: Task[] = [
     type: 'system',
     category: 'Advanced',
     icon: FunctionSquareIcon,
-    description: 'Execute inline JavaScript expressions'
+    description: 'Execute inline JavaScript expressions',
   },
   {
     id: 'PASS_THROUGH',
@@ -109,7 +122,7 @@ const systemTasks: Task[] = [
     type: 'system',
     category: 'Basic',
     icon: BoxIcon,
-    description: 'Pass input directly to output without modification'
+    description: 'Pass input directly to output without modification',
   },
   {
     id: 'TERMINATE',
@@ -117,8 +130,8 @@ const systemTasks: Task[] = [
     type: 'system',
     category: 'Control',
     icon: XCircleIcon,
-    description: 'Terminate workflow execution'
-  }
+    description: 'Terminate workflow execution',
+  },
 ];
 
 const userTasks: Task[] = [
@@ -128,7 +141,7 @@ const userTasks: Task[] = [
     type: 'user',
     category: 'Communication',
     icon: MailIcon,
-    description: 'Send email notification'
+    description: 'Send email notification',
   },
   {
     id: 'PROCESS_DATA',
@@ -136,7 +149,7 @@ const userTasks: Task[] = [
     type: 'user',
     category: 'Data',
     icon: DatabaseIcon,
-    description: 'Custom data processing task'
+    description: 'Custom data processing task',
   },
   {
     id: 'TRANSFORM',
@@ -144,22 +157,24 @@ const userTasks: Task[] = [
     type: 'user',
     category: 'Data',
     icon: FunctionSquareIcon,
-    description: 'Transform data structure'
-  }
+    description: 'Transform data structure',
+  },
 ];
 
 export default function TaskLibrary() {
   const [searchQuery, setSearchQuery] = useState('');
   const [draggedTask, setDraggedTask] = useState<Task | null>(null);
 
-  const filteredSystemTasks = systemTasks.filter(task =>
-    task.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    task.description.toLowerCase().includes(searchQuery.toLowerCase())
+  const filteredSystemTasks = systemTasks.filter(
+    (task) =>
+      task.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      task.description.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const filteredUserTasks = userTasks.filter(task =>
-    task.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    task.description.toLowerCase().includes(searchQuery.toLowerCase())
+  const filteredUserTasks = userTasks.filter(
+    (task) =>
+      task.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      task.description.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   const handleDragStart = (task: Task, e: React.DragEvent) => {
@@ -176,7 +191,10 @@ export default function TaskLibrary() {
     <div className="h-full flex flex-col">
       <div className="px-4 pt-4 pb-2">
         <div className="relative">
-          <SearchIcon className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" strokeWidth={1.5} />
+          <SearchIcon
+            className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+            strokeWidth={1.5}
+          />
           <Input
             type="search"
             placeholder="Search tasks..."
@@ -220,7 +238,9 @@ export default function TaskLibrary() {
                       <div className="flex items-center gap-2 mb-1">
                         <p className="text-sm font-medium text-foreground truncate">{task.name}</p>
                       </div>
-                      <p className="text-xs text-muted-foreground line-clamp-2">{task.description}</p>
+                      <p className="text-xs text-muted-foreground line-clamp-2">
+                        {task.description}
+                      </p>
                     </div>
                   </button>
                 );
@@ -260,11 +280,16 @@ export default function TaskLibrary() {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1">
                         <p className="text-sm font-medium text-foreground truncate">{task.name}</p>
-                        <Badge variant="outline" className="text-xs bg-tertiary/10 text-tertiary border-tertiary/20">
+                        <Badge
+                          variant="outline"
+                          className="text-xs bg-tertiary/10 text-tertiary border-tertiary/20"
+                        >
                           Custom
                         </Badge>
                       </div>
-                      <p className="text-xs text-muted-foreground line-clamp-2">{task.description}</p>
+                      <p className="text-xs text-muted-foreground line-clamp-2">
+                        {task.description}
+                      </p>
                     </div>
                   </button>
                 );

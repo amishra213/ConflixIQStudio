@@ -74,7 +74,11 @@ export function JoinModal({ open, onOpenChange, onSave, initialConfig }: JoinMod
           placeholder="e.g., task-ref-1"
           className="flex-1 bg-[#1a1f2e] text-white border-[#2a3142]"
         />
-        <Button onClick={handleAddJoinOn} size="sm" className="bg-cyan-500 text-white hover:bg-cyan-600">
+        <Button
+          onClick={handleAddJoinOn}
+          size="sm"
+          className="bg-cyan-500 text-white hover:bg-cyan-600"
+        >
           Add
         </Button>
       </div>

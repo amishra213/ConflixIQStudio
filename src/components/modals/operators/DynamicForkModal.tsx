@@ -248,7 +248,10 @@ export function DynamicForkModal({
         return JSON.stringify(
           {
             forkTaskType: 'HTTP',
-            forkTaskInputs: [{ url: 'https://api1.example.com' }, { url: 'https://api2.example.com' }],
+            forkTaskInputs: [
+              { url: 'https://api1.example.com' },
+              { url: 'https://api2.example.com' },
+            ],
           },
           null,
           2
@@ -284,11 +287,10 @@ export function DynamicForkModal({
           </SelectContent>
         </Select>
         <p className="text-xs text-gray-400 mt-2">
-          {configMode === 'different-tasks' &&
-            'Each fork runs a different task configuration'}
-          {configMode === 'same-task' &&
-            'All forks run the same task type with different inputs'}
-          {configMode === 'subworkflow' && 'All forks run the same subworkflow with different inputs'}
+          {configMode === 'different-tasks' && 'Each fork runs a different task configuration'}
+          {configMode === 'same-task' && 'All forks run the same task type with different inputs'}
+          {configMode === 'subworkflow' &&
+            'All forks run the same subworkflow with different inputs'}
         </p>
       </Card>
 
@@ -346,7 +348,10 @@ export function DynamicForkModal({
   };
 
   // Helper functions for validation
-  const validateDifferentTasks = (cfg: ForkJoinDynamicConfig, inputParams: Record<string, unknown>): string | null => {
+  const validateDifferentTasks = (
+    cfg: ForkJoinDynamicConfig,
+    inputParams: Record<string, unknown>
+  ): string | null => {
     if (!cfg.dynamicForkTasksParam || cfg.dynamicForkTasksParam.trim() === '') {
       return 'Dynamic Fork Tasks Parameter is required';
     }
@@ -362,7 +367,10 @@ export function DynamicForkModal({
     return null;
   };
 
-  const validateSameTask = (cfg: ForkJoinDynamicConfig, inputParams: Record<string, unknown>): string | null => {
+  const validateSameTask = (
+    cfg: ForkJoinDynamicConfig,
+    inputParams: Record<string, unknown>
+  ): string | null => {
     if (!inputParams.forkTaskType) {
       return 'Input Parameters must include "forkTaskType"';
     }

@@ -96,7 +96,7 @@ function cleanTaskObject(obj: unknown, excludedFields: Set<string>): unknown {
   }
 
   if (Array.isArray(obj)) {
-    return obj.map(item => cleanTaskObject(item, excludedFields));
+    return obj.map((item) => cleanTaskObject(item, excludedFields));
   }
 
   if (typeof obj === 'object') {
@@ -133,44 +133,60 @@ function ensureNullableField(obj: Record<string, unknown>, fieldName: string): v
  */
 function ensureRequiredOperatorFields(task: Record<string, unknown>): Record<string, unknown> {
   const result = { ...task };
-  
+
   // CRITICAL: Ensure 'type' field is always set and valid - Conductor will fail to deserialize if type is null
   if (!result.type || result.type === '') {
     const taskName = typeof task.name === 'string' ? task.name : 'unknown';
-    throw new Error(`Task "${taskName}" is missing a required 'type' field. All tasks must have a valid Conductor task type.`);
+    throw new Error(
+      `Task "${taskName}" is missing a required 'type' field. All tasks must have a valid Conductor task type.`
+    );
   }
-  
+
   // Remove workflowTaskType field - Conductor backend only uses 'type', not 'workflowTaskType'
   delete result.workflowTaskType;
-  
+
   // Ensure ALL tasks have these base required fields with proper defaults
   result.optional ??= false;
   result.asyncComplete ??= false;
   if (!result.inputParameters) {
     result.inputParameters = {};
   }
-  
+
   // Set explicit null for fields that should be nullable (not undefined)
   const nullableFields = [
-    'description', 'retryCount', 'rateLimited', 'evaluatorType', 'expression',
-    'scriptExpression', 'decisionCases', 'defaultCase', 'forkTasks', 'joinOn',
-    'loopCondition', 'loopOver', 'dynamicTaskNameParam', 'sink', 'subWorkflowParam',
-    'outputParameters', 'defaultExclusiveJoinTask', 'dynamicForkTasksParam',
-    'dynamicForkTasksInputParamName'
+    'description',
+    'retryCount',
+    'rateLimited',
+    'evaluatorType',
+    'expression',
+    'scriptExpression',
+    'decisionCases',
+    'defaultCase',
+    'forkTasks',
+    'joinOn',
+    'loopCondition',
+    'loopOver',
+    'dynamicTaskNameParam',
+    'sink',
+    'subWorkflowParam',
+    'outputParameters',
+    'defaultExclusiveJoinTask',
+    'dynamicForkTasksParam',
+    'dynamicForkTasksInputParamName',
   ];
-  
+
   for (const field of nullableFields) {
     ensureNullableField(result, field);
   }
-  
+
   // startDelay defaults to 0, not null
   if (result.startDelay === undefined) {
     result.startDelay = 0;
   }
-  
+
   // Ensure required fields for specific operator types
   const taskType = result.type as string;
-  
+
   switch (taskType) {
     case 'DO_WHILE':
       result.loopCondition ??= 'True';
@@ -187,7 +203,7 @@ function ensureRequiredOperatorFields(task: Record<string, unknown>): Record<str
       result.dynamicTaskNameParam ??= 'taskName';
       break;
   }
-  
+
   return result;
 }
 
@@ -223,9 +239,9 @@ function buildCleanConfig(
   if (Object.keys(inputParams).length > 0) {
     cleanConfig.inputParameters = {
       ...(typeof cleanConfig.inputParameters === 'object' && cleanConfig.inputParameters !== null
-        ? cleanConfig.inputParameters as Record<string, unknown>
+        ? (cleanConfig.inputParameters as Record<string, unknown>)
         : {}),
-      ...inputParams
+      ...inputParams,
     };
   }
 
@@ -236,12 +252,15 @@ function buildCleanConfig(
  * Clean and prepare defaultCase tasks
  * Note: Despite GraphQL schema showing [String], Conductor backend expects task objects
  */
-function cleanDefaultCase(defaultCase: unknown, excludedFields: Set<string>): unknown[] | undefined {
+function cleanDefaultCase(
+  defaultCase: unknown,
+  excludedFields: Set<string>
+): unknown[] | undefined {
   if (!defaultCase) return undefined;
-  
+
   const tasks: unknown[] = Array.isArray(defaultCase) ? defaultCase : [defaultCase];
-  const cleanedTasks = tasks.map(task => cleanTaskObject(task, excludedFields));
-  
+  const cleanedTasks = tasks.map((task) => cleanTaskObject(task, excludedFields));
+
   // Return cleaned task objects (not strings) - Conductor backend expects objects
   return cleanedTasks;
 }
@@ -249,13 +268,16 @@ function cleanDefaultCase(defaultCase: unknown, excludedFields: Set<string>): un
 /**
  * Clean and prepare decisionCases tasks
  */
-function cleanDecisionCases(decisionCases: unknown, excludedFields: Set<string>): Record<string, unknown> | undefined {
+function cleanDecisionCases(
+  decisionCases: unknown,
+  excludedFields: Set<string>
+): Record<string, unknown> | undefined {
   if (!decisionCases || typeof decisionCases !== 'object') return undefined;
-  
+
   const cleanedCases: Record<string, unknown> = {};
   for (const [caseKey, caseTasks] of Object.entries(decisionCases as Record<string, unknown>)) {
     if (Array.isArray(caseTasks)) {
-      cleanedCases[caseKey] = caseTasks.map(task => cleanTaskObject(task, excludedFields));
+      cleanedCases[caseKey] = caseTasks.map((task) => cleanTaskObject(task, excludedFields));
     } else {
       cleanedCases[caseKey] = cleanTaskObject(caseTasks, excludedFields);
     }
@@ -266,20 +288,25 @@ function cleanDecisionCases(decisionCases: unknown, excludedFields: Set<string>)
 /**
  * Process and clean operator-specific task structures
  */
-function processOperatorFields(cleanConfig: Record<string, unknown>, excludedFields: Set<string>): Record<string, unknown> {
+function processOperatorFields(
+  cleanConfig: Record<string, unknown>,
+  excludedFields: Set<string>
+): Record<string, unknown> {
   // loopOver should contain full task objects in an array, not just references
   if (cleanConfig.loopOver && !Array.isArray(cleanConfig.loopOver)) {
     cleanConfig.loopOver = [];
   } else if (cleanConfig.loopOver && Array.isArray(cleanConfig.loopOver)) {
     // Clean each task in loopOver array
-    cleanConfig.loopOver = (cleanConfig.loopOver as unknown[]).map(task => cleanTaskObject(task, excludedFields));
+    cleanConfig.loopOver = (cleanConfig.loopOver as unknown[]).map((task) =>
+      cleanTaskObject(task, excludedFields)
+    );
   }
 
   // forkTasks should contain full task objects in each branch (array of arrays)
   if (cleanConfig.forkTasks && Array.isArray(cleanConfig.forkTasks)) {
     cleanConfig.forkTasks = (cleanConfig.forkTasks as unknown[]).map((branch) => {
       if (Array.isArray(branch)) {
-        return branch.map(task => cleanTaskObject(task, excludedFields));
+        return branch.map((task) => cleanTaskObject(task, excludedFields));
       }
       return [];
     });
@@ -307,24 +334,27 @@ function createTaskObject(
 ): Record<string, unknown> {
   // Extract the task type from either taskType or type field
   const taskType = (node.data?.taskType || node.data?.type || finalCleanConfig.type) as string;
-  
+
   // Ensure we have a valid type - Conductor requires this field
   if (!taskType) {
     const nodeId = typeof node.id === 'string' ? node.id : 'unknown';
     const taskLabel = typeof node.data?.label === 'string' ? node.data.label : nodeId;
-    throw new Error(`Task "${taskLabel}" is missing a required 'type' field. All tasks must have a valid type (e.g., HTTP, SIMPLE, EVENT, WAIT, etc.)`);
+    throw new Error(
+      `Task "${taskLabel}" is missing a required 'type' field. All tasks must have a valid type (e.g., HTTP, SIMPLE, EVENT, WAIT, etc.)`
+    );
   }
-  
+
   // Remove workflowTaskType from the final config since Conductor expects only 'type'
   const configWithoutWorkflowTaskType = { ...finalCleanConfig };
   delete configWithoutWorkflowTaskType.workflowTaskType;
-  
+
   return {
     name: node.data?.taskName || node.data?.label || 'Unnamed Task',
     taskReferenceName: node.id,
     type: taskType,
     description: node.data?.description,
-    inputParameters: configWithoutWorkflowTaskType.inputParameters || node.data?.inputParameters || {},
+    inputParameters:
+      configWithoutWorkflowTaskType.inputParameters || node.data?.inputParameters || {},
     ...configWithoutWorkflowTaskType,
   };
 }
@@ -345,9 +375,16 @@ function processWorkflowNodes(
 
   for (const node of nodes) {
     const taskConfig = node.data?.config || {};
-    const cleanConfig = buildCleanConfig(taskConfig as Record<string, unknown>, validTaskFields, excludedFields);
+    const cleanConfig = buildCleanConfig(
+      taskConfig as Record<string, unknown>,
+      validTaskFields,
+      excludedFields
+    );
     const processedConfig = processOperatorFields(cleanConfig, excludedFields);
-    const finalCleanConfig = cleanTaskObject(processedConfig, excludedFields) as Record<string, unknown>;
+    const finalCleanConfig = cleanTaskObject(processedConfig, excludedFields) as Record<
+      string,
+      unknown
+    >;
     const taskObject = createTaskObject(node, finalCleanConfig);
     const taskWithDefaults = ensureRequiredOperatorFields(taskObject);
     tasks.push(taskWithDefaults as unknown as WorkflowTask);
@@ -363,19 +400,50 @@ function processWorkflowNodes(
 export function localWorkflowToConductor(workflow: LocalWorkflow): WorkflowDefinition {
   // Valid fields according to GraphQL WorkflowTaskInput schema
   const validTaskFields = new Set([
-    'name', 'taskReferenceName', 'type', 'workflowTaskType', 'description',
-    'inputParameters', 'outputParameters', 'optional', 'asyncComplete',
-    'retryCount', 'startDelay', 'rateLimited', 'evaluatorType', 'expression',
-    'scriptExpression', 'decisionCases', 'defaultCase', 'forkTasks', 'joinOn',
-    'defaultExclusiveJoinTask', 'loopCondition', 'loopOver',
-    'dynamicForkTasksParam', 'dynamicForkTasksInputParamName',
-    'dynamicTaskNameParam', 'sink', 'subWorkflowParam', 'taskDefinition'
+    'name',
+    'taskReferenceName',
+    'type',
+    'workflowTaskType',
+    'description',
+    'inputParameters',
+    'outputParameters',
+    'optional',
+    'asyncComplete',
+    'retryCount',
+    'startDelay',
+    'rateLimited',
+    'evaluatorType',
+    'expression',
+    'scriptExpression',
+    'decisionCases',
+    'defaultCase',
+    'forkTasks',
+    'joinOn',
+    'defaultExclusiveJoinTask',
+    'loopCondition',
+    'loopOver',
+    'dynamicForkTasksParam',
+    'dynamicForkTasksInputParamName',
+    'dynamicTaskNameParam',
+    'sink',
+    'subWorkflowParam',
+    'taskDefinition',
   ]);
 
   // Fields to explicitly exclude (internal graph representation only)
   const excludedFields = new Set([
-    'taskRefId', 'nodeId', 'id', 'label', 'taskName', 'taskType', 'x', 'y',
-    'position', 'data', 'config', '__typename'
+    'taskRefId',
+    'nodeId',
+    'id',
+    'label',
+    'taskName',
+    'taskType',
+    'x',
+    'y',
+    'position',
+    'data',
+    'config',
+    '__typename',
   ]);
 
   const settings = workflow.settings || {};
@@ -393,7 +461,8 @@ export function localWorkflowToConductor(workflow: LocalWorkflow): WorkflowDefin
     restartable: settings.restartable ?? workflow.restartable ?? true,
     schemaVersion: settings.schemaVersion || workflow.schemaVersion || 2,
     timeoutPolicy: settings.timeoutPolicy || workflow.timeoutPolicy || 'TIME_OUT_WF',
-    workflowStatusListenerEnabled: settings.workflowStatusListenerEnabled || workflow.workflowStatusListenerEnabled || false,
+    workflowStatusListenerEnabled:
+      settings.workflowStatusListenerEnabled || workflow.workflowStatusListenerEnabled || false,
   };
 
   // Add optional fields if they exist in the workflow or settings
@@ -401,31 +470,31 @@ export function localWorkflowToConductor(workflow: LocalWorkflow): WorkflowDefin
   if (workflow.createdBy || settings.createdBy) {
     result.createdBy = workflow.createdBy || settings.createdBy || 'ConductorDesigner';
   }
-  
+
   if (workflow.updatedBy || settings.updatedBy) {
     result.updatedBy = workflow.updatedBy || settings.updatedBy || 'ConductorDesigner';
   }
-  
+
   if (workflow.ownerEmail || settings.ownerEmail) {
     result.ownerEmail = workflow.ownerEmail || settings.ownerEmail || '';
   }
-  
+
   if (workflow.ownerApp || settings.ownerApp) {
     result.ownerApp = workflow.ownerApp || settings.ownerApp || '';
   }
-  
+
   if (workflow.inputTemplate || settings.inputTemplate) {
     result.inputTemplate = workflow.inputTemplate || settings.inputTemplate || {};
   }
-  
+
   if (workflow.accessPolicy || settings.accessPolicy) {
     result.accessPolicy = workflow.accessPolicy || settings.accessPolicy || {};
   }
-  
+
   if (workflow.failureWorkflow || settings.failureWorkflow) {
     result.failureWorkflow = workflow.failureWorkflow || settings.failureWorkflow || '';
   }
-  
+
   if (workflow.variables || settings.variables) {
     result.variables = workflow.variables || settings.variables || {};
   }

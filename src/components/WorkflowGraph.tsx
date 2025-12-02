@@ -58,10 +58,10 @@ export default function WorkflowGraph() {
       circle.setAttribute('cx', node.x.toString());
       circle.setAttribute('cy', node.y.toString());
       circle.setAttribute('r', '30');
-      
+
       const fillColor = 'hsl(220, 13%, 20%)';
       let strokeColor = 'hsl(187, 72%, 42%)';
-      
+
       if (node.status === 'completed') {
         strokeColor = 'hsl(152, 58%, 42%)';
       } else if (node.status === 'running') {
@@ -69,7 +69,7 @@ export default function WorkflowGraph() {
       } else if (node.status === 'failed') {
         strokeColor = 'hsl(313, 75%, 55%)';
       }
-      
+
       circle.setAttribute('fill', fillColor);
       circle.setAttribute('stroke', strokeColor);
       circle.setAttribute('stroke-width', '2');
@@ -93,7 +93,9 @@ export default function WorkflowGraph() {
   return (
     <Card className="h-full border-border bg-card text-card-foreground">
       <CardHeader>
-        <CardTitle className="font-heading text-xl text-foreground">Workflow Visualization</CardTitle>
+        <CardTitle className="font-heading text-xl text-foreground">
+          Workflow Visualization
+        </CardTitle>
       </CardHeader>
       <CardContent>
         <div ref={canvasRef} className="w-full overflow-x-auto" />

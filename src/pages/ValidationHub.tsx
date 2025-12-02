@@ -5,7 +5,14 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { useWorkflowStore } from '@/stores/workflowStore';
-import { CheckCircleIcon, SearchIcon, FilterIcon, FlaskConicalIcon, ListIcon, ArrowLeftIcon } from 'lucide-react';
+import {
+  CheckCircleIcon,
+  SearchIcon,
+  FilterIcon,
+  FlaskConicalIcon,
+  ListIcon,
+  ArrowLeftIcon,
+} from 'lucide-react';
 import {
   Table,
   TableBody,
@@ -20,9 +27,10 @@ export function ValidationHub() {
   const { workflows } = useWorkflowStore();
   const [searchQuery, setSearchQuery] = useState('');
 
-  const filteredWorkflows = workflows.filter((workflow) =>
-    workflow.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    (workflow.description?.toLowerCase().includes(searchQuery.toLowerCase()) ?? false)
+  const filteredWorkflows = workflows.filter(
+    (workflow) =>
+      workflow.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (workflow.description?.toLowerCase().includes(searchQuery.toLowerCase()) ?? false)
   );
 
   const handleValidateWorkflow = (workflowId: string) => {
@@ -98,7 +106,6 @@ export function ValidationHub() {
         </div>
       </Card>
 
-
       <Card className="p-6 bg-[#1a1f2e] border-[#2a3142]">
         <div className="flex items-center gap-4">
           <div className="relative flex-1">
@@ -122,27 +129,27 @@ export function ValidationHub() {
       </Card>
 
       {filteredWorkflows.length === 0 ? (
-      <Card className="p-16 bg-[#1a1f2e] border-[#2a3142] text-center">
-        <div className="max-w-md mx-auto space-y-6">
-          <div className="w-20 h-20 bg-purple-500/10 rounded-2xl mx-auto flex items-center justify-center">
-            <CheckCircleIcon className="w-10 h-10 text-purple-500" />
+        <Card className="p-16 bg-[#1a1f2e] border-[#2a3142] text-center">
+          <div className="max-w-md mx-auto space-y-6">
+            <div className="w-20 h-20 bg-purple-500/10 rounded-2xl mx-auto flex items-center justify-center">
+              <CheckCircleIcon className="w-10 h-10 text-purple-500" />
+            </div>
+            <h3 className="text-2xl font-semibold text-white">No workflows found</h3>
+            <p className="text-base text-gray-400">
+              {searchQuery
+                ? 'Try adjusting your search query'
+                : 'Create workflows first to start validation'}
+            </p>
+            {!searchQuery && (
+              <Button
+                onClick={() => navigate('/workflows')}
+                className="bg-cyan-500 text-white hover:bg-cyan-600 shadow-sm font-medium"
+              >
+                Go to Workflows
+              </Button>
+            )}
           </div>
-          <h3 className="text-2xl font-semibold text-white">No workflows found</h3>
-          <p className="text-base text-gray-400">
-            {searchQuery
-              ? 'Try adjusting your search query'
-              : 'Create workflows first to start validation'}
-          </p>
-          {!searchQuery && (
-            <Button
-              onClick={() => navigate('/workflows')}
-              className="bg-cyan-500 text-white hover:bg-cyan-600 shadow-sm font-medium"
-            >
-              Go to Workflows
-            </Button>
-          )}
-        </div>
-      </Card>
+        </Card>
       ) : (
         <Card className="bg-[#1a1f2e] border-[#2a3142]">
           <Table>
@@ -159,11 +166,14 @@ export function ValidationHub() {
               {filteredWorkflows.map((workflow) => {
                 let badgeClassName = '';
                 if (workflow.status === 'active') {
-                  badgeClassName = 'bg-green-500/20 text-green-400 border border-green-500/50 font-medium';
+                  badgeClassName =
+                    'bg-green-500/20 text-green-400 border border-green-500/50 font-medium';
                 } else if (workflow.status === 'paused') {
-                  badgeClassName = 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/50 font-medium';
+                  badgeClassName =
+                    'bg-yellow-500/20 text-yellow-400 border border-yellow-500/50 font-medium';
                 } else {
-                  badgeClassName = 'bg-gray-500/20 text-gray-400 border border-gray-500/50 font-medium';
+                  badgeClassName =
+                    'bg-gray-500/20 text-gray-400 border border-gray-500/50 font-medium';
                 }
                 return (
                   <TableRow
@@ -182,9 +192,7 @@ export function ValidationHub() {
                       {workflow.description}
                     </TableCell>
                     <TableCell>
-                      <Badge className={badgeClassName}>
-                        {workflow.status.toUpperCase()}
-                      </Badge>
+                      <Badge className={badgeClassName}>{workflow.status.toUpperCase()}</Badge>
                     </TableCell>
                     <TableCell className="text-center">
                       <Badge className="bg-cyan-500/20 text-cyan-400 border border-cyan-500/50 font-medium">

@@ -15,28 +15,16 @@ export {
 } from './JsonJqTransformSystemTaskModal';
 
 // INLINE
-export {
-  InlineSystemTaskModal,
-  type InlineSystemTaskConfig,
-} from './InlineSystemTaskModal';
+export { InlineSystemTaskModal, type InlineSystemTaskConfig } from './InlineSystemTaskModal';
 
 // EVENT
-export {
-  EventSystemTaskModal,
-  type EventSystemTaskConfig,
-} from './EventSystemTaskModal';
+export { EventSystemTaskModal, type EventSystemTaskConfig } from './EventSystemTaskModal';
 
 // WAIT
-export {
-  WaitSystemTaskModal,
-  type WaitSystemTaskConfig,
-} from './WaitSystemTaskModal';
+export { WaitSystemTaskModal, type WaitSystemTaskConfig } from './WaitSystemTaskModal';
 
 // NOOP
-export {
-  NoopSystemTaskModal,
-  type NoopSystemTaskConfig,
-} from './NoopSystemTaskModal';
+export { NoopSystemTaskModal, type NoopSystemTaskConfig } from './NoopSystemTaskModal';
 
 // TERMINATE
 export {
@@ -45,10 +33,7 @@ export {
 } from './TerminateSystemTaskModal';
 
 // HUMAN
-export {
-  HumanSystemTaskModal,
-  type HumanTaskConfig,
-} from './HumanSystemTaskModal';
+export { HumanSystemTaskModal, type HumanTaskConfig } from './HumanSystemTaskModal';
 
 // Type unions for all system tasks
 export type SystemTaskConfig =

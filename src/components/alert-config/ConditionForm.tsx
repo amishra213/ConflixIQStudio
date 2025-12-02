@@ -1,7 +1,13 @@
 import React from 'react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { Trash2Icon } from 'lucide-react';
 import { Condition, ConditionType } from '@/types/config';
@@ -14,9 +20,24 @@ interface ConditionFormProps {
 }
 
 const conditionTypes: ConditionType[] = [
-  'EQUAL', 'NOT_EQUAL', 'IN', 'NOT_IN', 'LESS_THAN', 'GREATER_THAN', 'BETWEEN',
-  'STARTS_WITH', 'ENDS_WITH', 'DEFINED', 'NOT_DEFINED', 'CONTAINS', 'NOT_CONTAINS',
-  'AFTER', 'BEFORE', 'NOT_NULL', 'BEFORE_WITHIN', 'AFTER_WITHIN'
+  'EQUAL',
+  'NOT_EQUAL',
+  'IN',
+  'NOT_IN',
+  'LESS_THAN',
+  'GREATER_THAN',
+  'BETWEEN',
+  'STARTS_WITH',
+  'ENDS_WITH',
+  'DEFINED',
+  'NOT_DEFINED',
+  'CONTAINS',
+  'NOT_CONTAINS',
+  'AFTER',
+  'BEFORE',
+  'NOT_NULL',
+  'BEFORE_WITHIN',
+  'AFTER_WITHIN',
 ];
 
 const durationUOMs = ['SECONDS', 'MINUTES', 'HOURS', 'DAYS'];
@@ -36,7 +57,9 @@ export const ConditionForm: React.FC<ConditionFormProps> = ({
     onChange({ ...condition, [name]: value });
   };
 
-  const showDurationFields = ['BEFORE_WITHIN', 'AFTER_WITHIN', 'NOT_DEFINED'].includes(condition.conditionType);
+  const showDurationFields = ['BEFORE_WITHIN', 'AFTER_WITHIN', 'NOT_DEFINED'].includes(
+    condition.conditionType
+  );
   const showValueField = !['DEFINED', 'NOT_DEFINED', 'NOT_NULL'].includes(condition.conditionType);
   const showMessageField = true; // Always show message for validation conditions
 

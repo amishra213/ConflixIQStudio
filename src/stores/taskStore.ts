@@ -42,15 +42,15 @@ export interface TaskDefinitionData {
 interface TaskStoreState {
   // Task cache
   cachedTasks: Map<string, CachedTaskData>;
-  
+
   // Full task definitions cache (from server)
   cachedTaskDefinitions: TaskDefinitionData[];
-  
+
   // FileStore sync status
   isFileStoreSyncing: boolean;
   fileStoreSyncError: string | null;
   lastFileStoreSyncTime: number | null;
-  
+
   // Actions
   markAsPublished: (taskName: string, syncTime?: number) => void;
   markAsDraft: (taskName: string) => void;
@@ -60,12 +60,12 @@ interface TaskStoreState {
   markAllAsPublished: (taskNames: string[]) => void;
   clearCache: () => void;
   getSyncSummary: () => { published: number; draft: number; syncing: number };
-  
+
   // Task definitions cache actions
   setTaskDefinitions: (definitions: TaskDefinitionData[]) => void;
   getTaskDefinitions: () => TaskDefinitionData[];
   clearTaskDefinitions: () => void;
-  
+
   // FileStore actions
   syncToFileStore: () => Promise<boolean>;
   loadFromFileStore: () => Promise<boolean>;
@@ -220,7 +220,10 @@ export const useTaskStore = create<TaskStoreState>()(
           if (success) {
             set({ lastFileStoreSyncTime: Date.now(), isFileStoreSyncing: false });
           } else {
-            set({ fileStoreSyncError: 'Failed to save cache to filestore', isFileStoreSyncing: false });
+            set({
+              fileStoreSyncError: 'Failed to save cache to filestore',
+              isFileStoreSyncing: false,
+            });
           }
           return success;
         } catch (error) {
@@ -244,7 +247,11 @@ export const useTaskStore = create<TaskStoreState>()(
                 isLocalOnly: item.isLocalOnly,
               });
             }
-            set({ cachedTasks: tasks, lastFileStoreSyncTime: Date.now(), isFileStoreSyncing: false });
+            set({
+              cachedTasks: tasks,
+              lastFileStoreSyncTime: Date.now(),
+              isFileStoreSyncing: false,
+            });
             return true;
           }
           set({ isFileStoreSyncing: false });
@@ -262,10 +269,18 @@ export const useTaskStore = create<TaskStoreState>()(
           const success = await fileStoreClient.clearCache();
           if (success) {
             // Clear both task cache AND task definitions
-            set({ cachedTasks: new Map(), cachedTaskDefinitions: [], lastFileStoreSyncTime: Date.now(), isFileStoreSyncing: false });
+            set({
+              cachedTasks: new Map(),
+              cachedTaskDefinitions: [],
+              lastFileStoreSyncTime: Date.now(),
+              isFileStoreSyncing: false,
+            });
             console.log('[TaskStore] Cleared filestore and local caches');
           } else {
-            set({ fileStoreSyncError: 'Failed to clear filestore cache', isFileStoreSyncing: false });
+            set({
+              fileStoreSyncError: 'Failed to clear filestore cache',
+              isFileStoreSyncing: false,
+            });
           }
           return success;
         } catch (error) {

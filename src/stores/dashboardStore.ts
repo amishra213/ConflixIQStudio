@@ -31,7 +31,7 @@ interface DashboardStateWithErrors {
     rate: number;
   }>;
 }
-  
+
 interface RecentError {
   id: string;
   message: string;
@@ -66,7 +66,7 @@ interface DashboardStateWithErrors {
     rate: number;
   }>;
 }
-  
+
 interface RecentError {
   id: string;
   message: string;
@@ -75,10 +75,6 @@ interface RecentError {
   details: string;
   timestamp: string | number | Date;
 }
-
-
- 
-
 
 interface DashboardState {
   workflowStats: WorkflowStats;

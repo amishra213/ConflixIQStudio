@@ -16,19 +16,19 @@ export default function EditableJsonView() {
     if (selectedWorkflow) {
       console.log('=== EditableJsonView updating ===');
       console.log('Canvas nodes:', canvasNodes);
-      
+
       const workflowJson = {
         name: selectedWorkflow.name || '',
         description: selectedWorkflow.description || '',
         version: selectedWorkflow.version || 1,
         tasks: canvasNodes.map((node, index) => {
           console.log(`Processing node ${index + 1} for JSON view:`, node);
-          
+
           if (node.config) {
             console.log(`Node ${index + 1} config:`, node.config);
-            
+
             const config = node.config as Record<string, unknown>;
-            
+
             // OSS Conductor workflow task definition
             const taskJson: Record<string, unknown> = {
               name: (config.name as string) || `task_${index + 1}`,
@@ -50,7 +50,10 @@ export default function EditableJsonView() {
             }
 
             // For SWITCH tasks, add decisionCases and defaultCase
-            if (((config.type as string) === 'SWITCH' || (config.taskType as string) === 'SWITCH') && config.decisionCases) {
+            if (
+              ((config.type as string) === 'SWITCH' || (config.taskType as string) === 'SWITCH') &&
+              config.decisionCases
+            ) {
               console.log('Adding decisionCases to JSON:', config.decisionCases);
               taskJson.decisionCases = config.decisionCases;
               if (config.defaultCase) {
@@ -72,7 +75,7 @@ export default function EditableJsonView() {
         timeoutSeconds: selectedWorkflow.timeoutSeconds || 3600,
         restartable: selectedWorkflow.restartable ?? true,
       };
-      
+
       console.log('Final workflow JSON:', workflowJson);
       setJsonText(JSON.stringify(workflowJson, null, 2));
       setHasChanges(false);
@@ -108,7 +111,7 @@ export default function EditableJsonView() {
 
     try {
       const parsedWorkflow = JSON.parse(jsonText);
-      
+
       if (!selectedWorkflow) {
         toast({
           title: 'No workflow selected',
@@ -128,7 +131,7 @@ export default function EditableJsonView() {
       });
 
       setHasChanges(false);
-      
+
       toast({
         title: 'JSON Saved',
         description: 'Workflow JSON has been updated successfully.',
@@ -174,7 +177,7 @@ export default function EditableJsonView() {
       setJsonText(JSON.stringify(workflowJson, null, 2));
       setHasChanges(false);
       setJsonError('');
-      
+
       toast({
         title: 'JSON Reset',
         description: 'Changes have been discarded.',
@@ -197,9 +200,7 @@ export default function EditableJsonView() {
               <span className="text-sm font-medium">Valid JSON</span>
             </div>
           )}
-          {hasChanges && (
-            <span className="text-xs text-warning">• Unsaved changes</span>
-          )}
+          {hasChanges && <span className="text-xs text-warning">• Unsaved changes</span>}
         </div>
         <div className="flex items-center gap-2">
           <Button
@@ -227,7 +228,10 @@ export default function EditableJsonView() {
       {jsonError && (
         <div className="p-3 rounded-lg bg-destructive/10 border border-destructive/20">
           <div className="flex items-start gap-2">
-            <AlertCircleIcon className="h-4 w-4 text-destructive flex-shrink-0 mt-0.5" strokeWidth={1.5} />
+            <AlertCircleIcon
+              className="h-4 w-4 text-destructive flex-shrink-0 mt-0.5"
+              strokeWidth={1.5}
+            />
             <div className="flex-1">
               <p className="text-xs font-medium text-destructive">JSON Syntax Error</p>
               <p className="text-xs text-destructive/80 mt-1">{jsonError}</p>

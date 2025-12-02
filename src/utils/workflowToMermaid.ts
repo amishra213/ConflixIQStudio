@@ -17,7 +17,14 @@ export interface WorkflowTask {
   joinOn?: string[];
   loopCondition?: string;
   loopOver?: WorkflowTask[];
-  status?: 'SCHEDULED' | 'IN_PROGRESS' | 'COMPLETED' | 'FAILED' | 'TIMED_OUT' | 'SKIPPED' | 'CANCELED';
+  status?:
+    | 'SCHEDULED'
+    | 'IN_PROGRESS'
+    | 'COMPLETED'
+    | 'FAILED'
+    | 'TIMED_OUT'
+    | 'SKIPPED'
+    | 'CANCELED';
 }
 
 export interface WorkflowDefinition {
@@ -38,15 +45,17 @@ export interface WorkflowDefinition {
 export interface WorkflowExecution {
   workflowId: string;
   workflowDefinition: WorkflowDefinition;
-  tasks: Array<WorkflowTask & { 
-    taskId: string;
-    workflowTask: WorkflowTask;
-    status: string;
-    startTime?: number;
-    endTime?: number;
-    inputData?: unknown;
-    outputData?: unknown;
-  }>;
+  tasks: Array<
+    WorkflowTask & {
+      taskId: string;
+      workflowTask: WorkflowTask;
+      status: string;
+      startTime?: number;
+      endTime?: number;
+      inputData?: unknown;
+      outputData?: unknown;
+    }
+  >;
   status: string;
   startTime?: number;
   endTime?: number;
@@ -100,7 +109,7 @@ function getNodeShape(taskType: string, label: string): string {
  */
 function getStatusClass(status?: string): string {
   if (!status) return 'default';
-  
+
   switch (status.toUpperCase()) {
     case 'COMPLETED':
       return 'completed';
@@ -139,7 +148,7 @@ function processDecisionTask(
   config: MermaidConfig
 ): string[] {
   const allBranchEndNodes: string[] = [];
-  
+
   if (task.decisionCases) {
     for (const [caseValue, caseTasks] of Object.entries(task.decisionCases)) {
       if (caseTasks && caseTasks.length > 0) {
@@ -151,28 +160,34 @@ function processDecisionTask(
       }
     }
   }
-  
+
   if (task.defaultCase && task.defaultCase.length > 0) {
     const firstDefaultTask = task.defaultCase[0];
     const defaultNodeId = generateNodeId(firstDefaultTask.taskReferenceName, nodeIndex.value++);
-    const defaultNodes = processTaskList(task.defaultCase, mermaidLines, nodeIndex, config, defaultNodeId);
+    const defaultNodes = processTaskList(
+      task.defaultCase,
+      mermaidLines,
+      nodeIndex,
+      config,
+      defaultNodeId
+    );
     mermaidLines.push(`    ${nodeId} -->|default| ${defaultNodeId}`);
     allBranchEndNodes.push(...defaultNodes);
   }
-  
+
   // If we have multiple branch end nodes, create a join point to converge them
   if (allBranchEndNodes.length > 1) {
     const convergeNodeId = `${nodeId}_converge`;
     const convergeLabel = 'Join';
     mermaidLines.push(`    ${convergeNodeId}${getNodeShape('JOIN', convergeLabel)}`);
-    
+
     for (const endNode of allBranchEndNodes) {
       mermaidLines.push(`    ${endNode} --> ${convergeNodeId}`);
     }
-    
+
     return [convergeNodeId];
   }
-  
+
   return allBranchEndNodes;
 }
 
@@ -186,7 +201,7 @@ function processForkJoinTask(
   const joinNodeId = `${nodeId}_join`;
   const joinLabel = task.joinOn ? `Join: ${task.joinOn.join(', ')}` : 'Join';
   const joinLines: string[] = [`    ${joinNodeId}${getNodeShape('JOIN', joinLabel)}`];
-  
+
   if (task.forkTasks) {
     for (let branchIndex = 0; branchIndex < task.forkTasks.length; branchIndex++) {
       const forkBranch = task.forkTasks[branchIndex];
@@ -194,16 +209,22 @@ function processForkJoinTask(
         const firstTask = forkBranch[0];
         const branchNodeId = generateNodeId(firstTask.taskReferenceName, nodeIndex.value++);
         joinLines.push(`    ${nodeId} -->|branch ${branchIndex + 1}| ${branchNodeId}`);
-        
-        const branchNodes = processTaskList(forkBranch, mermaidLines, nodeIndex, config, branchNodeId);
-        
+
+        const branchNodes = processTaskList(
+          forkBranch,
+          mermaidLines,
+          nodeIndex,
+          config,
+          branchNodeId
+        );
+
         for (const endNode of branchNodes) {
           joinLines.push(`    ${endNode} --> ${joinNodeId}`);
         }
       }
     }
   }
-  
+
   mermaidLines.push(...joinLines);
   return joinNodeId;
 }
@@ -222,19 +243,19 @@ function processDoWhileTask(
     const firstLoopTask = task.loopOver[0];
     const loopNodeId = generateNodeId(firstLoopTask.taskReferenceName, nodeIndex.value++);
     const loopLines: string[] = [`    ${nodeId} --> ${loopNodeId}`];
-    
+
     const loopNodes = processTaskList(task.loopOver, mermaidLines, nodeIndex, config, loopNodeId);
-    
+
     for (const endNode of loopNodes) {
       loopLines.push(`    ${endNode} -->|loop| ${nodeId}`);
     }
-    
+
     const exitNodeId = `${nodeId}_exit`;
     loopLines.push(`    ${nodeId} -->|exit| ${exitNodeId}`);
     mermaidLines.push(...loopLines);
     return exitNodeId;
   }
-  
+
   return nodeId;
 }
 
@@ -251,11 +272,17 @@ function processTaskNode(
 ): { endNodes: string[]; nextPreviousId: string | undefined } {
   const endNodes: string[] = [];
   let nextPreviousId: string | undefined;
-  
+
   switch ((task.type || 'GENERIC').toUpperCase()) {
     case 'DECISION':
     case 'SWITCH': {
-      const branchEndNodes = processDecisionTask(task, activeNodeId, mermaidLines, nodeIndex, config);
+      const branchEndNodes = processDecisionTask(
+        task,
+        activeNodeId,
+        mermaidLines,
+        nodeIndex,
+        config
+      );
       if (isLastTask) {
         endNodes.push(...branchEndNodes);
       } else {
@@ -284,7 +311,7 @@ function processTaskNode(
       }
       break;
   }
-  
+
   return { endNodes, nextPreviousId };
 }
 
@@ -300,14 +327,15 @@ function processTaskList(
 ): string[] {
   const endNodes: string[] = [];
   let previousNodeId = startNodeId;
-  
+
   for (let index = 0; index < tasks.length; index++) {
     const task = tasks[index];
-    const currentNodeId = previousNodeId || generateNodeId(task.taskReferenceName, nodeIndex.value++);
+    const currentNodeId =
+      previousNodeId || generateNodeId(task.taskReferenceName, nodeIndex.value++);
     const label = task.name || task.taskReferenceName;
     const nodeShape = getNodeShape(task.type || 'GENERIC', label);
     const taskLines: string[] = [];
-    
+
     if (!previousNodeId) {
       taskLines.push(`    ${currentNodeId}${nodeShape}`);
     } else if (index > 0) {
@@ -317,17 +345,17 @@ function processTaskList(
     } else {
       taskLines.push(`    ${currentNodeId}${nodeShape}`);
     }
-    
+
     if (config.showStatus && task.status) {
       const statusClass = getStatusClass(task.status);
       taskLines.push(`    class ${currentNodeId || previousNodeId} ${statusClass}`);
     }
-    
+
     mermaidLines.push(...taskLines);
-    
+
     const activeNodeId = previousNodeId || currentNodeId;
     const isLastTask = index === tasks.length - 1;
-    
+
     const { endNodes: taskEndNodes, nextPreviousId } = processTaskNode(
       task,
       activeNodeId,
@@ -336,15 +364,15 @@ function processTaskList(
       config,
       isLastTask
     );
-    
+
     endNodes.push(...taskEndNodes);
     previousNodeId = nextPreviousId;
   }
-  
+
   if (previousNodeId && endNodes.length === 0) {
     endNodes.push(previousNodeId);
   }
-  
+
   return endNodes;
 }
 
@@ -354,32 +382,34 @@ function processTaskList(
 export function workflowToMermaid(workflow: WorkflowDefinition, config?: MermaidConfig): string {
   const mermaidConfig = config || { theme: 'light', direction: 'TD' };
   const mermaidLines: string[] = [];
-  
+
   mermaidLines.push(`flowchart ${mermaidConfig.direction || 'TD'}`);
-  
+
   if (!workflow.tasks || workflow.tasks.length === 0) {
-    const emptyFlowLines = [
-      '    Start([Start])',
-      '    End([End])',
-      '    Start --> End',
-    ];
+    const emptyFlowLines = ['    Start([Start])', '    End([End])', '    Start --> End'];
     mermaidLines.push(...emptyFlowLines);
     return mermaidLines.join('\n');
   }
-  
+
   const nodeIndex = { value: 0 };
   const startNodeId = `start_${nodeIndex.value++}`;
   mermaidLines.push(`    ${startNodeId}([Start])`);
-  
-  const endNodeIds = processTaskList(workflow.tasks, mermaidLines, nodeIndex, mermaidConfig, startNodeId);
-  
+
+  const endNodeIds = processTaskList(
+    workflow.tasks,
+    mermaidLines,
+    nodeIndex,
+    mermaidConfig,
+    startNodeId
+  );
+
   const endNodeId = `end_${nodeIndex.value++}`;
   mermaidLines.push(`    ${endNodeId}([End])`);
-  
+
   for (const nodeId of endNodeIds) {
     mermaidLines.push(`    ${nodeId} --> ${endNodeId}`);
   }
-  
+
   // Add CSS classes with fixed node dimensions
   const cssClasses = [
     '',
@@ -393,9 +423,6 @@ export function workflowToMermaid(workflow: WorkflowDefinition, config?: Mermaid
     '    classDef terminate fill:#ffcdd2,stroke:#b71c1c,stroke-width:3px,color:#000',
   ];
   mermaidLines.push(...cssClasses);
-  
+
   return mermaidLines.join('\n');
 }
-
-
-

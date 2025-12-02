@@ -12,12 +12,7 @@ interface CanvasEdge {
 export default function WorkflowCanvas() {
   const canvasRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<SVGSVGElement>(null);
-  const {
-    canvasNodes,
-    canvasEdges,
-    setCanvasNodes,
-    setCanvasEdges
-  } = useWorkflowStore();
+  const { canvasNodes, canvasEdges, setCanvasNodes, setCanvasEdges } = useWorkflowStore();
   const [nodes, setNodes] = useState<CanvasNode[]>(canvasNodes);
   const [edges, setEdges] = useState<CanvasEdge[]>(canvasEdges);
   const [selectedNode, setSelectedNode] = useState<string | null>(null);
@@ -99,11 +94,11 @@ export default function WorkflowCanvas() {
     return nodesToArrange.map((node, index) => {
       const row = Math.floor(index / nodesPerRow);
       const col = index % nodesPerRow;
-      
+
       return {
         ...node,
-        x: startX + (col * horizontalSpacing),
-        y: startY + (row * verticalSpacing),
+        x: startX + col * horizontalSpacing,
+        y: startY + row * verticalSpacing,
       };
     });
   };
@@ -134,7 +129,7 @@ export default function WorkflowCanvas() {
       x: 0,
       y: 0,
       width: 120,
-      height: 60
+      height: 60,
     };
 
     const updatedNodes = [...nodes, newNode];
@@ -146,7 +141,7 @@ export default function WorkflowCanvas() {
       if (lastNode) {
         const newEdge: CanvasEdge = {
           from: lastNode.id,
-          to: newNode.id
+          to: newNode.id,
         };
         setEdges([...edges, newEdge]);
       }
@@ -158,14 +153,14 @@ export default function WorkflowCanvas() {
       if (!newNodeArranged) return;
       const containerWidth = canvasRef.current.clientWidth;
       const containerHeight = canvasRef.current.clientHeight;
-      
+
       canvasRef.current.scrollTo({
         left: newNodeArranged.x - containerWidth / 2 + newNodeArranged.width / 2,
         top: newNodeArranged.y - containerHeight / 2 + newNodeArranged.height / 2,
         behavior: 'smooth',
       });
     }
-    
+
     // Modal configuration is now handled by dedicated modal components
     // imported in parent container from components/modals folder
   };
@@ -185,12 +180,12 @@ export default function WorkflowCanvas() {
       if (connectingFrom === null) {
         setConnectingFrom(nodeId);
       } else {
-        const node = nodes.find(n => n.id === nodeId);
+        const node = nodes.find((n) => n.id === nodeId);
         if (node) {
           // Auto-connect nodes when shift-clicking
           const newEdge: CanvasEdge = {
             from: connectingFrom,
-            to: nodeId
+            to: nodeId,
           };
           setEdges([...edges, newEdge]);
           setConnectingFrom(null);
@@ -202,8 +197,8 @@ export default function WorkflowCanvas() {
   };
 
   const handleDeleteNode = (nodeId: string) => {
-    const updatedNodes = nodes.filter(n => n.id !== nodeId);
-    const updatedEdges = edges.filter(e => e.from !== nodeId && e.to !== nodeId);
+    const updatedNodes = nodes.filter((n) => n.id !== nodeId);
+    const updatedEdges = edges.filter((e) => e.from !== nodeId && e.to !== nodeId);
     setNodes(updatedNodes);
     setEdges(updatedEdges);
     setSelectedNode(null);
@@ -212,15 +207,15 @@ export default function WorkflowCanvas() {
   const handleConfigureNode = (nodeId: string, e?: React.MouseEvent) => {
     console.log('=== handleConfigureNode called ===');
     console.log('Node ID:', nodeId);
-    
+
     if (e) {
       e.stopPropagation();
       e.preventDefault();
     }
-    
-    const node = nodes.find(n => n.id === nodeId);
+
+    const node = nodes.find((n) => n.id === nodeId);
     console.log('Found node:', node);
-    
+
     if (node) {
       setSelectedNode(nodeId);
       // Modal configuration is now handled by dedicated modal components
@@ -229,8 +224,6 @@ export default function WorkflowCanvas() {
       console.error('Node not found!');
     }
   };
-
-
 
   const handleAutoArrange = () => {
     if (nodes.length === 0) return;
@@ -252,10 +245,10 @@ export default function WorkflowCanvas() {
     if (nodes.length === 0 || !canvasRef.current) return;
 
     // Calculate bounding box of all nodes
-    const minX = Math.min(...nodes.map(n => n.x));
-    const maxX = Math.max(...nodes.map(n => n.x + n.width));
-    const minY = Math.min(...nodes.map(n => n.y));
-    const maxY = Math.max(...nodes.map(n => n.y + n.height));
+    const minX = Math.min(...nodes.map((n) => n.x));
+    const maxX = Math.max(...nodes.map((n) => n.x + n.width));
+    const minY = Math.min(...nodes.map((n) => n.y));
+    const maxY = Math.max(...nodes.map((n) => n.y + n.height));
 
     const centerX = (minX + maxX) / 2;
     const centerY = (minY + maxY) / 2;
@@ -283,56 +276,66 @@ export default function WorkflowCanvas() {
       aria-label="Workflow Canvas"
     >
       <div className="relative" style={{ minHeight: '1000px', minWidth: '1500px' }}>
-      <svg
-        ref={svgRef}
-        className="absolute inset-0 w-full h-full pointer-events-none"
-        style={{ zIndex: 0 }}
-      />
+        <svg
+          ref={svgRef}
+          className="absolute inset-0 w-full h-full pointer-events-none"
+          style={{ zIndex: 0 }}
+        />
 
-      {nodes.length === 0 && (
-        <div className="absolute inset-0 flex items-center justify-center">
-          <div className="text-center space-y-2">
-            <p className="text-lg font-medium text-muted-foreground">Empty Canvas</p>
-            <p className="text-sm text-muted-foreground">Drag tasks from the library to start building your workflow</p>
+        {nodes.length === 0 && (
+          <div className="absolute inset-0 flex items-center justify-center">
+            <div className="text-center space-y-2">
+              <p className="text-lg font-medium text-muted-foreground">Empty Canvas</p>
+              <p className="text-sm text-muted-foreground">
+                Drag tasks from the library to start building your workflow
+              </p>
+            </div>
+          </div>
+        )}
+
+        <div className="absolute top-4 left-4 right-4 flex items-start justify-between gap-4">
+          <div className="bg-card border border-border rounded-lg p-3 text-xs text-muted-foreground space-y-1">
+            <p>
+              <strong>Tip:</strong> Drag tasks from library (auto-connects)
+            </p>
+            <p>
+              <strong>Shift+Click:</strong> Manually connect tasks
+            </p>
+            <p>
+              <strong>Click:</strong> Select & move tasks
+            </p>
+            <p>
+              <strong>Delete:</strong> Select task and click trash icon
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleAutoArrange}
+              disabled={nodes.length === 0}
+              className="bg-card text-foreground border-border hover:bg-accent"
+              aria-label="Auto arrange tasks"
+              title="Auto arrange tasks"
+            >
+              <AlignCenterIcon className="h-4 w-4 mr-2" strokeWidth={1.5} />
+              Auto Arrange
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleCenterView}
+              disabled={nodes.length === 0}
+              className="bg-card text-foreground border-border hover:bg-accent"
+              aria-label="Center view"
+              title="Center view"
+            >
+              <MaximizeIcon className="h-4 w-4 mr-2" strokeWidth={1.5} />
+              Center View
+            </Button>
           </div>
         </div>
-      )}
-
-      <div className="absolute top-4 left-4 right-4 flex items-start justify-between gap-4">
-        <div className="bg-card border border-border rounded-lg p-3 text-xs text-muted-foreground space-y-1">
-          <p><strong>Tip:</strong> Drag tasks from library (auto-connects)</p>
-          <p><strong>Shift+Click:</strong> Manually connect tasks</p>
-          <p><strong>Click:</strong> Select & move tasks</p>
-          <p><strong>Delete:</strong> Select task and click trash icon</p>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleAutoArrange}
-            disabled={nodes.length === 0}
-            className="bg-card text-foreground border-border hover:bg-accent"
-            aria-label="Auto arrange tasks"
-            title="Auto arrange tasks"
-          >
-            <AlignCenterIcon className="h-4 w-4 mr-2" strokeWidth={1.5} />
-            Auto Arrange
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleCenterView}
-            disabled={nodes.length === 0}
-            className="bg-card text-foreground border-border hover:bg-accent"
-            aria-label="Center view"
-            title="Center view"
-          >
-            <MaximizeIcon className="h-4 w-4 mr-2" strokeWidth={1.5} />
-            Center View
-          </Button>
-        </div>
-      </div>
 
         {nodes.map((node, index) => (
           <button
@@ -351,15 +354,19 @@ export default function WorkflowCanvas() {
               top: node.y,
               width: node.width,
               height: node.height,
-              zIndex: selectedNode === node.id ? 10 : 1
+              zIndex: selectedNode === node.id ? 10 : 1,
             }}
             onClick={(e) => handleNodeMouseDown(node.id, e)}
           >
             <div className="absolute -top-2 -left-2 flex h-6 w-6 items-center justify-center rounded-full bg-primary text-primary-foreground text-xs font-bold shadow-md border-2 border-background">
               {index + 1}
             </div>
-            <p className="text-sm font-medium text-foreground text-center px-2 truncate max-w-full">{node.name}</p>
-            <p className="text-xs text-muted-foreground">{node.type === 'SIMPLE' ? 'GENERIC' : node.type}</p>
+            <p className="text-sm font-medium text-foreground text-center px-2 truncate max-w-full">
+              {node.name}
+            </p>
+            <p className="text-xs text-muted-foreground">
+              {node.type === 'SIMPLE' ? 'GENERIC' : node.type}
+            </p>
 
             {selectedNode === node.id && (
               <div className="absolute -top-8 right-0 flex gap-1 z-10">
@@ -405,7 +412,6 @@ export default function WorkflowCanvas() {
           </button>
         ))}
       </div>
-
     </section>
   );
 }
