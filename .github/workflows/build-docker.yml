@@ -67,7 +67,7 @@ jobs:
     name: Build Windows Executable
     runs-on: windows-latest
     permissions:
-      contents: read
+      contents: write
 
     steps:
       - name: Checkout code
@@ -76,7 +76,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '18'
+          node-version: '20'
           cache: 'npm'
 
       - name: Install dependencies
@@ -97,31 +97,15 @@ jobs:
         id: artifacts
         shell: powershell
         run: |
-          # Find the latest sea-build directory
           $seaBuildDirs = Get-ChildItem -Path "dist" -Directory -Filter "sea-build-*" | Sort-Object Name -Descending
-          if ($seaBuildDirs.Count -eq 0) {
-            Write-Host "❌ No sea-build directory found!"
-            exit 1
-          }
-          
+          if ($seaBuildDirs.Count -eq 0) { Write-Host "No sea-build directory found"; exit 1 }
           $latestDir = $seaBuildDirs[0].FullName
-          Write-Host "✓ Found build directory: $latestDir"
-          
-          # Find EXE and ZIP files
+          Write-Host "Found build directory: $latestDir"
           $exeFile = Get-ChildItem -Path $latestDir -Filter "*.exe" | Select-Object -First 1
           $zipFile = Get-ChildItem -Path $latestDir -Filter "*.zip" | Select-Object -First 1
-          
-          if ($exeFile) {
-            Write-Host "✓ Found EXE: $($exeFile.Name)"
-            echo "exe_path=$($exeFile.FullName)" >> $env:GITHUB_OUTPUT
-          }
-          
-          if ($zipFile) {
-            Write-Host "✓ Found ZIP: $($zipFile.Name)"
-            echo "zip_path=$($zipFile.FullName)" >> $env:GITHUB_OUTPUT
-          }
-          
-          echo "build_dir=$latestDir" >> $env:GITHUB_OUTPUT
+          if ($exeFile) { Write-Host "Found EXE: $($exeFile.Name)"; "exe_path=$($exeFile.FullName)" | Out-File -FilePath $env:GITHUB_OUTPUT -Append }
+          if ($zipFile) { Write-Host "Found ZIP: $($zipFile.Name)"; "zip_path=$($zipFile.FullName)" | Out-File -FilePath $env:GITHUB_OUTPUT -Append }
+          "build_dir=$latestDir" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
 
       - name: Upload Windows artifacts
         uses: actions/upload-artifact@v4
@@ -133,8 +117,8 @@ jobs:
           if-no-files-found: warn
           retention-days: 30
 
-      - name: Create Release (on main/master push)
-        if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
+      - name: Create Release (on tag only)
+        if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v1
         with:
           files: |
@@ -191,8 +175,8 @@ jobs:
           if-no-files-found: warn
           retention-days: 30
 
-      - name: Create Release with Docker TAR (on tag)
-        if: startsWith(github.ref, 'refs/tags/') || github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+      - name: Create Release with Docker TAR (on tag only)
+        if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v1
         with:
           files: /tmp/image-${{ matrix.platform.name }}.tar

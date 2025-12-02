@@ -1,6 +1,6 @@
 # Multi-stage build for Conductor Designer
 # Stage 1: Build the React application
-FROM node:18-alpine AS builder
+FROM node:20-alpine AS builder
 
 WORKDIR /app
 
@@ -19,7 +19,7 @@ COPY resources ./resources
 RUN npm ci && npm run build
 
 # Stage 2: Runtime environment
-FROM node:18-alpine
+FROM node:20-alpine
 
 WORKDIR /app
 
