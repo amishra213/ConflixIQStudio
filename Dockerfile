@@ -15,8 +15,16 @@ COPY index.html ./
 COPY src ./src
 COPY resources ./resources
 
-# Install dependencies and build
-RUN npm ci && npm run build
+# Copy prebuilt dist if present in build context
+COPY dist ./dist
+
+# Allow skipping UI build when dist is provided by the build context
+ARG SKIP_UI_BUILD=false
+RUN if [ "$SKIP_UI_BUILD" = "false" ] || [ ! -d "./dist" ]; then \
+            npm ci && npm run build; \
+        else \
+            echo "Skipping UI build (dist provided by context)"; \
+        fi
 
 # Stage 2: Runtime environment
 FROM node:20-alpine
