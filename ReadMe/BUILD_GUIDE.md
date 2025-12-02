@@ -127,14 +127,14 @@ npm run sea:build:docker       # Docker
 
 ## Prerequisites
 
-- **Node.js**: 18.0.0 or higher
+- **Node.js**: 20.0.0 or higher
 - **npm**: 8.0.0 or higher
 - **Optional for Docker builds**: Docker or Rancher Desktop
 
 Check your versions:
 
 ```bash
-node --version    # Should be v18.x or higher
+node --version    # Should be v20.x or higher
 npm --version     # Should be 8.x or higher
 ```
 
@@ -312,7 +312,7 @@ If you encounter issues:
 
 1. Check the `BUILD-REPORT.md` in your build directory
 2. Review troubleshooting section above
-3. Verify Node.js version is 18.0.0 or higher
+2. Verify Node.js version is 20.0.0 or higher
 4. Try a clean rebuild: `rm -r .build && npm run sea:build`
 
 ## Common Commands
@@ -374,5 +374,5 @@ docker load -i conductor-designer-portable.tar
 ---
 
 **Version**: 1.0.0  
-**Node.js Requirement**: 18.0.0+  
-**Last Updated**: November 30, 2025
+**Node.js Requirement**: 20.0.0+  
+**Last Updated**: December 2, 2025
