@@ -12,6 +12,12 @@ on:
     branches:
       - main
       - master
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag version without v prefix (e.g., 1.0.0)'
+        required: true
+        type: string
 
 env:
   REGISTRY: ghcr.io
@@ -56,6 +62,7 @@ jobs:
             type=sha,prefix={{branch}}-
             type=raw,value=latest,enable={{is_default_branch}}
             type=raw,value=${{ steps.package-version.outputs.version }}
+            type=raw,value=v${{ inputs.tag }},enable=${{ github.event_name == 'workflow_dispatch' }}
 
       - name: Build and push Docker image
         uses: docker/build-push-action@v5
@@ -122,10 +129,11 @@ jobs:
           if-no-files-found: warn
           retention-days: 30
 
-      - name: Create Release (on tag only)
-        if: startsWith(github.ref, 'refs/tags/v')
+      - name: Create Release (on tag or workflow_dispatch)
+        if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
         uses: softprops/action-gh-release@v1
         with:
+          tag_name: ${{ github.event_name == 'workflow_dispatch' && format('v{0}', inputs.tag) || github.ref_name }}
           files: |
             dist/release/*.exe
             dist/release/*.zip
@@ -138,7 +146,7 @@ jobs:
   export-tar:
     name: Export Docker Image as TAR
     runs-on: ubuntu-latest
-    if: github.event_name == 'push'
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
     permissions:
       contents: write
 
@@ -189,10 +197,11 @@ jobs:
           if-no-files-found: warn
           retention-days: 30
 
-      - name: Create Release with Docker TAR (on tag only)
-        if: startsWith(github.ref, 'refs/tags/v')
+      - name: Create Release with Docker TAR (on tag or workflow_dispatch)
+        if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
         uses: softprops/action-gh-release@v1
         with:
+          tag_name: ${{ github.event_name == 'workflow_dispatch' && format('v{0}', inputs.tag) || github.ref_name }}
           files: dist/release/*.tar
           draft: false
           prerelease: false
