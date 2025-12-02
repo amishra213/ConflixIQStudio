@@ -89,33 +89,47 @@ jobs:
         run: npm run build
 
       - name: Build Windows executable
-        run: npm run electron-build
+        run: npm run sea:build:windows
         env:
-          TEMP: ${{ runner.temp }}\conductor-build-temp
-          TMP: ${{ runner.temp }}\conductor-build-temp
-          ELECTRON_CACHE: ${{ runner.temp }}\conductor-build-temp\electron-cache
-          ELECTRON_BUILDER_CACHE: ${{ runner.temp }}\conductor-build-temp\electron-builder-cache
-          npm_config_cache: ${{ runner.temp }}\conductor-build-temp\npm-cache
-          SKIP_NOTARIZATION: 'true'
-          ELECTRON_BUILDER_ALLOW_UNRESOLVED_DEPENDENCIES: 'true'
+          NODE_OPTIONS: --max-old-space-size=4096
 
-      - name: Create ZIP archive
+      - name: Find and prepare artifacts
+        id: artifacts
         shell: powershell
         run: |
-          $exePath = "dist\Conductor Designer-1.0.0-portable.exe"
-          $zipPath = "dist\Conductor Designer-1.0.0.zip"
-          if (Test-Path $exePath) {
-            Compress-Archive -Path $exePath -DestinationPath $zipPath -Force
-            Write-Host "✓ ZIP archive created: $zipPath"
-          } else {
-            Write-Host "⚠ EXE not found: $exePath"
+          # Find the latest sea-build directory
+          $seaBuildDirs = Get-ChildItem -Path "dist" -Directory -Filter "sea-build-*" | Sort-Object Name -Descending
+          if ($seaBuildDirs.Count -eq 0) {
+            Write-Host "❌ No sea-build directory found!"
+            exit 1
           }
+          
+          $latestDir = $seaBuildDirs[0].FullName
+          Write-Host "✓ Found build directory: $latestDir"
+          
+          # Find EXE and ZIP files
+          $exeFile = Get-ChildItem -Path $latestDir -Filter "*.exe" | Select-Object -First 1
+          $zipFile = Get-ChildItem -Path $latestDir -Filter "*.zip" | Select-Object -First 1
+          
+          if ($exeFile) {
+            Write-Host "✓ Found EXE: $($exeFile.Name)"
+            echo "exe_path=$($exeFile.FullName)" >> $env:GITHUB_OUTPUT
+          }
+          
+          if ($zipFile) {
+            Write-Host "✓ Found ZIP: $($zipFile.Name)"
+            echo "zip_path=$($zipFile.FullName)" >> $env:GITHUB_OUTPUT
+          }
+          
+          echo "build_dir=$latestDir" >> $env:GITHUB_OUTPUT
 
       - name: Upload Windows artifacts
         uses: actions/upload-artifact@v4
         with:
           name: windows-builds
-          path: dist/
+          path: |
+            ${{ steps.artifacts.outputs.exe_path }}
+            ${{ steps.artifacts.outputs.zip_path }}
           if-no-files-found: warn
           retention-days: 30
 
@@ -124,8 +138,8 @@ jobs:
         uses: softprops/action-gh-release@v1
         with:
           files: |
-            dist/**/*.exe
-            dist/**/*.zip
+            ${{ steps.artifacts.outputs.exe_path }}
+            ${{ steps.artifacts.outputs.zip_path }}
           draft: true
           prerelease: false
           generate_release_notes: true
