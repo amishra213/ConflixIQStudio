@@ -1,11 +1,11 @@
 version: '3.8'
 
 services:
-  conductor-designer:
+  conflixiq-studio:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: conductor-designer
+    container_name: conflixiq-studio
     ports:
       - "4000:4000"
       - "5173:5173"

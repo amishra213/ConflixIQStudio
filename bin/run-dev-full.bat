@@ -1,10 +1,10 @@
 @echo off
-REM Conductor Designer - Full Stack Development Server Launcher for Windows
+REM ConflixIQ Studio - Full Stack Development Server Launcher for Windows
 REM This batch file starts both frontend and backend servers
 
 echo.
 echo ====================================
-echo Conductor Designer - Full Stack Dev
+echo ConflixIQ Studio - Full Stack Dev
 echo ====================================
 echo.
 
@@ -28,7 +28,7 @@ if not exist "node_modules" (
     )
 )
 
-echo Starting Conductor Designer (Full Stack - Frontend + Backend)...
+echo Starting ConflixIQ Studio (Full Stack - Frontend + Backend)...
 echo.
 echo Frontend will be available at: http://localhost:5173/
 echo Backend GraphQL server will run in the background

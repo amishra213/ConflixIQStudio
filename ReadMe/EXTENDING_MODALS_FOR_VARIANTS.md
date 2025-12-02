@@ -1,6 +1,6 @@
-# Extending ConductorDesigner for Different Conductor Server Variants
+# Extending ConflixIQStudio for Different Conductor Server Variants
 
-This guide explains how to extend ConductorDesigner to support different variants or customizations of Conductor servers **without modifying the existing out-of-the-box modals, task definitions, or workflow definitions**. Instead, you'll create custom modal implementations in completely separate folders and swap them in via configuration.
+This guide explains how to extend ConflixIQStudio to support different variants or customizations of Conductor servers **without modifying the existing out-of-the-box modals, task definitions, or workflow definitions**. Instead, you'll create custom modal implementations in completely separate folders and swap them in via configuration.
 
 ## ⚠️ CRITICAL: Never Modify Base Files
 

@@ -16,7 +16,7 @@ async function ensureLogFolder() {
 function getLogFilePath() {
   const date = new Date();
   const dateStr = date.toISOString().slice(0, 10); // YYYY-MM-DD
-  return path.join(LOG_FOLDER, `conductor-designer-${dateStr}.log`);
+  return path.join(LOG_FOLDER, `conflixiq-studio-${dateStr}.log`);
 }
 
 async function writeLog(level, ...parts) {

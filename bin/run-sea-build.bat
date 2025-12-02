@@ -1,10 +1,10 @@
 @echo off
-REM Conductor Designer - Node.js SEA (Single Executable Application) Builder
-REM Creates portable Windows EXE and Docker images without Electron overhead
+REM ConflixIQ Studio - Node.js SEA (Single Executable Application) Builder
+REM Creates portable Windows EXE and Docker images
 
 echo.
 echo ====================================
-echo Conductor Designer - SEA Build
+echo ConflixIQ Studio - SEA Build
 echo ====================================
 echo.
 
@@ -56,9 +56,9 @@ if %errorlevel% equ 0 (
     echo Output directory: dist\sea-build-*\
     echo.
     echo Artifacts created:
-    echo   - conductor-designer.exe (Windows EXE)
-    echo   - conductor-designer-portable.jar (Docker JAR)
-    echo   - conductor-designer-portable.tar (Docker TAR)
+    echo   - conflixiq-studio.exe (Windows EXE)
+    echo   - conflixiq-studio-portable.jar (Docker JAR)
+    echo   - conflixiq-studio-portable.tar (Docker TAR)
     echo   - BUILD-REPORT.md (Build details)
     echo.
 ) else (

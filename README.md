@@ -1,4 +1,4 @@
-# Conductor Designer
+# ConflixIQ Studio
 
 A comprehensive visual workflow designer for Netflix Conductor - build, edit, and manage Conductor workflows with an intuitive drag-and-drop interface.
 
@@ -25,19 +25,19 @@ A comprehensive visual workflow designer for Netflix Conductor - build, edit, an
 
 ```bash
 # Pull from GitHub Container Registry
-docker pull ghcr.io/amishra213/conductordesigner:latest
+docker pull ghcr.io/amishra213/ConflixIQStudio:latest
 
 # Run the container
-docker run -d --name conductor-designer -p 4000:4000 ghcr.io/amishra213/conductordesigner:latest
+docker run -d --name conflixiq-studio -p 4000:4000 ghcr.io/amishra213/ConflixIQStudio:latest
 
 # Access at http://localhost:4000
 ```
 
 ### Option 2: Windows Executable (Portable)
 
-1. Download the latest `.exe` from [Releases](https://github.com/amishra213/ConductorDesigner/releases)
+1. Download the latest `.exe` from [Releases](https://github.com/amishra213/ConflixIQStudio/releases)
 2. Extract the ZIP file
-3. Double-click `conductor-designer-build-XXX.bat` or run the `.exe` directly
+3. Double-click `conflixiq-studio-build-XXX.bat` or run the `.exe` directly
 4. App opens automatically in your browser at `http://localhost:4000`
 
 **No installation required!** Everything is self-contained and portable.
@@ -46,8 +46,8 @@ docker run -d --name conductor-designer -p 4000:4000 ghcr.io/amishra213/conducto
 
 ```bash
 # Clone the repository
-git clone https://github.com/amishra213/ConductorDesigner.git
-cd ConductorDesigner
+git clone https://github.com/amishra213/ConflixIQStudio.git
+cd ConflixIQStudio
 
 # Install dependencies
 npm install
@@ -71,6 +71,7 @@ npm run server:dev # Backend only (http://localhost:4000)
 - **Optional**: Docker or Rancher Desktop for container builds
 
 Check your versions:
+
 ```bash
 node --version    # Should be v20.x or higher
 npm --version     # Should be 8.x or higher
@@ -99,32 +100,34 @@ After building, you'll find artifacts in:
 ```
 dist/
 ├── sea-build-[timestamp]/           # Windows EXE build
-│   ├── conductor-designer-build-XXX.exe
-│   ├── conductor-designer-build-XXX.bat
-│   ├── conductor-designer-build-XXX.zip
+│   ├── conflixiq-studio-build-XXX.exe
+│   ├── conflixiq-studio-build-XXX.bat
+│   ├── conflixiq-studio-build-XXX.zip
 │   └── BUILD-REPORT.md
 └── docker/                          # Docker TAR files
-    └── conductor-designer-1.0.0-amd64.tar
+    └── conflixiq-studio-1.0.0-amd64.tar
 ```
 
 ### Running Your Builds
 
 **Windows EXE:**
+
 ```cmd
 # Method 1: Double-click the .bat file (easiest)
-dist\sea-build-YYYY-MM-DD-HH-MM-SS\conductor-designer-build-XXX.bat
+dist\sea-build-YYYY-MM-DD-HH-MM-SS\conflixiq-studio-build-XXX.bat
 
 # Method 2: Run the EXE directly
-dist\sea-build-YYYY-MM-DD-HH-MM-SS\conductor-designer-build-XXX.exe
+dist\sea-build-YYYY-MM-DD-HH-MM-SS\conflixiq-studio-build-XXX.exe
 ```
 
 **Docker:**
+
 ```bash
 # Load the TAR file
-docker load -i dist/docker/conductor-designer-1.0.0-amd64.tar
+docker load -i dist/docker/conflixiq-studio-1.0.0-amd64.tar
 
 # Run the container
-docker run -d -p 4000:4000 conductor-designer:latest
+docker run -d -p 4000:4000 conflixiq-studio:latest
 ```
 
 ---
@@ -135,25 +138,25 @@ docker run -d -p 4000:4000 conductor-designer:latest
 
 ```bash
 # Build image
-docker build -t conductor-designer:latest .
+docker build -t conflixiq-studio:latest .
 
 # Run container
 docker run -d \
-  --name conductor-designer \
+  --name conflixiq-studio \
   -p 4000:4000 \
   -v conductor-logs:/app/logs \
   -v conductor-filestore:/app/.filestore \
   -e CONDUCTOR_API=http://localhost:8080 \
-  conductor-designer:latest
+  conflixiq-studio:latest
 
 # View logs
-docker logs -f conductor-designer
+docker logs -f conflixiq-studio
 
 # Stop container
-docker stop conductor-designer
+docker stop conflixiq-studio
 
 # Remove container
-docker rm conductor-designer
+docker rm conflixiq-studio
 ```
 
 ### Using Docker Compose
@@ -175,15 +178,16 @@ Rancher Desktop supports both `nerdctl` and `docker` CLI:
 
 ```powershell
 # Using nerdctl (Rancher default)
-nerdctl build -t conductor-designer:latest .
-nerdctl run -d --name conductor-designer -p 4000:4000 conductor-designer:latest
+nerdctl build -t conflixiq-studio:latest .
+nerdctl run -d --name conflixiq-studio -p 4000:4000 conflixiq-studio:latest
 
 # Or using docker CLI
-docker build -t conductor-designer:latest .
-docker run -d --name conductor-designer -p 4000:4000 conductor-designer:latest
+docker build -t conflixiq-studio:latest .
+docker run -d --name conflixiq-studio -p 4000:4000 conflixiq-studio:latest
 ```
 
 **Rancher Desktop Tips:**
+
 - Enable WSL2 backend for better performance (Windows)
 - Allocate sufficient resources (4GB RAM, 2 CPUs recommended)
 - Use Docker mode instead of Kubernetes for simpler deployment
@@ -194,30 +198,33 @@ docker run -d --name conductor-designer -p 4000:4000 conductor-designer:latest
 
 ### Environment Variables
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `PORT` | 4000 | HTTP server port |
-| `CONDUCTOR_API` | http://localhost:8080 | Conductor server URL |
-| `NODE_ENV` | production | Environment mode |
-| `LOG_LEVEL` | info | Logging level (debug, info, warn, error) |
+| Variable        | Default               | Description                              |
+| --------------- | --------------------- | ---------------------------------------- |
+| `PORT`          | 4000                  | HTTP server port                         |
+| `CONDUCTOR_API` | http://localhost:8080 | Conductor server URL                     |
+| `NODE_ENV`      | production            | Environment mode                         |
+| `LOG_LEVEL`     | info                  | Logging level (debug, info, warn, error) |
 
 ### Connecting to Conductor Server
 
 **Docker:**
+
 ```bash
 docker run -d -p 4000:4000 \
   -e CONDUCTOR_API=https://conductor.example.com \
-  conductor-designer:latest
+  conflixiq-studio:latest
 ```
 
 **Windows EXE:**
+
 ```cmd
 set CONDUCTOR_API=https://conductor.example.com
-conductor-designer.exe
+conflixiq-studio.exe
 ```
 
 **Development:**
 Create a `.env` file in the project root:
+
 ```properties
 CONDUCTOR_API=http://localhost:8080
 PORT=4000
@@ -230,11 +237,11 @@ Change the default port (4000) if needed:
 
 ```bash
 # Docker
-docker run -d -p 5000:5000 -e PORT=5000 conductor-designer:latest
+docker run -d -p 5000:5000 -e PORT=5000 conflixiq-studio:latest
 
 # Windows
 set PORT=5000
-conductor-designer.exe
+conflixiq-studio.exe
 ```
 
 ---
@@ -242,7 +249,7 @@ conductor-designer.exe
 ## 📂 Project Structure
 
 ```
-ConductorDesigner/
+ConflixIQStudio/
 ├── src/                          # React frontend source
 │   ├── components/               # UI components
 │   │   ├── modals/               # Task/operator modals
@@ -272,19 +279,20 @@ ConductorDesigner/
 
 1. **Windows Defender blocking:**
    - Windows Security → Virus & threat protection
-   - Add exception for `conductor-designer.exe`
+   - Add exception for `conflixiq-studio.exe`
 
 2. **Port already in use:**
+
    ```cmd
    # Check what's using port 4000
    netstat -ano | findstr :4000
-   
+
    # Kill the process (replace PID)
    taskkill /PID [PID] /F
-   
+
    # Or use a different port
    set PORT=5000
-   conductor-designer.exe
+   conflixiq-studio.exe
    ```
 
 3. **Missing files:**
@@ -294,23 +302,26 @@ ConductorDesigner/
 ### Docker Container Won't Start
 
 1. **Check container logs:**
+
    ```bash
-   docker logs conductor-designer
+   docker logs conflixiq-studio
    ```
 
 2. **Port conflict:**
+
    ```bash
    # Use a different port
-   docker run -d -p 5000:5000 -e PORT=5000 conductor-designer:latest
+   docker run -d -p 5000:5000 -e PORT=5000 conflixiq-studio:latest
    ```
 
 3. **Image not found:**
+
    ```bash
    # List images
    docker images | grep conductor
-   
+
    # Pull or build the image
-   docker pull ghcr.io/amishra213/conductordesigner:latest
+   docker pull ghcr.io/amishra213/ConflixIQStudio:latest
    ```
 
 ### Build Fails with EBUSY Error
@@ -336,9 +347,10 @@ npm run sea:build
 This is **expected** if you don't have a Conductor server running. The app works offline with reduced functionality.
 
 To connect to a Conductor server:
+
 ```bash
 # Update environment variable
-docker run -d -p 4000:4000 -e CONDUCTOR_API=http://your-conductor-host:8080 conductor-designer:latest
+docker run -d -p 4000:4000 -e CONDUCTOR_API=http://your-conductor-host:8080 conflixiq-studio:latest
 ```
 
 ---
@@ -356,19 +368,19 @@ docker run -d -p 4000:4000 -e CONDUCTOR_API=http://your-conductor-host:8080 cond
 
 ### Common Commands
 
-| Command | Description |
-|---------|-------------|
-| `npm run dev` | Start frontend dev server (Vite) |
-| `npm run dev:full` | Start frontend + backend together |
-| `npm run build` | Build production web UI |
-| `npm run server` | Start backend server |
-| `npm run server:dev` | Start backend with hot reload |
-| `npm run sea:build:windows` | Build Windows EXE |
-| `npm run docker-build` | Build Docker image + TAR |
-| `npm run format` | Format code with Prettier |
-| `npm run lint` | Run ESLint |
-| `npm run lint:fix` | Run ESLint with auto-fix |
-| `npm run type-check` | TypeScript type checking |
+| Command                     | Description                       |
+| --------------------------- | --------------------------------- |
+| `npm run dev`               | Start frontend dev server (Vite)  |
+| `npm run dev:full`          | Start frontend + backend together |
+| `npm run build`             | Build production web UI           |
+| `npm run server`            | Start backend server              |
+| `npm run server:dev`        | Start backend with hot reload     |
+| `npm run sea:build:windows` | Build Windows EXE                 |
+| `npm run docker-build`      | Build Docker image + TAR          |
+| `npm run format`            | Format code with Prettier         |
+| `npm run lint`              | Run ESLint                        |
+| `npm run lint:fix`          | Run ESLint with auto-fix          |
+| `npm run type-check`        | TypeScript type checking          |
 
 ### Technology Stack
 
@@ -404,8 +416,8 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 - [Netflix Conductor](https://conductor.netflix.com/) - Netflix Conductor documentation
 - [React Flow](https://reactflow.dev/) - React Flow library for workflow visualization
-- [GitHub Container Registry](https://ghcr.io/amishra213/conductordesigner) - Docker images
-- [Releases](https://github.com/amishra213/ConductorDesigner/releases) - Download Windows EXE and Docker TARs
+- [GitHub Container Registry](https://ghcr.io/amishra213/ConflixIQStudio) - Docker images
+- [Releases](https://github.com/amishra213/ConflixIQStudio/releases) - Download Windows EXE and Docker TARs
 
 ---
 

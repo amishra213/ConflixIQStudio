@@ -1,4 +1,4 @@
-# Multi-stage build for Conductor Designer
+# Multi-stage build for ConflixIQ Studio
 # Stage 1: Build the React application
 FROM node:20-alpine AS builder
 

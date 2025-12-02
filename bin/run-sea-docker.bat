@@ -1,10 +1,10 @@
 @echo off
-REM Conductor Designer - Node.js SEA Docker Image Builder
+REM ConflixIQ Studio - Node.js SEA Docker Image Builder
 REM Creates portable Docker images using Node.js SEA
 
 echo.
 echo ====================================
-echo Conductor Designer - SEA Docker Build
+echo ConflixIQ Studio - SEA Docker Build
 echo ====================================
 echo.
 
@@ -73,10 +73,10 @@ if %errorlevel% equ 0 (
     echo.
     echo Usage:
     echo   1. Load the Docker image:
-    echo      docker load -i conductor-designer-portable.tar
+    echo      docker load -i conflixiq-studio-portable.tar
     echo.
     echo   2. Run the container:
-    echo      docker run -d -p 4000:4000 conductor-designer:latest
+    echo      docker run -d -p 4000:4000 conflixiq-studio:latest
     echo.
     echo   3. Access the application:
     echo      http://localhost:4000

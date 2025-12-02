@@ -1,10 +1,10 @@
 @echo off
-REM Conductor Designer - Development Server Launcher for Windows
+REM ConflixIQ Studio - Development Server Launcher for Windows
 REM This batch file starts the development frontend server
 
 echo.
 echo ====================================
-echo Conductor Designer - Development
+echo ConflixIQ Studio - Development
 echo ====================================
 echo.
 
@@ -28,7 +28,7 @@ if not exist "node_modules" (
     )
 )
 
-echo Starting Conductor Designer development server...
+echo Starting ConflixIQ Studio development server...
 echo.
 echo The application will be available at: http://localhost:5173/
 echo Press Ctrl+C to stop the server

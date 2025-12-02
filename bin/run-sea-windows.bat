@@ -1,10 +1,10 @@
 @echo off
-REM Conductor Designer - Node.js SEA Windows EXE Builder
-REM Creates a portable Windows EXE using Node.js SEA
+REM ConflixIQ Studio - Node.js SEA Windows EXE Builder
+REM Creates portable Windows executable
 
 echo.
 echo ====================================
-echo Conductor Designer - SEA Windows EXE
+echo ConflixIQ Studio - SEA Windows EXE
 echo ====================================
 echo.
 

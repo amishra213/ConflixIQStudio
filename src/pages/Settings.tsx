@@ -59,8 +59,8 @@ export function Settings() {
   // Initialize workflow settings from selected workflow
   const initialSettings = useMemo(
     () => ({
-      createdBy: selectedWorkflow?.createdBy || 'Netflix Conductor Hub',
-      updatedBy: selectedWorkflow?.updatedBy || 'Netflix Conductor Hub',
+      createdBy: selectedWorkflow?.createdBy || 'ConflixIQ Studio',
+      updatedBy: selectedWorkflow?.updatedBy || 'ConflixIQ Studio',
       ownerEmail: selectedWorkflow?.ownerEmail || '',
       ownerApp: selectedWorkflow?.ownerApp || '',
       timeoutSeconds: selectedWorkflow?.timeoutSeconds || 3600,
@@ -141,7 +141,7 @@ export function Settings() {
     updateWorkflow(selectedWorkflow.id, {
       ...workflowSettings,
       updateTime: now,
-      updatedBy: 'Netflix Conductor Hub',
+      updatedBy: 'ConflixIQ Studio',
     });
 
     toast({
@@ -245,7 +245,7 @@ export function Settings() {
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <Label htmlFor="created-by" className="text-foreground">
-                      Created By (Default: Netflix Conductor Hub)
+                      Created By (Default: ConflixIQ Studio)
                     </Label>
                     <Input
                       id="created-by"
@@ -254,12 +254,12 @@ export function Settings() {
                         setWorkflowSettings({ ...workflowSettings, createdBy: e.target.value })
                       }
                       className="mt-2 bg-background text-foreground border-border"
-                      placeholder="Netflix Conductor Hub"
+                      placeholder="ConflixIQ Studio"
                     />
                   </div>
                   <div>
                     <Label htmlFor="updated-by" className="text-foreground">
-                      Updated By (Default: Netflix Conductor Hub)
+                      Updated By (Default: ConflixIQ Studio)
                     </Label>
                     <Input
                       id="updated-by"
@@ -268,7 +268,7 @@ export function Settings() {
                         setWorkflowSettings({ ...workflowSettings, updatedBy: e.target.value })
                       }
                       className="mt-2 bg-background text-foreground border-border"
-                      placeholder="Netflix Conductor Hub"
+                      placeholder="ConflixIQ Studio"
                     />
                   </div>
                   <div>

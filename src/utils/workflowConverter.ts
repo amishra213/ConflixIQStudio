@@ -468,11 +468,11 @@ export function localWorkflowToConductor(workflow: LocalWorkflow): WorkflowDefin
   // Add optional fields if they exist in the workflow or settings
   // These fields are supported by the Conductor API
   if (workflow.createdBy || settings.createdBy) {
-    result.createdBy = workflow.createdBy || settings.createdBy || 'ConductorDesigner';
+    result.createdBy = workflow.createdBy || settings.createdBy || 'ConflixIQStudio';
   }
 
   if (workflow.updatedBy || settings.updatedBy) {
-    result.updatedBy = workflow.updatedBy || settings.updatedBy || 'ConductorDesigner';
+    result.updatedBy = workflow.updatedBy || settings.updatedBy || 'ConflixIQStudio';
   }
 
   if (workflow.ownerEmail || settings.ownerEmail) {

@@ -1,4 +1,4 @@
-# 🚀 Build Guide - Conductor Designer
+# 🚀 Build Guide - ConflixIQ Studio
 
 ## Quick Start (Copy & Paste)
 
@@ -19,10 +19,10 @@ After running the build, you'll find your artifacts in:
 
 ```
 dist/sea-build-[timestamp]/
-├── conductor-designer-build-001.exe     # Windows portable executable (numbered)
-├── conductor-designer-build-001.bat     # Quick launcher batch file
+├── conflixiq-studio-build-001.exe     # Windows portable executable (numbered)
+├── conflixiq-studio-build-001.bat     # Quick launcher batch file
 ├── launcher.js                          # Entry point script
-├── conductor-designer-build-001.zip     # Portable package with dependencies
+├── conflixiq-studio-build-001.zip     # Portable package with dependencies
 └── BUILD-REPORT.md                      # Build details
 ```
 
@@ -35,14 +35,14 @@ dist/sea-build-[timestamp]/
 **Method A: Double-click the batch file (recommended)**
 
 ```
-dist\sea-build-YYYY-MM-DD-HH-MM-SS\conductor-designer-build-001.bat
+dist\sea-build-YYYY-MM-DD-HH-MM-SS\conflixiq-studio-build-001.bat
 ```
 
 **Method B: Run the EXE directly**
 
 ```cmd
 cd dist\sea-build-YYYY-MM-DD-HH-MM-SS
-conductor-designer-build-001.exe
+conflixiq-studio-build-001.exe
 ```
 
 The app will automatically:
@@ -57,10 +57,10 @@ The app will automatically:
 
 ```bash
 # Load the Docker image
-docker load -i conductor-designer-portable.tar
+docker load -i conflixiq-studio-portable.tar
 
 # Run the container
-docker run -d -p 4000:4000 conductor-designer:latest
+docker run -d -p 4000:4000 conflixiq-studio:latest
 
 # Access at http://localhost:4000
 ```
@@ -69,7 +69,7 @@ docker run -d -p 4000:4000 conductor-designer:latest
 
 ```bash
 # Load the image first
-docker load -i conductor-designer-portable.tar
+docker load -i conflixiq-studio-portable.tar
 
 # Then run
 docker-compose up -d
@@ -82,10 +82,10 @@ docker-compose up -d
 ```cmd
 # Windows
 set PORT=5000
-conductor-designer.exe
+conflixiq-studio.exe
 
 # Docker
-docker run -d -p 5000:5000 -e PORT=5000 conductor-designer:latest
+docker run -d -p 5000:5000 -e PORT=5000 conflixiq-studio:latest
 ```
 
 ### Connect to Different Conductor Server
@@ -93,10 +93,10 @@ docker run -d -p 5000:5000 -e PORT=5000 conductor-designer:latest
 ```cmd
 # Windows
 set CONDUCTOR_API=https://conductor.example.com
-conductor-designer.exe
+conflixiq-studio.exe
 
 # Docker
-docker run -d -p 4000:4000 -e CONDUCTOR_API=https://conductor.example.com conductor-designer:latest
+docker run -d -p 4000:4000 -e CONDUCTOR_API=https://conductor.example.com conflixiq-studio:latest
 ```
 
 ## Build Methods
@@ -187,20 +187,20 @@ npm run sea:build
 
 1. Check if Windows Defender is blocking it
    - Windows Security → Virus & threat protection
-   - Add exception for `conductor-designer.exe`
+   - Add exception for `conflixiq-studio.exe`
 
 2. Verify all files are present in the build directory
 
 3. Try running from Command Prompt with error output:
    ```cmd
-   conductor-designer.exe 2>&1 | more
+   conflixiq-studio.exe 2>&1 | more
    ```
 
 ### Docker Image Won't Load
 
 ```bash
 # Try loading with verbose output
-docker load -i conductor-designer-portable.tar --verbose
+docker load -i conflixiq-studio-portable.tar --verbose
 
 # Verify image loaded
 docker images | grep conductor
@@ -211,7 +211,7 @@ docker images | grep conductor
 ```cmd
 # Windows - use a different port
 set PORT=5000
-conductor-designer.exe
+conflixiq-studio.exe
 
 # Or find what's using port 4000
 netstat -ano | findstr :4000
@@ -230,9 +230,9 @@ taskkill /PID [PID] /F
 ### For Windows Users
 
 1. Build: `npm run sea:build:windows`
-2. Share the `dist/sea-build-*/conductor-designer-build-XXX.zip` file
+2. Share the `dist/sea-build-*/conflixiq-studio-build-XXX.zip` file
 3. Users extract the ZIP file
-4. Users double-click `conductor-designer-build-XXX.bat` to run
+4. Users double-click `conflixiq-studio-build-XXX.bat` to run
 5. App opens automatically in their browser!
 
 Everything is included - no additional setup needed.
@@ -240,23 +240,23 @@ Everything is included - no additional setup needed.
 ### For Docker Users
 
 1. Build: `npm run sea:build:docker`
-2. Load the image: `docker load -i conductor-designer-portable.tar`
-3. Run: `docker run -d -p 4000:4000 conductor-designer:latest`
+2. Load the image: `docker load -i conflixiq-studio-portable.tar`
+3. Run: `docker run -d -p 4000:4000 conflixiq-studio:latest`
 
 ### For Server Deployment
 
 Upload Docker image to your registry:
 
 ```bash
-docker load -i conductor-designer-portable.tar
-docker tag conductor-designer:latest myregistry/conductor-designer:latest
-docker push myregistry/conductor-designer:latest
+docker load -i conflixiq-studio-portable.tar
+docker tag conflixiq-studio:latest myregistry/conflixiq-studio:latest
+docker push myregistry/conflixiq-studio:latest
 ```
 
 Users can then pull and run:
 
 ```bash
-docker run -d -p 4000:4000 myregistry/conductor-designer:latest
+docker run -d -p 4000:4000 myregistry/conflixiq-studio:latest
 ```
 
 ## Environment Variables
@@ -312,7 +312,7 @@ If you encounter issues:
 
 1. Check the `BUILD-REPORT.md` in your build directory
 2. Review troubleshooting section above
-2. Verify Node.js version is 20.0.0 or higher
+3. Verify Node.js version is 20.0.0 or higher
 4. Try a clean rebuild: `rm -r .build && npm run sea:build`
 
 ## Common Commands
@@ -361,7 +361,7 @@ docker-compose down
 Make sure the Docker image is loaded first:
 
 ```bash
-docker load -i conductor-designer-portable.tar
+docker load -i conflixiq-studio-portable.tar
 ```
 
 ## Next Steps

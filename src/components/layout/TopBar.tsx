@@ -16,7 +16,7 @@ export function TopBar() {
     if (path === '/executions') return 'Executions';
     if (path.startsWith('/executions/')) return 'Execution Details';
     if (path === '/settings') return 'Settings';
-    return 'Netflix Conductor Hub';
+    return 'ConflixIQ Studio';
   };
 
   return (

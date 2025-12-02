@@ -1,6 +1,6 @@
 # Docker Deployment with Rancher Desktop
 
-This guide explains how to deploy and run ConductorDesigner using Rancher Desktop.
+This guide explains how to deploy and run ConflixIQStudio using Rancher Desktop.
 
 ## Prerequisites
 
@@ -14,7 +14,7 @@ This guide explains how to deploy and run ConductorDesigner using Rancher Deskto
 ### 1. Clone/Navigate to Project
 
 ```powershell
-cd D:\Projects\ConductorDesigner
+cd D:\Projects\ConflixIQStudio
 ```
 
 ### 2. Choose Your Build Method
@@ -33,17 +33,17 @@ docker compose up -d
 
 ```powershell
 # Build the image
-nerdctl build -t conductor-designer:latest .
+nerdctl build -t conflixiq-studio:latest .
 
 # Run the container
 nerdctl run -d `
-  --name conductor-designer `
+  --name conflixiq-studio `
   -p 4000:4000 `
   -p 5173:5173 `
   -v conductor-logs:/app/logs `
   -v conductor-filestore:/app/.filestore `
   -e VITE_CONDUCTOR_SERVER_URL=http://localhost:8080 `
-  conductor-designer:latest
+  conflixiq-studio:latest
 ```
 
 ### 3. Access the Application
@@ -79,10 +79,10 @@ Open your browser and navigate to:
 nerdctl version
 
 # Build the image
-nerdctl build -t conductor-designer:latest .
+nerdctl build -t conflixiq-studio:latest .
 
 # Verify image was created
-nerdctl images | Select-String "conductor-designer"
+nerdctl images | Select-String "conflixiq-studio"
 
 # Run with docker-compose
 nerdctl compose -f docker-compose.yml up -d
@@ -91,7 +91,7 @@ nerdctl compose -f docker-compose.yml up -d
 nerdctl ps
 
 # View logs
-nerdctl logs -f conductor-designer
+nerdctl logs -f conflixiq-studio
 ```
 
 #### With docker CLI
@@ -101,7 +101,7 @@ nerdctl logs -f conductor-designer
 docker version
 
 # Build the image
-docker build -t conductor-designer:latest .
+docker build -t conflixiq-studio:latest .
 
 # Run with docker-compose
 docker compose up -d
@@ -110,7 +110,7 @@ docker compose up -d
 docker ps
 
 # View logs
-docker logs -f conductor-designer
+docker logs -f conflixiq-studio
 ```
 
 ## Configuration
@@ -155,7 +155,7 @@ Once the container is running, open your browser:
 http://localhost:4000
 ```
 
-You should see the ConductorDesigner interface.
+You should see the ConflixIQStudio interface.
 
 ### 2. Health Check
 
@@ -199,31 +199,31 @@ nerdctl compose down -v
 
 ```powershell
 # Container logs (stdout/stderr)
-nerdctl logs conductor-designer
+nerdctl logs conflixiq-studio
 
 # Follow logs in real-time
-nerdctl logs -f conductor-designer
+nerdctl logs -f conflixiq-studio
 
 # Last 100 lines
-nerdctl logs --tail 100 conductor-designer
+nerdctl logs --tail 100 conflixiq-studio
 
 # Application log files
-nerdctl exec conductor-designer cat /app/logs/conductor-designer-$(Get-Date -Format yyyy-MM-dd).log
+nerdctl exec conflixiq-studio cat /app/logs/conflixiq-studio-$(Get-Date -Format yyyy-MM-dd).log
 
 # Follow application logs
-nerdctl exec conductor-designer tail -f /app/logs/conductor-designer-$(Get-Date -Format yyyy-MM-dd).log
+nerdctl exec conflixiq-studio tail -f /app/logs/conflixiq-studio-$(Get-Date -Format yyyy-MM-dd).log
 ```
 
 ### Access Container Shell
 
 ```powershell
 # Enter the container
-nerdctl exec -it conductor-designer /bin/sh
+nerdctl exec -it conflixiq-studio /bin/sh
 
 # Once inside, you can explore
 cd /app
 ls -la
-cat logs/conductor-designer-*.log
+cat logs/conflixiq-studio-*.log
 exit
 ```
 
@@ -231,7 +231,7 @@ exit
 
 ```powershell
 # Restart
-nerdctl restart conductor-designer
+nerdctl restart conflixiq-studio
 
 # Or using compose
 nerdctl compose restart
@@ -247,7 +247,7 @@ git pull
 nerdctl compose up -d --build
 
 # Or manually
-nerdctl build -t conductor-designer:latest .
+nerdctl build -t conflixiq-studio:latest .
 nerdctl compose up -d --force-recreate
 ```
 
@@ -274,7 +274,7 @@ nerdctl compose up -d --force-recreate
 3. **Check container logs**
 
    ```powershell
-   nerdctl logs conductor-designer
+   nerdctl logs conflixiq-studio
    ```
 
 4. **Check container status**
@@ -287,20 +287,20 @@ nerdctl compose up -d --force-recreate
 1. **Verify container is running**
 
    ```powershell
-   nerdctl ps | Select-String "conductor-designer"
+   nerdctl ps | Select-String "conflixiq-studio"
    ```
 
 2. **Check port binding**
 
    ```powershell
-   nerdctl port conductor-designer
+   nerdctl port conflixiq-studio
    # Should show: 4000/tcp -> 0.0.0.0:4000
    ```
 
 3. **Test from inside container**
 
    ```powershell
-   nerdctl exec conductor-designer wget -qO- http://localhost:4000/health
+   nerdctl exec conflixiq-studio wget -qO- http://localhost:4000/health
    ```
 
 4. **Check Windows Firewall**
@@ -319,12 +319,12 @@ nerdctl compose up -d --force-recreate
 2. **Check inside container**
 
    ```powershell
-   nerdctl exec conductor-designer ls -la /app/logs
+   nerdctl exec conflixiq-studio ls -la /app/logs
    ```
 
 3. **Check permissions**
    ```powershell
-   nerdctl exec conductor-designer ls -ld /app/logs
+   nerdctl exec conflixiq-studio ls -ld /app/logs
    ```
 
 ### Error: "Cannot connect to Conductor server"
@@ -369,10 +369,10 @@ nerdctl network create conductor-network
 
 # Run container on custom network
 nerdctl run -d `
-  --name conductor-designer `
+  --name conflixiq-studio `
   --network conductor-network `
   -p 4000:4000 `
-  conductor-designer:latest
+  conflixiq-studio:latest
 ```
 
 ### Connect to External Conductor Server
@@ -382,7 +382,7 @@ If running Conductor server in another container:
 ```yaml
 # docker-compose.yml
 services:
-  conductor-designer:
+  conflixiq-studio:
     # ... existing config ...
     environment:
       - VITE_CONDUCTOR_SERVER_URL=http://conductor-server:8080
@@ -416,11 +416,11 @@ nerdctl run --rm `
 ```powershell
 # Run with resource limits
 nerdctl run -d `
-  --name conductor-designer `
+  --name conflixiq-studio `
   --memory=512m `
   --cpus=1 `
   -p 4000:4000 `
-  conductor-designer:latest
+  conflixiq-studio:latest
 ```
 
 ## Rancher Desktop Specific Features
@@ -442,7 +442,7 @@ Rancher Desktop supports Trivy for image scanning:
 
 ```powershell
 # Scan image for vulnerabilities
-nerdctl run --rm aquasec/trivy image conductor-designer:latest
+nerdctl run --rm aquasec/trivy image conflixiq-studio:latest
 ```
 
 ### Registry Push
@@ -451,13 +451,13 @@ To push to a registry:
 
 ```powershell
 # Tag image
-nerdctl tag conductor-designer:latest registry.example.com/conductor-designer:latest
+nerdctl tag conflixiq-studio:latest registry.example.com/conflixiq-studio:latest
 
 # Login to registry
 nerdctl login registry.example.com
 
 # Push
-nerdctl push registry.example.com/conductor-designer:latest
+nerdctl push registry.example.com/conflixiq-studio:latest
 ```
 
 ## Performance Optimization
@@ -479,10 +479,10 @@ nerdctl push registry.example.com/conductor-designer:latest
 
 ```powershell
 # Real-time stats
-nerdctl stats conductor-designer
+nerdctl stats conflixiq-studio
 
 # One-time stats
-nerdctl stats --no-stream conductor-designer
+nerdctl stats --no-stream conflixiq-studio
 ```
 
 ### Health Checks
@@ -491,10 +491,10 @@ The container includes a built-in health check:
 
 ```powershell
 # Check health status
-nerdctl inspect conductor-designer | Select-String "Health"
+nerdctl inspect conflixiq-studio | Select-String "Health"
 
 # View health check logs
-nerdctl inspect conductor-designer --format='{{json .State.Health}}' | ConvertFrom-Json
+nerdctl inspect conflixiq-studio --format='{{json .State.Health}}' | ConvertFrom-Json
 ```
 
 ## Uninstalling
@@ -509,7 +509,7 @@ nerdctl compose down
 nerdctl compose down -v
 
 # Remove image
-nerdctl rmi conductor-designer:latest
+nerdctl rmi conflixiq-studio:latest
 
 # Clean up all unused resources
 nerdctl system prune -a --volumes
@@ -517,20 +517,20 @@ nerdctl system prune -a --volumes
 
 ## Common Commands Reference
 
-| Task              | Command                                        |
-| ----------------- | ---------------------------------------------- |
-| Build image       | `nerdctl build -t conductor-designer:latest .` |
-| Start app         | `nerdctl compose up -d`                        |
-| Stop app          | `nerdctl compose stop`                         |
-| View logs         | `nerdctl logs -f conductor-designer`           |
-| Shell access      | `nerdctl exec -it conductor-designer /bin/sh`  |
-| Restart           | `nerdctl compose restart`                      |
-| Update & rebuild  | `nerdctl compose up -d --build`                |
-| Remove everything | `nerdctl compose down -v`                      |
+| Task              | Command                                      |
+| ----------------- | -------------------------------------------- |
+| Build image       | `nerdctl build -t conflixiq-studio:latest .` |
+| Start app         | `nerdctl compose up -d`                      |
+| Stop app          | `nerdctl compose stop`                       |
+| View logs         | `nerdctl logs -f conflixiq-studio`           |
+| Shell access      | `nerdctl exec -it conflixiq-studio /bin/sh`  |
+| Restart           | `nerdctl compose restart`                    |
+| Update & rebuild  | `nerdctl compose up -d --build`              |
+| Remove everything | `nerdctl compose down -v`                    |
 
 ## Getting Help
 
-- **Container logs**: `nerdctl logs conductor-designer`
+- **Container logs**: `nerdctl logs conflixiq-studio`
 - **Application logs**: Check `/app/logs/` in container
 - **Health check**: http://localhost:4000/health
 - **Rancher Desktop docs**: https://docs.rancherdesktop.io/

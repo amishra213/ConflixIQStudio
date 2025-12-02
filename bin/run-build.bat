@@ -1,10 +1,10 @@
 @echo off
-REM Conductor Designer - Production Build Launcher for Windows
-REM This batch file builds the application for production
+REM ConflixIQ Studio - Production Build Launcher for Windows
+REM This batch file builds the application for production deployment
 
 echo.
 echo ====================================
-echo Conductor Designer - Production Build
+echo ConflixIQ Studio - Production Build
 echo ====================================
 echo.
 
@@ -51,7 +51,7 @@ set "ELECTRON_BUILDER_ALLOW_UNRESOLVED_DEPENDENCIES=true"
 set "DISABLE_CODE_SIGNING=true"
 set "NO_CODE_SIGNING=true"
 
-echo Building Conductor Designer for production...
+echo Building ConflixIQ Studio for production...
 echo Using local temp directory: %LOCAL_TEMP_DIR%
 echo.
 
