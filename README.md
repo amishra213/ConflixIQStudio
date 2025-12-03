@@ -27,8 +27,11 @@ A comprehensive visual workflow designer for Netflix Conductor - build, edit, an
 # Pull from GitHub Container Registry
 docker pull ghcr.io/amishra213/ConflixIQStudio:latest
 
-# Run the container
-docker run -d --name conflixiq-studio -p 4000:4000 ghcr.io/amishra213/ConflixIQStudio:latest
+# If image is already imported run the container
+docker run -d -p 4000:4000 --name conflixiq-studio conflixiq-studio:latest
+
+
+
 
 # Access at http://localhost:4000
 ```
