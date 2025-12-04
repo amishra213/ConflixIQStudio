@@ -1,6 +1,7 @@
 # 🚀 ConflixIQ Studio - Quick Start Commands
 
 ## Prerequisites
+
 ```bash
 # Check Node.js version (need 20+)
 node --version
@@ -20,6 +21,7 @@ docker --version
 ## 0. Clone & Setup Repository (First Time Only)
 
 ### Clone the Repository
+
 ```bash
 # Clone the repository
 git clone https://github.com/amishra213/ConflixIQStudio.git
@@ -27,6 +29,7 @@ cd ConflixIQStudio
 ```
 
 ### Configure Git (Recommended)
+
 ```bash
 # Set your name and email for commits
 git config user.name "Your Name"
@@ -38,6 +41,7 @@ git config --global user.email "your.email@example.com"
 ```
 
 ### Check out the Main Branch
+
 ```bash
 # Ensure you're on the main branch
 git checkout main
@@ -50,6 +54,7 @@ git branch
 ```
 
 ### Set up Tracking for Feature Branches (Optional)
+
 ```bash
 # If working on a feature branch
 git checkout feature/release-artifacts-and-docker-fix
@@ -59,6 +64,7 @@ git checkout -b feature/your-feature-name
 ```
 
 ### Verify Git Setup
+
 ```bash
 # Check remote configuration
 git remote -v
@@ -89,6 +95,7 @@ npm list --depth=0
 ### Create Environment Files (Optional but Recommended)
 
 Create a `.env.local` file in the root directory:
+
 ```bash
 # Windows PowerShell
 New-Item -Path ".\.env.local" -ItemType File
@@ -101,6 +108,7 @@ touch .env.local
 ```
 
 Add to `.env.local`:
+
 ```env
 # Backend Configuration
 VITE_CONDUCTOR_SERVER_URL=http://localhost:8080
@@ -113,6 +121,7 @@ LOG_FILE_PATH=./logs
 ```
 
 ### Verify Environment
+
 ```bash
 # Check that .env.local is created
 dir .env.local           # Windows
@@ -127,22 +136,28 @@ npm run server:dev       # Should use settings from .env.local
 ## 3. Running Locally
 
 ### Option A: Full Stack (Recommended for Development)
+
 ```bash
 # Runs frontend (port 5173) + backend (port 4000) together
 npm run dev:full
 ```
+
 Access at: `http://localhost:5173`
 
 ### Option B: Frontend Only
+
 ```bash
 npm run dev
 ```
+
 Access at: `http://localhost:5173` (assumes backend running separately)
 
 ### Option C: Backend Only
+
 ```bash
 npm run server:dev
 ```
+
 Access at: `http://localhost:4000`
 
 ---
@@ -150,21 +165,27 @@ Access at: `http://localhost:4000`
 ## 4. Build for Production
 
 ### Web UI Build
+
 ```bash
 npm run build
 ```
+
 Output: `dist/` folder with optimized React app
 
 ### Windows EXE (Portable)
+
 ```bash
 npm run sea:build:windows
 ```
+
 Output: Standalone .exe file (~60-80MB)
 
 ### Docker Image
+
 ```bash
 npm run docker-build
 ```
+
 Output: Docker image tagged as `conflixiq-studio:latest`
 
 ---
@@ -174,24 +195,28 @@ Output: Docker image tagged as `conflixiq-studio:latest`
 ### Set Log Level (Optional)
 
 **Windows Command Prompt:**
+
 ```cmd
 set LOG_LEVEL=DEBUG
 npm run server:dev
 ```
 
 **Windows PowerShell:**
+
 ```powershell
 $env:LOG_LEVEL = "DEBUG"
 npm run server:dev
 ```
 
 **Linux/Mac:**
+
 ```bash
 export LOG_LEVEL=DEBUG
 npm run server:dev
 ```
 
 ### Log Levels Available
+
 - `DEBUG` - Detailed operational info
 - `INFO` - Normal operations (default)
 - `WARN` - Warning conditions
@@ -261,6 +286,7 @@ git log --oneline -3
 ### Commit Message Conventions
 
 Use these prefixes for clarity:
+
 - `feat:` - New feature
 - `fix:` - Bug fix
 - `docs:` - Documentation
@@ -271,6 +297,7 @@ Use these prefixes for clarity:
 - `chore:` - Maintenance tasks
 
 Examples:
+
 ```bash
 git commit -m "feat: implement workflow graph visualization"
 git commit -m "fix: resolve logging file rotation issue"
@@ -356,17 +383,17 @@ git log --graph --oneline --all
 
 ## 📊 Common Development Tasks
 
-| Task | Command |
-|------|---------|
-| **Run everything** | `npm run dev:full` |
-| **Frontend dev** | `npm run dev` |
-| **Backend dev** | `npm run server:dev` |
-| **Format code** | `npm run format` |
-| **Check types** | `npm run type-check` |
-| **Lint errors** | `npm run lint` |
-| **Build production** | `npm run build` |
+| Task                  | Command                     |
+| --------------------- | --------------------------- |
+| **Run everything**    | `npm run dev:full`          |
+| **Frontend dev**      | `npm run dev`               |
+| **Backend dev**       | `npm run server:dev`        |
+| **Format code**       | ``                          |
+| **Check types**       | `npm run type-check`        |
+| **Lint errors**       | `npm run lint`              |
+| **Build production**  | `npm run build`             |
 | **Build Windows EXE** | `npm run sea:build:windows` |
-| **Build Docker** | `npm run docker-build` |
+| **Build Docker**      | `npm run docker-build`      |
 
 ---
 
@@ -406,24 +433,28 @@ dist/
 ### Port Already in Use
 
 **Port 5173 (Frontend):**
+
 ```bash
 set PORT=5174
 npm run dev
 ```
 
 **Port 4000 (Backend):**
+
 ```bash
 set PORT=5000
 npm run server:dev
 ```
 
 ### Clear Dependencies Cache
+
 ```bash
 rm -r node_modules
 npm install
 ```
 
 ### Check Logs
+
 ```bash
 # View today's logs
 cat logs/conflixiq-studio-2025-12-04.log
@@ -487,6 +518,7 @@ git push origin --delete feature/my-awesome-feature
 ## 🎯 Quick Reference Cheat Sheet
 
 ### Getting Started
+
 ```bash
 # Clone and setup (first time only)
 git clone https://github.com/amishra213/ConflixIQStudio.git
@@ -498,6 +530,7 @@ npm install && npm run dev:full
 ```
 
 ### Development
+
 ```bash
 # Debug mode with detailed logging
 set LOG_LEVEL=DEBUG && npm run dev:full
@@ -505,7 +538,7 @@ set LOG_LEVEL=DEBUG && npm run dev:full
 # Just the backend
 npm run server:dev
 
-# Just the frontend  
+# Just the frontend
 npm run dev
 
 # Production build
@@ -525,6 +558,7 @@ npm run format && npm run lint && npm run type-check
 ```
 
 ### Git Workflow
+
 ```bash
 # Create feature branch
 git checkout -b feature/my-feature

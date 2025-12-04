@@ -57,4 +57,4 @@ console.log('📁 Log files are stored with daily rotation (logs/conflixiq-YYYY-
 console.log('\n');
 
 // Give async file writing time to complete
-await new Promise(resolve => setTimeout(resolve, 100));
+await new Promise((resolve) => setTimeout(resolve, 100));

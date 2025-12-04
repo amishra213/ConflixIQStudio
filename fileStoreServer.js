@@ -180,7 +180,9 @@ const fileStoreRoutes = (app) => {
         data,
       };
 
-      serverLogger.debug(`POST /api/filestore/save - Saving cache with key: ${key} (${data.length} items)`);
+      serverLogger.debug(
+        `POST /api/filestore/save - Saving cache with key: ${key} (${data.length} items)`
+      );
       await saveCacheToFile(key, cacheData);
       serverLogger.info(`✓ Cache saved: ${key}`);
       res.json({ success: true });
@@ -201,7 +203,9 @@ const fileStoreRoutes = (app) => {
       const { workflows, timestamp } = req.body;
 
       if (!Array.isArray(workflows)) {
-        serverLogger.warn('POST /api/filestore/save-workflows - Invalid request: workflows not an array');
+        serverLogger.warn(
+          'POST /api/filestore/save-workflows - Invalid request: workflows not an array'
+        );
         res.status(400).json({
           success: false,
           error: 'Missing required field: workflows (array)',
@@ -214,7 +218,9 @@ const fileStoreRoutes = (app) => {
         workflows,
       };
 
-      serverLogger.debug(`POST /api/filestore/save-workflows - Saving ${workflows.length} workflows`);
+      serverLogger.debug(
+        `POST /api/filestore/save-workflows - Saving ${workflows.length} workflows`
+      );
       await saveCacheToFile('workflows-cache.json', workflowData);
       serverLogger.info(`✓ Workflows saved: ${workflows.length} workflows`);
       res.json({ success: true });
@@ -288,7 +294,9 @@ const fileStoreRoutes = (app) => {
       const { filename, data, timestamp } = req.body;
 
       if (!filename || !data) {
-        serverLogger.warn('POST /api/filestore/save-workflow - Invalid request: missing filename or data');
+        serverLogger.warn(
+          'POST /api/filestore/save-workflow - Invalid request: missing filename or data'
+        );
         res.status(400).json({
           success: false,
           error: 'Missing required fields: filename (string), data (object)',
@@ -367,7 +375,9 @@ const fileStoreRoutes = (app) => {
       const { filename } = req.body;
 
       if (!filename) {
-        serverLogger.warn('POST /api/filestore/delete-workflow - Invalid request: missing filename');
+        serverLogger.warn(
+          'POST /api/filestore/delete-workflow - Invalid request: missing filename'
+        );
         res.status(400).json({
           success: false,
           error: 'Missing required field: filename',

@@ -87,7 +87,9 @@ app.get('/api/metadata/taskdefs', async (req, res) => {
     // Forward request to Conductor server
     const response = await axios.get(`${conductorServerUrl}/api/metadata/taskdefs`, { headers });
 
-    serverLogger.debug(`✓ Successfully fetched ${response.data.length || 'unknown'} task definitions`);
+    serverLogger.debug(
+      `✓ Successfully fetched ${response.data.length || 'unknown'} task definitions`
+    );
     res.json(response.data);
   } catch (error) {
     serverLogger.error('Error fetching task definitions from Conductor:', error.message);
@@ -118,7 +120,9 @@ app.get('/api/metadata/workflow', async (req, res) => {
     // Forward request to Conductor server (with query parameters if any)
     const queryString =
       Object.keys(req.query).length > 0 ? `?${new URLSearchParams(req.query).toString()}` : '';
-    serverLogger.debug(`Fetching workflows from ${conductorServerUrl}/api/metadata/workflow${queryString}`);
+    serverLogger.debug(
+      `Fetching workflows from ${conductorServerUrl}/api/metadata/workflow${queryString}`
+    );
     const response = await axios.get(`${conductorServerUrl}/api/metadata/workflow${queryString}`, {
       headers,
     });

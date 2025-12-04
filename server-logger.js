@@ -27,7 +27,8 @@ const Colors = {
 };
 
 // Configuration
-const LOG_FOLDER = process.env.LOGS_PATH || process.env.VITE_LOG_FOLDER || path.join(process.cwd(), 'logs');
+const LOG_FOLDER =
+  process.env.LOGS_PATH || process.env.VITE_LOG_FOLDER || path.join(process.cwd(), 'logs');
 const LOG_LEVEL = process.env.LOG_LEVEL || 'INFO';
 const CONSOLE_OUTPUT = process.env.LOG_CONSOLE !== 'false'; // Default: true
 const FILE_OUTPUT = process.env.LOG_FILE !== 'false'; // Default: true

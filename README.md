@@ -441,12 +441,12 @@ node test-logging.js DEBUG
 
 ### Log Levels
 
-| Level | Severity | Use Case | Example |
-|-------|----------|----------|---------|
-| **DEBUG** | 0 | Development & troubleshooting | "Fetching task definitions from..." |
-| **INFO** | 1 | Normal operations | "✓ Configuration updated" |
-| **WARN** | 2 | Warnings & issues | "Cache size approaching limit" |
-| **ERROR** | 3 | Failures & errors | "Failed to connect to Conductor" |
+| Level     | Severity | Use Case                      | Example                             |
+| --------- | -------- | ----------------------------- | ----------------------------------- |
+| **DEBUG** | 0        | Development & troubleshooting | "Fetching task definitions from..." |
+| **INFO**  | 1        | Normal operations             | "✓ Configuration updated"           |
+| **WARN**  | 2        | Warnings & issues             | "Cache size approaching limit"      |
+| **ERROR** | 3        | Failures & errors             | "Failed to connect to Conductor"    |
 
 ### Features
 
@@ -460,35 +460,39 @@ node test-logging.js DEBUG
 
 ### Logging Environment Variables
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `LOG_LEVEL` | INFO | Minimum log level (DEBUG/INFO/WARN/ERROR) |
-| `LOGS_PATH` | ./logs | Log file directory |
-| `LOG_CONSOLE` | true | Enable console output |
-| `LOG_FILE` | true | Enable file output |
-| `LOG_MAX_SIZE` | 10485760 | Max file size before rotation (bytes) |
-| `LOG_RETENTION` | 7 | Days to retain logs |
+| Variable        | Default  | Description                               |
+| --------------- | -------- | ----------------------------------------- |
+| `LOG_LEVEL`     | INFO     | Minimum log level (DEBUG/INFO/WARN/ERROR) |
+| `LOGS_PATH`     | ./logs   | Log file directory                        |
+| `LOG_CONSOLE`   | true     | Enable console output                     |
+| `LOG_FILE`      | true     | Enable file output                        |
+| `LOG_MAX_SIZE`  | 10485760 | Max file size before rotation (bytes)     |
+| `LOG_RETENTION` | 7        | Days to retain logs                       |
 
 ### Logging Configuration Examples
 
 **Windows Command Prompt:**
+
 ```cmd
 set LOG_LEVEL=DEBUG
 npm run server:dev
 ```
 
 **Windows PowerShell:**
+
 ```powershell
 $env:LOG_LEVEL = "DEBUG"
 npm run server:dev
 ```
 
 **Docker:**
+
 ```bash
 docker run -d -p 4000:4000 -e LOG_LEVEL=DEBUG conflixiq-studio:latest
 ```
 
 **Custom Log Directory:**
+
 ```bash
 set LOGS_PATH=C:\AppLogs\ConflixIQ
 npm run server:dev
@@ -497,6 +501,7 @@ npm run server:dev
 ### Log Output Examples
 
 **Console (with color coding):**
+
 ```
 2025-12-04T10:30:15.123Z [INFO ] 🚀 ConflixIQ Studio Server Starting
 2025-12-04T10:30:15.200Z [INFO ] ✓ GraphQL proxy ready at http://localhost:4000/graphql
@@ -505,6 +510,7 @@ npm run server:dev
 ```
 
 **File (logs/conflixiq-studio-YYYY-MM-DD.log):**
+
 - Daily log rotation with timestamps
 - Size-based rotation (10MB default)
 - Automatic retention (7 days default)
@@ -540,9 +546,9 @@ grep ERROR logs/conflixiq-studio-*.log
 
 2. **Integrated Endpoints** (20+ endpoints)
    - Server startup with configuration
-   - REST endpoints (/api/config, /api/health, /api/metadata/*)
+   - REST endpoints (/api/config, /api/health, /api/metadata/\*)
    - GraphQL resolvers (workflows, tasks, executions)
-   - File operations (/api/filestore/*)
+   - File operations (/api/filestore/\*)
    - Error handlers with context
 
 3. **Testing**
@@ -555,6 +561,7 @@ grep ERROR logs/conflixiq-studio-*.log
 #### Logger Architecture
 
 **Logger Methods:**
+
 ```javascript
 import { serverLogger } from './server-logger.js';
 
@@ -569,6 +576,7 @@ const stats = serverLogger.getStats();
 ```
 
 **Log File Structure:**
+
 ```
 logs/
 ├── conflixiq-studio-2025-12-04.log   # Today's logs
@@ -578,34 +586,38 @@ logs/
 
 ### Logging Performance
 
-| Metric | Value | Status |
-|--------|-------|--------|
-| CPU Overhead | < 0.1% | ✅ Negligible |
-| Memory Usage | ~2 MB | ✅ Minimal |
-| Startup Delay | < 10 ms | ✅ Imperceptible |
-| File I/O | Async | ✅ Non-blocking |
-| Disk Usage | ~10 MB/day at INFO | ✅ Reasonable |
+| Metric        | Value              | Status           |
+| ------------- | ------------------ | ---------------- |
+| CPU Overhead  | < 0.1%             | ✅ Negligible    |
+| Memory Usage  | ~2 MB              | ✅ Minimal       |
+| Startup Delay | < 10 ms            | ✅ Imperceptible |
+| File I/O      | Async              | ✅ Non-blocking  |
+| Disk Usage    | ~10 MB/day at INFO | ✅ Reasonable    |
 
 ### Logging Troubleshooting
 
 **Not seeing DEBUG messages?**
+
 ```bash
 set LOG_LEVEL=DEBUG
 # Default is INFO, which hides DEBUG
 ```
 
 **Logs too verbose?**
+
 ```bash
 set LOG_LEVEL=WARN
 # Only shows WARN and ERROR
 ```
 
 **Where are my logs?**
+
 ```
 logs/conflixiq-studio-YYYY-MM-DD.log
 ```
 
 **Custom log directory?**
+
 ```bash
 set LOGS_PATH=C:\MyLogs
 ```

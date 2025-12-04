@@ -335,17 +335,17 @@ docker run -d -p 4000:4000 myregistry/conflixiq-studio:latest
 
 ## Environment Variables
 
-| Variable              | Default               | Description                                    |
-| --------------------- | --------------------- | ---------------------------------------------- |
-| `PORT`                | 4000                  | HTTP server port                               |
-| `NODE_ENV`            | production            | Environment mode                               |
-| `CONDUCTOR_API`       | http://localhost:8080 | Conductor server URL                           |
-| `LOG_LEVEL`           | INFO                  | Logging level (DEBUG, INFO, WARN, ERROR)       |
-| `LOGS_PATH`           | ./logs                | Directory for log files                        |
-| `LOG_CONSOLE`         | true                  | Enable console output (true/false)             |
-| `LOG_FILE`            | true                  | Enable file output (true/false)                |
-| `LOG_MAX_SIZE`        | 10485760              | Max log file size in bytes before rotation     |
-| `LOG_RETENTION`       | 7                     | Days to retain logs before deletion            |
+| Variable        | Default               | Description                                |
+| --------------- | --------------------- | ------------------------------------------ |
+| `PORT`          | 4000                  | HTTP server port                           |
+| `NODE_ENV`      | production            | Environment mode                           |
+| `CONDUCTOR_API` | http://localhost:8080 | Conductor server URL                       |
+| `LOG_LEVEL`     | INFO                  | Logging level (DEBUG, INFO, WARN, ERROR)   |
+| `LOGS_PATH`     | ./logs                | Directory for log files                    |
+| `LOG_CONSOLE`   | true                  | Enable console output (true/false)         |
+| `LOG_FILE`      | true                  | Enable file output (true/false)            |
+| `LOG_MAX_SIZE`  | 10485760              | Max log file size in bytes before rotation |
+| `LOG_RETENTION` | 7                     | Days to retain logs before deletion        |
 
 ## Logging Configuration
 
@@ -355,12 +355,12 @@ ConflixIQ Studio includes a comprehensive logging framework with multiple log le
 
 Choose the appropriate level for your environment:
 
-| Level | Use Case | Output Examples |
-|-------|----------|-----------------|
+| Level     | Use Case                     | Output Examples                                                   |
+| --------- | ---------------------------- | ----------------------------------------------------------------- |
 | **DEBUG** | Development, troubleshooting | Request/response details, cache operations, configuration changes |
-| **INFO** | Normal operations | Server startup, successful operations, workflow updates |
-| **WARN** | Warnings, recoverable issues | Configuration validation failures, missing optional files |
-| **ERROR** | Errors, failed operations | Connection failures, API errors, file I/O errors |
+| **INFO**  | Normal operations            | Server startup, successful operations, workflow updates           |
+| **WARN**  | Warnings, recoverable issues | Configuration validation failures, missing optional files         |
+| **ERROR** | Errors, failed operations    | Connection failures, API errors, file I/O errors                  |
 
 ### Setting Log Level
 
@@ -388,6 +388,7 @@ npm run server:dev
 Logs are written to both console and file:
 
 **Console Output:**
+
 - Color-coded by level (DEBUG=cyan, INFO=green, WARN=yellow, ERROR=red)
 - Includes timestamp and log level
 - Example:
@@ -397,6 +398,7 @@ Logs are written to both console and file:
   ```
 
 **File Output:**
+
 - Stored in `logs/` folder
 - Daily rotation with timestamps: `conflixiq-studio-YYYY-MM-DD.log`
 - Size-based rotation (10 MB default before creating new file)
