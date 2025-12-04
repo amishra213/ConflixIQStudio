@@ -15,8 +15,8 @@ COPY index.html ./
 COPY src ./src
 COPY resources ./resources
 
-# Install dependencies and build with musl libc to match runtime
-RUN npm install --os=linux --cpu=x64 --libc=musl && npm run build
+# Install dependencies and build
+RUN npm ci && npm run build
 
 # Stage 2: Runtime environment
 FROM node:20-alpine
@@ -29,8 +29,8 @@ RUN apk add --no-cache dumb-init
 # Copy package files
 COPY package*.json ./
 
-# Install production dependencies only with specific platform
-RUN npm install --only=production --os=linux --cpu=x64 --libc=musl
+# Install production dependencies only
+RUN npm ci --omit=dev
 
 # Copy built application from builder stage
 COPY --from=builder /app/dist ./dist
