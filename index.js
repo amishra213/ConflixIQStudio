@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { ApolloServer } from '@apollo/server';
 import { expressMiddleware } from '@apollo/server/express4';
 import cors from 'cors';
-import { open } from 'open';
+import open from 'open';
 import typeDefs from './schema.js';
 import { resolvers, updateConductorConfig } from './resolvers.js';
 import { fileStoreRoutes } from './fileStoreServer.js';
