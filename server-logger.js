@@ -31,8 +31,8 @@ const LOG_FOLDER = process.env.LOGS_PATH || process.env.VITE_LOG_FOLDER || path.
 const LOG_LEVEL = process.env.LOG_LEVEL || 'INFO';
 const CONSOLE_OUTPUT = process.env.LOG_CONSOLE !== 'false'; // Default: true
 const FILE_OUTPUT = process.env.LOG_FILE !== 'false'; // Default: true
-const MAX_LOG_SIZE = parseInt(process.env.LOG_MAX_SIZE || '10485760'); // 10MB default
-const LOG_RETENTION_DAYS = parseInt(process.env.LOG_RETENTION || '7');
+const MAX_LOG_SIZE = Number.parseInt(process.env.LOG_MAX_SIZE || '10485760', 10); // 10MB default
+const LOG_RETENTION_DAYS = Number.parseInt(process.env.LOG_RETENTION || '7', 10);
 
 // Parse log level from environment
 let currentLogLevel = LogLevels[LOG_LEVEL.toUpperCase()] ?? LogLevels.INFO;
@@ -106,15 +106,17 @@ async function checkLogRotation(filePath) {
   try {
     const stats = await fs.stat(filePath);
     if (stats.size > MAX_LOG_SIZE) {
-      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+      const timestamp = new Date().toISOString().replaceAll(/[:.]/g, '-');
       const rotatedPath = `${filePath}.${timestamp}`;
       await fs.rename(filePath, rotatedPath);
       return true;
     }
-  } catch {
+    return false;
+  } catch (err) {
     // File doesn't exist yet, no rotation needed
+    console.error('[Logger] Error checking log rotation:', err.message);
+    return false;
   }
-  return false;
 }
 
 /**
@@ -138,11 +140,13 @@ async function cleanupOldLogs() {
           await fs.unlink(filePath);
         }
       } catch (err) {
-        // Continue on error
+        // Log cleanup error but continue with other files
+        console.error('[Logger] Error deleting old log file:', err.message);
       }
     }
   } catch (err) {
-    // Silent fail for cleanup
+    // Log cleanup failure but continue operation
+    console.error('[Logger] Error cleaning up old logs:', err.message);
   }
 }
 
