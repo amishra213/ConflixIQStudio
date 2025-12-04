@@ -16,7 +16,7 @@ COPY src ./src
 COPY resources ./resources
 
 # Install dependencies and build
-RUN npm ci && npm run build
+RUN npm install && npm run build
 
 # Stage 2: Runtime environment
 FROM node:20-alpine
