@@ -86,8 +86,9 @@ jobs:
           cache: 'npm'
 
       - name: Install dependencies
+        shell: powershell
         run: |
-          rm -rf node_modules
+          if (Test-Path node_modules) { Remove-Item -Recurse -Force node_modules }
           npm install
 
       - name: Type check
