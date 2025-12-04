@@ -1,6 +1,6 @@
 # Multi-stage build for ConflixIQ Studio
 # Stage 1: Build the React application
-FROM node:20-alpine AS builder
+FROM node:20 AS builder
 
 WORKDIR /app
 
@@ -16,7 +16,7 @@ COPY src ./src
 COPY resources ./resources
 
 # Install dependencies and build
-RUN npm install && npm run build
+RUN npm ci && npm run build
 
 # Stage 2: Runtime environment
 FROM node:20-alpine
@@ -29,8 +29,8 @@ RUN apk add --no-cache dumb-init
 # Copy package files
 COPY package*.json ./
 
-# Copy node_modules from builder stage with all dependencies
-COPY --from=builder /app/node_modules ./node_modules
+# Install production dependencies only with specific platform
+RUN npm install --only=production --os=linux --cpu=x64 --libc=musl
 
 # Copy built application from builder stage
 COPY --from=builder /app/dist ./dist
