@@ -4,8 +4,8 @@ FROM node:20 AS builder
 
 WORKDIR /app
 
-# Copy package files
-COPY package*.json ./
+# Copy package.json only (not package-lock.json to avoid npm optional deps bug)
+COPY package.json ./
 COPY tsconfig*.json ./
 COPY vite.config.ts ./
 COPY tailwind.config.js ./
@@ -15,8 +15,8 @@ COPY index.html ./
 COPY src ./src
 COPY resources ./resources
 
-# Install dependencies and build
-RUN npm ci && npm run build
+# Install dependencies and build (fresh install without lock file)
+RUN npm install && npm run build
 
 # Stage 2: Runtime environment
 FROM node:20-alpine
@@ -26,11 +26,11 @@ WORKDIR /app
 # Install dumb-init to handle signals properly
 RUN apk add --no-cache dumb-init
 
-# Copy package files
-COPY package*.json ./
+# Copy package.json only
+COPY package.json ./
 
-# Install production dependencies only
-RUN npm ci --omit=dev
+# Install production dependencies only (fresh install)
+RUN npm install --omit=dev
 
 # Copy built application from builder stage
 COPY --from=builder /app/dist ./dist
