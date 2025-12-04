@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { ApolloServer } from '@apollo/server';
 import { expressMiddleware } from '@apollo/server/express4';
 import cors from 'cors';
+import { open } from 'open';
 import typeDefs from './schema.js';
 import { resolvers, updateConductorConfig } from './resolvers.js';
 import { fileStoreRoutes } from './fileStoreServer.js';
@@ -158,14 +159,32 @@ async function startApolloServer() {
   app.use('/graphql', expressMiddleware(server));
 
   app.listen(PORT, () => {
-    serverLogger.info(`🚀 Server running at http://localhost:${PORT}`);
-    serverLogger.info(`🚀 GraphQL proxy server ready at http://localhost:${PORT}/graphql`);
-    serverLogger.info(`📁 FileStore API ready at http://localhost:${PORT}/api/filestore`);
-    serverLogger.info(`⚙️  Configuration API ready at http://localhost:${PORT}/api/config`);
-    serverLogger.info(`💚 Health check ready at http://localhost:${PORT}/api/health`);
+    const appUrl = `http://localhost:${PORT}`;
+    const graphqlUrl = `http://localhost:${PORT}/graphql`;
+
+    // Print banner message
+    console.log('\n');
+    console.log('╔════════════════════════════════════════════════════════════╗');
+    console.log('║                                                            ║');
+    console.log('║           🎉  SERVER STARTED SUCCESSFULLY  🎉              ║');
+    console.log('║                                                            ║');
+    console.log('╚════════════════════════════════════════════════════════════╝');
+    console.log('\n');
+
+    serverLogger.info(`🚀 Server running at ${appUrl}`);
+    serverLogger.info(`🚀 GraphQL proxy server ready at ${graphqlUrl}`);
+    serverLogger.info(`📁 FileStore API ready at ${appUrl}/api/filestore`);
+    serverLogger.info(`⚙️  Configuration API ready at ${appUrl}/api/config`);
+    serverLogger.info(`💚 Health check ready at ${appUrl}/api/health`);
     serverLogger.info(
       `Conductor Server URL: ${process.env.VITE_CONDUCTOR_SERVER_URL || 'http://localhost:8080'}`
     );
+    console.log('\n');
+
+    // Open browser automatically
+    open(appUrl).catch((err) => {
+      serverLogger.warn(`Could not open browser automatically: ${err.message}`);
+    });
   });
 }
 
