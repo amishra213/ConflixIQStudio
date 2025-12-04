@@ -335,12 +335,148 @@ docker run -d -p 4000:4000 myregistry/conflixiq-studio:latest
 
 ## Environment Variables
 
-| Variable        | Default               | Description                              |
-| --------------- | --------------------- | ---------------------------------------- |
-| `PORT`          | 4000                  | HTTP server port                         |
-| `NODE_ENV`      | production            | Environment mode                         |
-| `CONDUCTOR_API` | http://localhost:8080 | Conductor server URL                     |
-| `LOG_LEVEL`     | info                  | Logging level (debug, info, warn, error) |
+| Variable              | Default               | Description                                    |
+| --------------------- | --------------------- | ---------------------------------------------- |
+| `PORT`                | 4000                  | HTTP server port                               |
+| `NODE_ENV`            | production            | Environment mode                               |
+| `CONDUCTOR_API`       | http://localhost:8080 | Conductor server URL                           |
+| `LOG_LEVEL`           | INFO                  | Logging level (DEBUG, INFO, WARN, ERROR)       |
+| `LOGS_PATH`           | ./logs                | Directory for log files                        |
+| `LOG_CONSOLE`         | true                  | Enable console output (true/false)             |
+| `LOG_FILE`            | true                  | Enable file output (true/false)                |
+| `LOG_MAX_SIZE`        | 10485760              | Max log file size in bytes before rotation     |
+| `LOG_RETENTION`       | 7                     | Days to retain logs before deletion            |
+
+## Logging Configuration
+
+ConflixIQ Studio includes a comprehensive logging framework with multiple log levels and automatic file rotation.
+
+### Log Levels
+
+Choose the appropriate level for your environment:
+
+| Level | Use Case | Output Examples |
+|-------|----------|-----------------|
+| **DEBUG** | Development, troubleshooting | Request/response details, cache operations, configuration changes |
+| **INFO** | Normal operations | Server startup, successful operations, workflow updates |
+| **WARN** | Warnings, recoverable issues | Configuration validation failures, missing optional files |
+| **ERROR** | Errors, failed operations | Connection failures, API errors, file I/O errors |
+
+### Setting Log Level
+
+**Via Environment Variable:**
+
+```bash
+# Windows Command Prompt
+set LOG_LEVEL=DEBUG
+conflixiq-studio.exe
+
+# Windows PowerShell
+$env:LOG_LEVEL = "DEBUG"
+conflixiq-studio.exe
+
+# Docker
+docker run -d -p 4000:4000 -e LOG_LEVEL=DEBUG conflixiq-studio:latest
+
+# Linux/Mac
+export LOG_LEVEL=DEBUG
+npm run server:dev
+```
+
+### Log Output
+
+Logs are written to both console and file:
+
+**Console Output:**
+- Color-coded by level (DEBUG=cyan, INFO=green, WARN=yellow, ERROR=red)
+- Includes timestamp and log level
+- Example:
+  ```
+  2025-12-04T10:30:15.123Z [INFO ] ✓ ConflixIQ Studio Server Starting
+  2025-12-04T10:30:15.456Z [DEBUG] Fetching task definitions from http://localhost:8080
+  ```
+
+**File Output:**
+- Stored in `logs/` folder
+- Daily rotation with timestamps: `conflixiq-studio-YYYY-MM-DD.log`
+- Size-based rotation (10 MB default before creating new file)
+- Automatic retention (7 days by default)
+
+### Example Log Files
+
+```
+logs/
+├── conflixiq-studio-2025-12-04.log   # Today's logs
+├── conflixiq-studio-2025-12-03.log   # Yesterday's logs
+└── conflixiq-studio-2025-12-02.log   # Older logs
+```
+
+### Customizing Log Settings
+
+```bash
+# Maximum log file size (50 MB)
+set LOG_MAX_SIZE=52428800
+conflixiq-studio.exe
+
+# Retention period (14 days)
+set LOG_RETENTION=14
+conflixiq-studio.exe
+
+# Disable console output (file only)
+set LOG_CONSOLE=false
+conflixiq-studio.exe
+
+# Disable file output (console only)
+set LOG_FILE=false
+conflixiq-studio.exe
+```
+
+### Typical Log Output
+
+When the server starts with `LOG_LEVEL=DEBUG`:
+
+```
+2025-12-04T10:30:15.123Z [INFO ] 🚀 ConflixIQ Studio Server Starting
+2025-12-04T10:30:15.145Z [DEBUG] Logger Configuration: {
+  "logLevel": "DEBUG",
+  "logFolder": "/path/to/logs",
+  "consoleOutput": true,
+  "fileOutput": true,
+  "maxLogSize": 10485760,
+  "retentionDays": 7
+}
+2025-12-04T10:30:15.200Z [INFO ] 🚀 GraphQL proxy server ready at http://localhost:4000/graphql
+2025-12-04T10:30:15.201Z [INFO ] 📁 FileStore API ready at http://localhost:4000/api/filestore
+2025-12-04T10:30:15.202Z [DEBUG] GET /api/health - Health check requested
+2025-12-04T10:30:15.300Z [INFO ] ✓ Configuration updated: http://localhost:8080
+2025-12-04T10:30:16.456Z [DEBUG] Fetching task definitions from http://localhost:8080
+2025-12-04T10:30:16.789Z [DEBUG] ✓ Successfully fetched 15 task definitions
+```
+
+### Troubleshooting with Logs
+
+If something is wrong, check the logs:
+
+```bash
+# View today's log file
+cat logs/conflixiq-studio-2025-12-04.log
+
+# Follow logs in real-time (Linux/Mac)
+tail -f logs/conflixiq-studio-2025-12-04.log
+
+# Follow logs in real-time (Windows PowerShell)
+Get-Content logs/conflixiq-studio-2025-12-04.log -Wait
+
+# Search for errors
+grep ERROR logs/conflixiq-studio-*.log
+```
+
+### Performance Notes
+
+- Logging has minimal performance impact (< 1% CPU)
+- File I/O is asynchronous and non-blocking
+- Logs are rotated automatically to keep disk usage reasonable
+- In high-throughput scenarios, consider using `LOG_LEVEL=WARN` or `LOG_LEVEL=ERROR`
 
 ## Development
 

@@ -114,10 +114,13 @@ const fileStoreRoutes = (app) => {
    */
   app.get('/api/filestore/load', async (req, res) => {
     try {
+      serverLogger.debug('GET /api/filestore/load - Loading task cache');
       const data = await loadCacheFromFile('task-cache.json');
       if (data) {
+        serverLogger.debug(`✓ Task cache loaded, ${data.data?.length || 0} items`);
         res.json({ success: true, data });
       } else {
+        serverLogger.debug('Task cache is empty, returning empty array');
         res.json({ success: true, data: [] });
       }
     } catch (error) {
@@ -134,13 +137,17 @@ const fileStoreRoutes = (app) => {
    */
   app.get('/api/filestore/load-workflows', async (req, res) => {
     try {
+      serverLogger.debug('GET /api/filestore/load-workflows - Loading workflows cache');
       const data = await loadCacheFromFile('workflows-cache.json');
       if (data && data.workflows && Array.isArray(data.workflows)) {
+        serverLogger.debug(`✓ Workflows cache loaded, ${data.workflows.length} workflows`);
         res.json({ success: true, data: data.workflows });
       } else if (data && Array.isArray(data)) {
         // Handle legacy format
+        serverLogger.debug(`✓ Workflows cache loaded (legacy format), ${data.length} workflows`);
         res.json({ success: true, data });
       } else {
+        serverLogger.debug('Workflows cache is empty, returning empty array');
         res.json({ success: true, data: [] });
       }
     } catch (error) {
@@ -160,6 +167,7 @@ const fileStoreRoutes = (app) => {
       const { key, data, timestamp } = req.body;
 
       if (!key || !Array.isArray(data)) {
+        serverLogger.warn('POST /api/filestore/save - Invalid request: missing key or data');
         res.status(400).json({
           success: false,
           error: 'Missing required fields: key (string), data (array)',
@@ -172,7 +180,9 @@ const fileStoreRoutes = (app) => {
         data,
       };
 
+      serverLogger.debug(`POST /api/filestore/save - Saving cache with key: ${key} (${data.length} items)`);
       await saveCacheToFile(key, cacheData);
+      serverLogger.info(`✓ Cache saved: ${key}`);
       res.json({ success: true });
     } catch (error) {
       serverLogger.error('Error in /api/filestore/save:', error);
@@ -191,6 +201,7 @@ const fileStoreRoutes = (app) => {
       const { workflows, timestamp } = req.body;
 
       if (!Array.isArray(workflows)) {
+        serverLogger.warn('POST /api/filestore/save-workflows - Invalid request: workflows not an array');
         res.status(400).json({
           success: false,
           error: 'Missing required field: workflows (array)',
@@ -203,7 +214,9 @@ const fileStoreRoutes = (app) => {
         workflows,
       };
 
+      serverLogger.debug(`POST /api/filestore/save-workflows - Saving ${workflows.length} workflows`);
       await saveCacheToFile('workflows-cache.json', workflowData);
+      serverLogger.info(`✓ Workflows saved: ${workflows.length} workflows`);
       res.json({ success: true });
     } catch (error) {
       serverLogger.error('Error in /api/filestore/save-workflows:', error);
@@ -222,6 +235,7 @@ const fileStoreRoutes = (app) => {
       const { key } = req.body;
 
       if (!key) {
+        serverLogger.warn('POST /api/filestore/clear - Invalid request: missing key');
         res.status(400).json({
           success: false,
           error: 'Missing required field: key',
@@ -229,7 +243,9 @@ const fileStoreRoutes = (app) => {
         return;
       }
 
+      serverLogger.debug(`POST /api/filestore/clear - Clearing cache: ${key}`);
       await deleteCacheFile(key);
+      serverLogger.info(`✓ Cache cleared: ${key}`);
       res.json({ success: true });
     } catch (error) {
       serverLogger.error('Error in /api/filestore/clear:', error);
@@ -245,10 +261,13 @@ const fileStoreRoutes = (app) => {
    */
   app.get('/api/filestore/info', async (req, res) => {
     try {
+      serverLogger.debug('GET /api/filestore/info - Retrieving cache file info');
       const info = await getCacheFileInfo('task-cache.json');
       if (info) {
+        serverLogger.debug(`✓ Cache file info retrieved, size: ${info.size} bytes`);
         res.json({ success: true, data: info });
       } else {
+        serverLogger.debug('Cache file does not exist');
         res.json({ success: true, data: { size: 0, lastUpdate: null, created: null } });
       }
     } catch (error) {
@@ -269,6 +288,7 @@ const fileStoreRoutes = (app) => {
       const { filename, data, timestamp } = req.body;
 
       if (!filename || !data) {
+        serverLogger.warn('POST /api/filestore/save-workflow - Invalid request: missing filename or data');
         res.status(400).json({
           success: false,
           error: 'Missing required fields: filename (string), data (object)',
@@ -286,10 +306,12 @@ const fileStoreRoutes = (app) => {
         timestamp: timestamp || Date.now(),
         ...data,
       };
+      serverLogger.debug(`POST /api/filestore/save-workflow - Saving workflow: ${filename}`);
       await fs.writeFile(filePath, JSON.stringify(cacheData, null, 2), 'utf8');
-      serverLogger.info(`Workflow saved to: ${filePath}`);
+      serverLogger.info(`✓ Workflow saved: ${filename}`);
       res.json({ success: true });
     } catch (error) {
+      serverLogger.error('Error in /api/filestore/save-workflow:', error);
       res.status(500).json({
         success: false,
         error: error instanceof Error ? error.message : 'Unknown error saving workflow',
@@ -305,6 +327,7 @@ const fileStoreRoutes = (app) => {
       const workflowsDir = path.join(CACHE_DIR, 'workflows');
       const workflows = [];
 
+      serverLogger.debug('GET /api/filestore/load-workflows-batch - Loading all workflows');
       try {
         // Read all files in workflows directory
         const files = await fs.readdir(workflowsDir);
@@ -317,15 +340,18 @@ const fileStoreRoutes = (app) => {
             workflows.push(workflow);
           }
         }
+        serverLogger.debug(`✓ Loaded ${workflows.length} workflows from batch`);
       } catch (err) {
         // Directory doesn't exist yet - return empty array
         if (err.code !== 'ENOENT') {
           throw err;
         }
+        serverLogger.debug('Workflows batch directory does not exist, returning empty array');
       }
 
       res.json({ success: true, data: workflows });
     } catch (error) {
+      serverLogger.error('Error in /api/filestore/load-workflows-batch:', error);
       res.status(500).json({
         success: false,
         error: error instanceof Error ? error.message : 'Unknown error loading workflows',
@@ -341,6 +367,7 @@ const fileStoreRoutes = (app) => {
       const { filename } = req.body;
 
       if (!filename) {
+        serverLogger.warn('POST /api/filestore/delete-workflow - Invalid request: missing filename');
         res.status(400).json({
           success: false,
           error: 'Missing required field: filename',
@@ -349,18 +376,21 @@ const fileStoreRoutes = (app) => {
       }
 
       const filePath = path.join(CACHE_DIR, filename);
+      serverLogger.debug(`POST /api/filestore/delete-workflow - Deleting workflow: ${filename}`);
       try {
         await fs.unlink(filePath);
-        serverLogger.info(`Workflow deleted: ${filePath}`);
+        serverLogger.info(`✓ Workflow deleted: ${filename}`);
       } catch (err) {
         // File doesn't exist - treat as success
         if (err.code !== 'ENOENT') {
           throw err;
         }
+        serverLogger.debug(`Workflow not found (already deleted): ${filename}`);
       }
 
       res.json({ success: true });
     } catch (error) {
+      serverLogger.error('Error in /api/filestore/delete-workflow:', error);
       res.status(500).json({
         success: false,
         error: error instanceof Error ? error.message : 'Unknown error deleting workflow',

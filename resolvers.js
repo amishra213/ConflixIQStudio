@@ -28,8 +28,8 @@ function updateConductorConfig(serverUrl, apiKey) {
   if (apiKey !== undefined) {
     conductorConfig.apiKey = apiKey;
   }
-  console.log(
-    `Updated Conductor Config - URL: ${conductorConfig.serverUrl}, Has API Key: ${!!conductorConfig.apiKey}`
+  serverLogger.info(
+    `✓ Updated Conductor Config - URL: ${conductorConfig.serverUrl}, Has API Key: ${!!conductorConfig.apiKey}`
   );
 }
 

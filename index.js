@@ -8,12 +8,17 @@ import cors from 'cors';
 import typeDefs from './schema.js';
 import { resolvers, updateConductorConfig } from './resolvers.js';
 import { fileStoreRoutes } from './fileStoreServer.js';
+import { serverLogger } from './server-logger.js';
 
 dotenv.config();
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
 const PORT = process.env.PORT || 4000;
+
+// Log startup information
+serverLogger.info('🚀 ConflixIQ Studio Server Starting');
+serverLogger.debug(`Logger Configuration:`, serverLogger.getStats());
 
 // Enable CORS for all origins
 app.use(cors());
@@ -28,11 +33,13 @@ app.post('/api/config', (req, res) => {
   const { conductorServerUrl, conductorApiKey } = req.body;
 
   if (!conductorServerUrl) {
+    serverLogger.warn('Configuration failed: missing conductorServerUrl');
     return res.status(400).json({ error: 'conductorServerUrl is required' });
   }
 
   try {
     updateConductorConfig(conductorServerUrl, conductorApiKey);
+    serverLogger.info(`✓ Configuration updated: ${conductorServerUrl}`);
     res.json({
       success: true,
       message: 'Configuration updated successfully',
@@ -42,12 +49,14 @@ app.post('/api/config', (req, res) => {
       },
     });
   } catch (error) {
+    serverLogger.error('Configuration error:', error.message);
     res.status(500).json({ error: error.message });
   }
 });
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
+  serverLogger.debug('Health check requested');
   res.json({
     status: 'ok',
     timestamp: new Date().toISOString(),
@@ -73,12 +82,15 @@ app.get('/api/metadata/taskdefs', async (req, res) => {
       headers['X-Conductor-API-Key'] = conductorApiKey;
     }
 
+    serverLogger.debug(`Fetching task definitions from ${conductorServerUrl}`);
+
     // Forward request to Conductor server
     const response = await axios.get(`${conductorServerUrl}/api/metadata/taskdefs`, { headers });
 
+    serverLogger.debug(`✓ Successfully fetched ${response.data.length || 'unknown'} task definitions`);
     res.json(response.data);
   } catch (error) {
-    console.error('Error fetching task definitions from Conductor:', error.message);
+    serverLogger.error('Error fetching task definitions from Conductor:', error.message);
     res.status(error.response?.status || 500).json({
       error: 'Failed to fetch task definitions',
       message: error.message,
@@ -106,13 +118,15 @@ app.get('/api/metadata/workflow', async (req, res) => {
     // Forward request to Conductor server (with query parameters if any)
     const queryString =
       Object.keys(req.query).length > 0 ? `?${new URLSearchParams(req.query).toString()}` : '';
+    serverLogger.debug(`Fetching workflows from ${conductorServerUrl}/api/metadata/workflow${queryString}`);
     const response = await axios.get(`${conductorServerUrl}/api/metadata/workflow${queryString}`, {
       headers,
     });
 
+    serverLogger.debug(`✓ Successfully fetched ${response.data.length || 'unknown'} workflows`);
     res.json(response.data);
   } catch (error) {
-    console.error('Error fetching workflows from Conductor:', error.message);
+    serverLogger.error('Error fetching workflows from Conductor:', error.message);
     res.status(error.response?.status || 500).json({
       error: 'Failed to fetch workflows',
       message: error.message,
@@ -140,12 +154,12 @@ async function startApolloServer() {
   app.use('/graphql', expressMiddleware(server));
 
   app.listen(PORT, () => {
-    console.log(`🚀 Server running at http://localhost:${PORT}`);
-    console.log(`🚀 GraphQL proxy server ready at http://localhost:${PORT}/graphql`);
-    console.log(`📁 FileStore API ready at http://localhost:${PORT}/api/filestore`);
-    console.log(`⚙️  Configuration API ready at http://localhost:${PORT}/api/config`);
-    console.log(`💚 Health check ready at http://localhost:${PORT}/api/health`);
-    console.log(
+    serverLogger.info(`🚀 Server running at http://localhost:${PORT}`);
+    serverLogger.info(`🚀 GraphQL proxy server ready at http://localhost:${PORT}/graphql`);
+    serverLogger.info(`📁 FileStore API ready at http://localhost:${PORT}/api/filestore`);
+    serverLogger.info(`⚙️  Configuration API ready at http://localhost:${PORT}/api/config`);
+    serverLogger.info(`💚 Health check ready at http://localhost:${PORT}/api/health`);
+    serverLogger.info(
       `Conductor Server URL: ${process.env.VITE_CONDUCTOR_SERVER_URL || 'http://localhost:8080'}`
     );
   });
