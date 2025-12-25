@@ -153,6 +153,32 @@ function createUserFriendlyError(error, _operation) {
   };
 }
 
+// Helper function to normalize workflow data for Conductor
+function normalizeWorkflowForConductor(workflow) {
+  return {
+    ...workflow,
+    // Ensure critical fields are always set with proper types
+    name: workflow.name || 'Unnamed Workflow',
+    version: typeof workflow.version === 'number' ? workflow.version : (Number.parseInt(String(workflow.version)) || 1),
+    description: workflow.description || '',
+    // Ensure arrays are proper arrays
+    tasks: Array.isArray(workflow.tasks) ? workflow.tasks : [],
+    inputParameters: Array.isArray(workflow.inputParameters) ? workflow.inputParameters : [],
+    // Ensure objects are objects
+    outputParameters: typeof workflow.outputParameters === 'object' && workflow.outputParameters !== null ? workflow.outputParameters : {},
+    inputTemplate: typeof workflow.inputTemplate === 'object' && workflow.inputTemplate !== null ? workflow.inputTemplate : {},
+    variables: typeof workflow.variables === 'object' && workflow.variables !== null ? workflow.variables : {},
+    accessPolicy: typeof workflow.accessPolicy === 'object' && workflow.accessPolicy !== null ? workflow.accessPolicy : {},
+    // Ensure boolean fields are booleans
+    restartable: typeof workflow.restartable === 'boolean' ? workflow.restartable : true,
+    workflowStatusListenerEnabled: typeof workflow.workflowStatusListenerEnabled === 'boolean' ? workflow.workflowStatusListenerEnabled : false,
+    // Ensure numeric fields
+    schemaVersion: workflow.schemaVersion || 2,
+    timeoutSeconds: workflow.timeoutSeconds || 3600,
+    timeoutPolicy: workflow.timeoutPolicy || 'TIME_OUT_WF',
+  };
+}
+
 const resolvers = {
   JSON: GraphQLJSON,
   Query: {
@@ -424,26 +450,7 @@ const resolvers = {
       });
 
       try {
-        // Normalize workflow to ensure all required fields are present
-        const normalizedWorkflow = {
-          name: workflow.name || 'Unnamed Workflow',
-          version: workflow.version ?? 1,
-          description: workflow.description || '',
-          ...workflow,
-          tasks: Array.isArray(workflow.tasks) ? workflow.tasks : [],
-          inputParameters: Array.isArray(workflow.inputParameters) ? workflow.inputParameters : [],
-          outputParameters: workflow.outputParameters || {},
-          inputTemplate: workflow.inputTemplate || {},
-          variables: workflow.variables || {},
-          accessPolicy: workflow.accessPolicy || {},
-          restartable: workflow.restartable ?? true,
-          workflowStatusListenerEnabled: workflow.workflowStatusListenerEnabled ?? false,
-          schemaVersion: workflow.schemaVersion || 2,
-          timeoutSeconds: workflow.timeoutSeconds || 3600,
-          timeoutPolicy: workflow.timeoutPolicy || 'TIME_OUT_WF',
-        };
-
-        // Wrap in array as required by Conductor backend
+        const normalizedWorkflow = normalizeWorkflowForConductor(workflow);
         const workflowArray = [normalizedWorkflow];
 
         serverLogger.info(
@@ -452,7 +459,21 @@ const resolvers = {
           'v' + normalizedWorkflow.version
         );
 
+        // Log the exact payload being sent
+        serverLogger.debug(
+          '[Resolvers] Workflow payload being sent to Conductor:',
+          JSON.stringify(workflowArray, null, 2)
+        );
+
         const response = await client.post('/api/metadata/workflow', workflowArray);
+
+        // Log the response status and data
+        serverLogger.debug(
+          '[Resolvers] Conductor response status:',
+          response.status,
+          'Response data:',
+          JSON.stringify(response.data)
+        );
 
         if (response.status >= 200 && response.status < 300) {
           // Success - return name and version
@@ -551,26 +572,7 @@ const resolvers = {
       });
 
       try {
-        // Normalize workflow to ensure all required fields are present
-        const normalizedWorkflow = {
-          name: workflow.name || 'Unnamed Workflow',
-          version: workflow.version ?? 1,
-          description: workflow.description || '',
-          ...workflow,
-          tasks: Array.isArray(workflow.tasks) ? workflow.tasks : [],
-          inputParameters: Array.isArray(workflow.inputParameters) ? workflow.inputParameters : [],
-          outputParameters: workflow.outputParameters || {},
-          inputTemplate: workflow.inputTemplate || {},
-          variables: workflow.variables || {},
-          accessPolicy: workflow.accessPolicy || {},
-          restartable: workflow.restartable ?? true,
-          workflowStatusListenerEnabled: workflow.workflowStatusListenerEnabled ?? false,
-          schemaVersion: workflow.schemaVersion || 2,
-          timeoutSeconds: workflow.timeoutSeconds || 3600,
-          timeoutPolicy: workflow.timeoutPolicy || 'TIME_OUT_WF',
-        };
-
-        // Wrap in array as required by Conductor backend
+        const normalizedWorkflow = normalizeWorkflowForConductor(workflow);
         const workflowArray = [normalizedWorkflow];
 
         serverLogger.info(
@@ -579,7 +581,21 @@ const resolvers = {
           'v' + normalizedWorkflow.version
         );
 
+        // Log the exact payload being sent
+        serverLogger.debug(
+          '[Resolvers] Workflow payload being sent to Conductor:',
+          JSON.stringify(workflowArray, null, 2)
+        );
+
         const response = await client.put('/api/metadata/workflow', workflowArray);
+
+        // Log the response status and data
+        serverLogger.debug(
+          '[Resolvers] Conductor response status:',
+          response.status,
+          'Response data:',
+          JSON.stringify(response.data)
+        );
 
         if (response.status >= 200 && response.status < 300) {
           // Success - return name and version

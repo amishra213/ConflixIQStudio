@@ -157,6 +157,13 @@ app.get('/api/metadata/workflow', async (req, res) => {
 
     const count = response.data?.length || 0;
     serverLogger.info(`✅ Successfully fetched ${count} workflows from Conductor`);
+    
+    // Log workflow names for debugging
+    if (Array.isArray(response.data) && response.data.length > 0) {
+      const workflowNames = response.data.map((w) => `${w.name} v${w.version}`).join(', ');
+      serverLogger.debug(`📋 Workflows found: ${workflowNames}`);
+    }
+    
     serverLogger.debug(`Response size: ${JSON.stringify(response.data).length} bytes`);
     res.json(response.data);
   } catch (error) {
@@ -198,6 +205,16 @@ app.get('/api/metadata/workflow/:name', async (req, res) => {
     serverLogger.info(
       `✅ Successfully fetched workflow definition: ${req.params.name}${versionInfo}`
     );
+    
+    // Log the workflow structure for debugging
+    if (response.data?.name) {
+      serverLogger.debug(
+        `📄 Workflow structure: name="${response.data.name}", version=${response.data.version}, tasks=${
+          Array.isArray(response.data.tasks) ? response.data.tasks.length : 0
+        }`
+      );
+    }
+    
     serverLogger.debug(`Response size: ${JSON.stringify(response.data).length} bytes`);
     res.json(response.data);
   } catch (error) {
