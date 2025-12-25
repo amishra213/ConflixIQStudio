@@ -44,8 +44,8 @@ export function normalizeWorkflowForConductor(workflow: WorkflowDefinition): Wor
     timeoutSeconds: workflow.timeoutSeconds || 3600,
     timeoutPolicy: workflow.timeoutPolicy || 'TIME_OUT_WF',
 
-    // Include optional fields if present
-    ...(workflow.ownerEmail && { ownerEmail: workflow.ownerEmail }),
+    // Include optional fields if present, with defaults
+    ownerEmail: workflow.ownerEmail || 'ConflixIQStudio@DefaultMail.com',
   };
 }
 

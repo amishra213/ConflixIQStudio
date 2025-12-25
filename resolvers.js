@@ -14,7 +14,7 @@ function createConductorClient() {
     baseURL: `${conductorConfig.serverUrl}/graphql`,
     headers: {
       'Content-Type': 'application/json',
-      ...(conductorConfig.apiKey && { 'X-API-Key': conductorConfig.apiKey }),
+      ...(conductorConfig.apiKey && { 'X-Conductor-API-Key': conductorConfig.apiKey }),
     },
     validateStatus: () => true, // Don't throw on any status code
   });
@@ -163,7 +163,7 @@ const resolvers = {
           baseURL: conductorConfig.serverUrl,
           headers: {
             'Content-Type': 'application/json',
-            ...(conductorConfig.apiKey && { 'X-API-Key': conductorConfig.apiKey }),
+            ...(conductorConfig.apiKey && { 'X-Conductor-API-Key': conductorConfig.apiKey }),
           },
           validateStatus: () => true,
         });
@@ -298,7 +298,7 @@ const resolvers = {
           };
 
           if (conductorConfig.apiKey) {
-            headers['X-Conductor-API-Key'] = conductorConfig.apiKey;
+            headers['X-API-Key'] = conductorConfig.apiKey;
           }
 
           let restUrl = `${conductorConfig.serverUrl}/api/metadata/workflow/${name}`;
@@ -358,7 +358,7 @@ const resolvers = {
           baseURL: conductorConfig.serverUrl,
           headers: {
             'Content-Type': 'application/json',
-            ...(conductorConfig.apiKey && { 'X-API-Key': conductorConfig.apiKey }),
+            ...(conductorConfig.apiKey && { 'X-Conductor-API-Key': conductorConfig.apiKey }),
           },
           validateStatus: () => true,
         });
@@ -418,7 +418,7 @@ const resolvers = {
         baseURL: conductorConfig.serverUrl,
         headers: {
           'Content-Type': 'application/json',
-          ...(conductorConfig.apiKey && { 'X-API-Key': conductorConfig.apiKey }),
+          ...(conductorConfig.apiKey && { 'X-Conductor-API-Key': conductorConfig.apiKey }),
         },
         validateStatus: () => true, // Don't throw on any status code
       });
@@ -545,7 +545,7 @@ const resolvers = {
         baseURL: conductorConfig.serverUrl,
         headers: {
           'Content-Type': 'application/json',
-          ...(conductorConfig.apiKey && { 'X-API-Key': conductorConfig.apiKey }),
+          ...(conductorConfig.apiKey && { 'X-Conductor-API-Key': conductorConfig.apiKey }),
         },
         validateStatus: () => true, // Don't throw on any status code
       });
@@ -740,7 +740,7 @@ const resolvers = {
         baseURL: conductorConfig.serverUrl,
         headers: {
           'Content-Type': 'application/json',
-          ...(conductorConfig.apiKey && { 'X-API-Key': conductorConfig.apiKey }),
+          ...(conductorConfig.apiKey && { 'X-Conductor-API-Key': conductorConfig.apiKey }),
         },
         validateStatus: () => true,
       });
@@ -792,7 +792,7 @@ const resolvers = {
         baseURL: conductorConfig.serverUrl,
         headers: {
           'Content-Type': 'application/json',
-          ...(conductorConfig.apiKey && { 'X-API-Key': conductorConfig.apiKey }),
+          ...(conductorConfig.apiKey && { 'X-Conductor-API-Key': conductorConfig.apiKey }),
         },
         validateStatus: () => true,
       });
@@ -837,7 +837,7 @@ const resolvers = {
         baseURL: conductorConfig.serverUrl,
         headers: {
           'Content-Type': 'application/json',
-          ...(conductorConfig.apiKey && { 'X-API-Key': conductorConfig.apiKey }),
+          ...(conductorConfig.apiKey && { 'X-Conductor-API-Key': conductorConfig.apiKey }),
         },
         validateStatus: () => true,
       });

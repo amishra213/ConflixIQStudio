@@ -169,6 +169,50 @@ app.get('/api/metadata/workflow', async (req, res) => {
   }
 });
 
+// Proxy GET /api/metadata/workflow/:name to Conductor server - get specific workflow definition
+app.get('/api/metadata/workflow/:name', async (req, res) => {
+  serverLogger.debug(`📄 Workflow definition request received for: ${req.params.name}`);
+  try {
+    const axios = await import('axios').then((m) => m.default);
+
+    // Get Conductor config from environment or stored config
+    const conductorServerUrl = process.env.VITE_CONDUCTOR_SERVER_URL || 'http://localhost:8080';
+    const conductorApiKey = process.env.VITE_CONDUCTOR_API_KEY || '';
+
+    const headers = {
+      'Content-Type': 'application/json',
+    };
+
+    if (conductorApiKey) {
+      headers['X-Conductor-API-Key'] = conductorApiKey;
+    }
+
+    // Build URL with version parameter if provided
+    const version = req.query.version ? `?version=${req.query.version}` : '';
+    const workflowUrl = `${conductorServerUrl}/api/metadata/workflow/${req.params.name}${version}`;
+    
+    serverLogger.debug(`🔗 Fetching workflow definition from ${workflowUrl}`);
+    const response = await axios.get(workflowUrl, { headers });
+
+    serverLogger.info(
+      `✅ Successfully fetched workflow definition: ${req.params.name}${req.query.version ? ` v${req.query.version}` : ''}`
+    );
+    serverLogger.debug(`Response size: ${JSON.stringify(response.data).length} bytes`);
+    res.json(response.data);
+  } catch (error) {
+    serverLogger.error(
+      `❌ Error fetching workflow definition for ${req.params.name}:`,
+      error.message
+    );
+    serverLogger.debug(`Error details:`, error.response?.status, error.response?.statusText);
+    res.status(error.response?.status || 500).json({
+      error: 'Failed to fetch workflow definition',
+      message: error.message,
+      workflowName: req.params.name,
+    });
+  }
+});
+
 // Proxy GET /api/workflow/search to Conductor server - lightweight execution summaries
 app.get('/api/workflow/search', async (req, res) => {
   serverLogger.debug('🔍 Workflow search request received');

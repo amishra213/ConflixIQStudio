@@ -476,7 +476,9 @@ export function localWorkflowToConductor(workflow: LocalWorkflow): WorkflowDefin
   }
 
   if (workflow.ownerEmail || settings.ownerEmail) {
-    result.ownerEmail = workflow.ownerEmail || settings.ownerEmail || '';
+    result.ownerEmail = workflow.ownerEmail || settings.ownerEmail || 'ConflixIQStudio@DefaultMail.com';
+  } else {
+    result.ownerEmail = 'ConflixIQStudio@DefaultMail.com';
   }
 
   if (workflow.ownerApp || settings.ownerApp) {
