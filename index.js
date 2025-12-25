@@ -194,8 +194,9 @@ app.get('/api/metadata/workflow/:name', async (req, res) => {
     serverLogger.debug(`🔗 Fetching workflow definition from ${workflowUrl}`);
     const response = await axios.get(workflowUrl, { headers });
 
+    const versionInfo = req.query.version ? ` v${req.query.version}` : '';
     serverLogger.info(
-      `✅ Successfully fetched workflow definition: ${req.params.name}${req.query.version ? ` v${req.query.version}` : ''}`
+      `✅ Successfully fetched workflow definition: ${req.params.name}${versionInfo}`
     );
     serverLogger.debug(`Response size: ${JSON.stringify(response.data).length} bytes`);
     res.json(response.data);
