@@ -142,6 +142,91 @@ function Start-SEABuild {
     }
 }
 
+function Create-ReleaseArtifacts {
+    Write-Log "Creating release artifacts..."
+    
+    # Find latest build directory
+    $buildDirs = Get-ChildItem 'dist' -Filter 'sea-build-*' -Directory | Sort-Object LastWriteTime -Descending | Select-Object -First 1
+    
+    if (-not $buildDirs) {
+        Write-Log "No build directory found" 'Error'
+        return
+    }
+    
+    $buildDir = $buildDirs.FullName
+    $releaseDir = Join-Path 'dist' 'release'
+    
+    # Create release directory
+    if (-not (Test-Path $releaseDir)) {
+        New-Item -ItemType Directory -Path $releaseDir | Out-Null
+    }
+    
+    # Check for Windows EXE
+    $exeFile = Get-ChildItem $buildDir -Filter '*.exe' | Select-Object -First 1
+    if ($exeFile) {
+        $exeName = "conflixiq-studio-x64-$((Get-Date).ToString('yyyyMMdd')).exe"
+        $exePath = Join-Path $releaseDir $exeName
+        Copy-Item $exeFile.FullName -Destination $exePath
+        Write-Log "Windows EXE created: $exePath" 'Success'
+    }
+    
+    # Create Docker image TAR
+    Write-Log "Creating Docker image TAR file..."
+    $dockerTarName = "conflixiq-studio-docker-$((Get-Date).ToString('yyyyMMdd')).tar"
+    $dockerTarPath = Join-Path $releaseDir $dockerTarName
+    
+    # Create Dockerfile if it exists in build dir
+    $dockerfile = Get-ChildItem $buildDir -Filter 'Dockerfile' | Select-Object -First 1
+    if ($dockerfile) {
+        # Create a temporary directory for Docker build context
+        $dockerContext = Join-Path $buildDir 'docker-context'
+        if (-not (Test-Path $dockerContext)) {
+            New-Item -ItemType Directory -Path $dockerContext | Out-Null
+        }
+        
+        # Copy Dockerfile
+        Copy-Item $dockerfile.FullName -Destination (Join-Path $dockerContext 'Dockerfile')
+        
+        # Copy necessary files
+        $filesToCopy = @('package.json', 'index.js', 'schema.js', 'resolvers.js', 'server-logger.js', 'fileStoreServer.js')
+        foreach ($file in $filesToCopy) {
+            $srcFile = Get-ChildItem $buildDir -Filter $file | Select-Object -First 1
+            if ($srcFile) {
+                Copy-Item $srcFile.FullName -Destination (Join-Path $dockerContext $file)
+            }
+        }
+        
+        # Copy dist folder if exists
+        $distFolder = Get-ChildItem $buildDir -Filter 'dist' -Directory | Select-Object -First 1
+        if ($distFolder) {
+            Copy-Item $distFolder.FullName -Destination (Join-Path $dockerContext 'dist') -Recurse
+        }
+        
+        Write-Log "Building Docker image..." 'Info'
+        
+        # Build Docker image
+        $imageName = "conflixiq-studio:latest"
+        docker build -t $imageName $dockerContext
+        
+        if ($LASTEXITCODE -eq 0) {
+            # Save Docker image to TAR
+            Write-Log "Saving Docker image to TAR..." 'Info'
+            docker save -o $dockerTarPath $imageName
+            
+            if (Test-Path $dockerTarPath) {
+                $tarSize = [math]::Round((Get-Item $dockerTarPath).Length / 1GB, 2)
+                Write-Log "Docker TAR created: $dockerTarPath ($tarSize GB)" 'Success'
+            }
+        }
+        else {
+            Write-Log "Docker build failed - TAR will not be created" 'Warning'
+        }
+        
+        # Cleanup
+        Remove-Item $dockerContext -Recurse -Force -ErrorAction SilentlyContinue
+    }
+}
+
 function Show-BuildResults {
     Write-Log ""
     Write-Log "╔════════════════════════════════════════════╗"
@@ -157,7 +242,7 @@ function Show-BuildResults {
         
         # List artifacts
         Write-Log ""
-        Write-Log "Artifacts created:" 'Info'
+        Write-Log "Build artifacts:" 'Info'
         
         Get-ChildItem $buildDir -File | ForEach-Object {
             $size = [math]::Round($_.Length / 1MB, 2)
@@ -170,6 +255,17 @@ function Show-BuildResults {
             Write-Log ""
             Write-Log "Build Report:" 'Info'
             Get-Content $reportFile | Select-Object -First 30 | ForEach-Object { Write-Log "  $_" }
+        }
+    }
+    
+    # Show release artifacts
+    $releaseDir = Join-Path 'dist' 'release'
+    if (Test-Path $releaseDir) {
+        Write-Log ""
+        Write-Log "Release artifacts:" 'Success'
+        Get-ChildItem $releaseDir -File | ForEach-Object {
+            $size = [math]::Round($_.Length / 1MB, 2)
+            Write-Log "  - $($_.Name) ($size MB)" 'Success'
         }
     }
 }
@@ -197,13 +293,17 @@ function Main {
     Start-SEABuild
     Write-Log ""
     
+    Create-ReleaseArtifacts
+    Write-Log ""
+    
     Show-BuildResults
     
     Write-Log ""
     Write-Log "Next steps:" 'Info'
-    Write-Log "  1. Check dist/sea-build-*/BUILD-REPORT.md for details" 'Info'
-    Write-Log "  2. Test the Windows EXE or Docker image" 'Info'
-    Write-Log "  3. Distribute to users" 'Info'
+    Write-Log "  1. Check dist/release/ for Windows EXE and Docker TAR" 'Info'
+    Write-Log "  2. Test the Windows EXE on a 64-bit system" 'Info'
+    Write-Log "  3. Import Docker TAR: docker load < conflixiq-studio-docker-*.tar" 'Info'
+    Write-Log "  4. Run Docker: docker run -p 8080:8080 conflixiq-studio:latest" 'Info'
     Write-Log ""
 }
 
