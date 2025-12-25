@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="1200" height="400" viewBox="0 0 1200 400" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title">
+  <title id="title">ConflixIQ Studio Logo</title>
+  <defs>
+    <style>
+      .brand-text { font-family: "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; font-weight: 700; font-size: 96px; fill: #0f1724; }
+      .tagline { font-family: "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; font-weight: 700; font-size: 96px; fill: #0f1724; }
+    </style>
+  </defs>
+
+  <!-- Background (transparent) -->
+  <rect width="100%" height="100%" fill="none"/>
+
+  <!-- Left icon: diamond made from two interlocking arrows (blue and orange) -->
+  <!-- Blue arrow (top-left to bottom-right) -->
+  <g transform="translate(80,60) scale(1.2)">
+    <path d="M120 0 L210 90 L180 120 L90 30 L60 60 L0 0 Z" fill="#1f5fa3"/>
+    <!-- small inner cutout to suggest intersection -->
+    <path d="M100 20 L140 60 L120 80 L80 40 Z" fill="#ffffff" opacity="0.0"/>
+  </g>
+
+  <!-- Orange arrow (bottom-left to top-right), mirrored and rotated -->
+  <g transform="translate(80,60) scale(1.2) translate(60,120) rotate(180)">
+    <path d="M120 0 L210 90 L180 120 L90 30 L60 60 L0 0 Z" fill="#ff6a2d"/>
+  </g>
+
+  <!-- Center diamond accent -->
+  <g transform="translate(190,160)">
+    <rect x="-24" y="-24" width="48" height="48" rx="6" ry="6" fill="#ff6a2d" transform="rotate(45)"/>
+  </g>
+
+  <!-- Typography on the right -->
+  <text x="360" y="150" class="brand-text">ConflixIQ</text>
+  <text x="360" y="260" class="tagline">Studio</text>
+
+  <!-- Optional spacing line (invisible, for layout) -->
+</svg>

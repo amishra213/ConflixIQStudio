@@ -1,0 +1,54 @@
+version: '3.8'
+
+services:
+  conflixiq-studio:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: conflixiq-studio
+    ports:
+      - "4000:4000"
+      - "5173:5173"
+    environment:
+      - NODE_ENV=production
+      - LOG_LEVEL=info
+      - VITE_LOG_FOLDER=/app/logs
+    volumes:
+      # Mount file store for persistence
+      - conductor-filestore:/app/.filestore
+      # Mount logs for persistence and external access
+      - conductor-logs:/app/logs
+      # Optional: Mount for local development
+      # - .:/app (uncomment for development with hot reload setup)
+    networks:
+      - conductor-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:4000/health', (r) => {if (r.statusCode !== 200) throw new Error(r.statusCode)})"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+
+  # Optional: PostgreSQL for persistent data (if integrated with Conductor)
+  # postgres:
+  #   image: postgres:15-alpine
+  #   container_name: conductor-db
+  #   environment:
+  #     POSTGRES_DB: conductor
+  #     POSTGRES_USER: conductor
+  #     POSTGRES_PASSWORD: conductor_password
+  #   volumes:
+  #     - conductor-db:/var/lib/postgresql/data
+  #   networks:
+  #     - conductor-network
+  #   restart: unless-stopped
+
+volumes:
+  conductor-filestore:
+  conductor-logs:
+  # conductor-db:
+
+networks:
+  conductor-network:
+    driver: bridge

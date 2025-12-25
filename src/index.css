@@ -1,0 +1,290 @@
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 210 40% 96%;
+    --foreground: 210 11% 15%;
+    --card: 0 0% 100%;
+    --card-foreground: 210 11% 15%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 210 11% 15%;
+    --primary: 191 91% 38%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 210 70% 85%;
+    --secondary-foreground: 210 11% 15%;
+    --tertiary: 191 77% 35%;
+    --tertiary-foreground: 0 0% 100%;
+    --neutral: 210 11% 15%;
+    --neutral-foreground: 0 0% 100%;
+    --muted: 210 40% 92%;
+    --muted-foreground: 210 6% 46%;
+    --accent: 191 91% 38%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+    --success: 142 71% 45%;
+    --warning: 38 92% 50%;
+    --border: 210 40% 88%;
+    --input: 210 40% 95%;
+    --ring: 191 91% 38%;
+    --radius: 8px;
+  }
+
+  .dark {
+    --background: 210 18% 11%;
+    --foreground: 210 20% 98%;
+    --card: 210 18% 15%;
+    --card-foreground: 210 20% 98%;
+    --popover: 210 18% 15%;
+    --popover-foreground: 210 20% 98%;
+    --primary: 191 91% 48%;
+    --primary-foreground: 210 18% 11%;
+    --secondary: 210 18% 20%;
+    --secondary-foreground: 210 20% 98%;
+    --tertiary: 191 77% 45%;
+    --tertiary-foreground: 0 0% 100%;
+    --neutral: 210 18% 15%;
+    --neutral-foreground: 210 20% 98%;
+    --muted: 210 18% 20%;
+    --muted-foreground: 210 10% 60%;
+    --accent: 210 18% 20%;
+    --accent-foreground: 210 20% 98%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+    --success: 142 71% 45%;
+    --warning: 38 92% 50%;
+    --border: 210 18% 22%;
+    --input: 210 18% 20%;
+    --ring: 191 91% 48%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  html,
+  body {
+    @apply bg-background text-foreground font-light;
+  }
+}
+
+/* React Flow Custom Styles */
+.react-flow__node {
+  background: transparent;
+  border: none;
+  padding: 0;
+}
+
+.react-flow__node:hover {
+  background: transparent;
+}
+
+.react-flow__node.selected {
+  background: transparent;
+}
+
+.react-flow__node-custom {
+  background: transparent;
+}
+
+.react-flow__handle {
+  background: #00bcd4;
+  width: 12px;
+  height: 12px;
+  border: 2px solid hsl(220, 13%, 80%);
+  border-radius: 50%;
+  transition: all 0.2s;
+}
+
+.react-flow__handle:hover {
+  background: #00e5ff;
+  transform: scale(1.2);
+}
+
+.react-flow__handle-top {
+  top: -6px;
+}
+
+.react-flow__handle-bottom {
+  bottom: -6px;
+}
+
+.react-flow__handle-left {
+  left: -6px;
+}
+
+.react-flow__handle-right {
+  right: -6px;
+}
+
+.react-flow__edge-path {
+  stroke: #00bcd4;
+  stroke-width: 2;
+  fill: none;
+}
+
+.react-flow__edge.animated .react-flow__edge-path {
+  stroke-dasharray: 8 4;
+  animation: dashdraw 0.8s linear infinite;
+}
+
+.react-flow__edge.selected .react-flow__edge-path {
+  stroke: #00e5ff;
+  stroke-width: 3;
+}
+
+.react-flow__edge:hover .react-flow__edge-path {
+  stroke: #00e5ff;
+  stroke-width: 2.5;
+}
+
+.react-flow__edge-textwrapper {
+  pointer-events: all;
+}
+
+.react-flow__edge-text {
+  fill: #9ca3af;
+  font-size: 11px;
+}
+
+@keyframes dashdraw {
+  from {
+    stroke-dashoffset: 12;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+.react-flow__controls {
+  background: hsl(220, 13%, 93%);
+  border: 1px solid hsl(220, 13%, 85%);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.react-flow__controls-button {
+  background: hsl(220, 13%, 93%);
+  border: none;
+  border-bottom: 1px solid hsl(220, 13%, 85%);
+  color: hsl(220, 13%, 40%);
+  width: 32px;
+  height: 32px;
+}
+
+.react-flow__controls-button:hover {
+  background: hsl(220, 13%, 85%);
+  color: hsl(220, 13%, 30%);
+}
+
+.react-flow__controls-button:last-child {
+  border-bottom: none;
+}
+
+.react-flow__controls-button svg {
+  width: 16px;
+  height: 16px;
+}
+
+.react-flow__minimap {
+  background: hsl(220, 13%, 93%);
+  border: 1px solid hsl(220, 13%, 85%);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.react-flow__minimap-mask {
+  fill: rgba(220, 221, 224, 0.8);
+}
+
+.react-flow__minimap-node {
+  fill: #00bcd4;
+  stroke: none;
+}
+
+.react-flow__background {
+  background: hsl(220, 13%, 96%);
+}
+
+.react-flow__background circle {
+  fill: #000000;
+}
+
+.react-flow__attribution {
+  display: none;
+}
+
+/* Custom node label styling */
+.react-flow__node-default .react-flow__node-label {
+  color: white;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+/* Line numbers styling */
+.line-number {
+  line-height: 1.5;
+  font-size: 13px;
+  font-family: monospace;
+  user-select: none;
+  pointer-events: none;
+  padding: 0;
+  margin: 0;
+}
+
+.line-number.error-line {
+  background-color: #fee2e2;
+  color: #991b1b;
+  font-weight: 600;
+}
+
+/* Custom scrollbar for textarea */
+textarea::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+textarea::-webkit-scrollbar-track {
+  background: hsl(220, 13%, 96%);
+  border-radius: 4px;
+}
+
+textarea::-webkit-scrollbar-thumb {
+  background: hsl(220, 13%, 80%);
+  border-radius: 4px;
+}
+
+textarea::-webkit-scrollbar-thumb:hover {
+  background: hsl(220, 13%, 70%);
+}
+
+textarea::-webkit-scrollbar-corner {
+  background: hsl(220, 13%, 96%);
+}
+
+/* Custom scrollbar for line numbers */
+div[style*='overflow-y']::-webkit-scrollbar {
+  width: 0px;
+}
+
+/* Custom scrollbar for modal content */
+.overflow-y-auto::-webkit-scrollbar {
+  width: 8px;
+}
+
+.overflow-y-auto::-webkit-scrollbar-track {
+  background: hsl(220, 13%, 96%);
+  border-radius: 4px;
+}
+
+.overflow-y-auto::-webkit-scrollbar-thumb {
+  background: hsl(220, 13%, 80%);
+  border-radius: 4px;
+}
+
+.overflow-y-auto::-webkit-scrollbar-thumb:hover {
+  background: hsl(220, 13%, 70%);
+}

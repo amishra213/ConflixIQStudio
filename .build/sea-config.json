@@ -1,0 +1,7 @@
+{
+  "main": "D:\\Projects\\ConflixIQStudio\\.build\\sea\\launcher.js",
+  "output": "D:\\Projects\\ConflixIQStudio\\.build\\sea-prep.blob",
+  "disableExperimentalSEAWarning": true,
+  "useSnapshot": false,
+  "useCodeCache": true
+}

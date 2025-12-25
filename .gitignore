@@ -1,0 +1,76 @@
+# Dependencies
+node_modules/
+package-lock.json
+
+# Logs and debug files
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+lerna-debug.log
+.npm
+.yarn/cache
+.yarn/unplugged
+.yarn/build-state.yml
+.yarn/install-state.gz
+
+# Build and distribution outputs
+dist/                           # SEA builder output
+distribution/                   # React/Vite build output
+dist-ssr/
+*.local
+.build/                         # Temporary SEA build cache
+.build-metadata.json
+.build-temp/
+out/
+
+# Runtime data and caches
+.filestore/                     # File store cache
+.filestore/*
+*.cache
+.cache/
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea/
+.DS_Store
+.AppleDouble
+.LSOverride
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+*.swp
+*.swo
+*~
+.vimrc
+.vim/
+
+# OS specific
+Thumbs.db
+.classpath
+.project
+.c9/
+*.launch
+.settings/
+*.sublime-workspace
+
+# Testing
+coverage/
+.nyc_output/
+
+# Misc
+.env
+.env.local
+.env.*.local
+.screen-graph.json
+audit-log.json
+
+# Build scripts (optional - comment out if you want to track)
+# *.ps1
+QUICK-START.ps1
