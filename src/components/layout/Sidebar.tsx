@@ -7,7 +7,6 @@ import {
   SettingsIcon,
   MoonIcon,
   SunIcon,
-  LogOutIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
   PenToolIcon,
@@ -126,13 +125,6 @@ export function Sidebar() {
             className="text-muted-foreground hover:bg-secondary hover:text-foreground"
           >
             {isDark ? <SunIcon className="w-5 h-5" /> : <MoonIcon className="w-5 h-5" />}
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="text-muted-foreground hover:bg-secondary hover:text-foreground"
-          >
-            <LogOutIcon className="w-5 h-5" />
           </Button>
         </div>
       </div>
