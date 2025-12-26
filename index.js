@@ -127,6 +127,100 @@ app.get('/api/metadata/taskdefs', async (req, res) => {
   }
 });
 
+// Proxy POST /api/workflow to Conductor server - start a new workflow execution
+app.post('/api/workflow', async (req, res) => {
+  serverLogger.debug('▶️  Workflow execution start request received');
+  try {
+    const axios = await import('axios').then((m) => m.default);
+
+    // Get Conductor config from environment or stored config
+    const conductorServerUrl = process.env.VITE_CONDUCTOR_SERVER_URL || 'http://localhost:8080';
+    const conductorApiKey = process.env.VITE_CONDUCTOR_API_KEY || '';
+
+    const headers = {
+      'Content-Type': 'application/json',
+    };
+
+    if (conductorApiKey) {
+      headers['X-Conductor-API-Key'] = conductorApiKey;
+    }
+
+    const { name, version, input, correlationId, taskToDomain, priority, workflowDef, externalInputPayloadStoragePath } = req.body;
+
+    if (!name) {
+      serverLogger.warn('❌ Workflow start request missing required "name" field');
+      return res.status(400).json({
+        error: 'Missing required field',
+        message: 'Workflow name is required',
+      });
+    }
+
+    const workflowUrl = `${conductorServerUrl}/api/workflow`;
+    serverLogger.debug(`🔗 Starting workflow execution at ${workflowUrl}`);
+    serverLogger.debug(`📋 Workflow details - name: ${name}, version: ${version || 1}`);
+
+    // Build the request payload with all optional fields
+    const startWorkflowRequest = {
+      name,
+      version: version || 1,
+      input: input || {},
+    };
+
+    // Add optional fields if provided
+    if (correlationId) {
+      startWorkflowRequest.correlationId = correlationId;
+    }
+    if (taskToDomain) {
+      startWorkflowRequest.taskToDomain = taskToDomain;
+    }
+    if (priority !== undefined) {
+      startWorkflowRequest.priority = priority;
+    }
+    if (workflowDef) {
+      startWorkflowRequest.workflowDef = workflowDef;
+    }
+    if (externalInputPayloadStoragePath) {
+      startWorkflowRequest.externalInputPayloadStoragePath = externalInputPayloadStoragePath;
+    }
+
+    serverLogger.debug(
+      `📤 Sending workflow start request:`,
+      JSON.stringify(startWorkflowRequest, null, 2)
+    );
+
+    const response = await axios.post(workflowUrl, startWorkflowRequest, { headers });
+
+    if (response.status >= 200 && response.status < 300) {
+      const executionId = response.data;
+      serverLogger.info(`✅ Workflow execution started successfully. Execution ID: ${executionId}`);
+      serverLogger.debug(`Conductor response size: ${JSON.stringify(response.data).length} bytes`);
+      res.status(response.status).send(executionId);
+      return;
+    }
+
+    // Handle error response
+    serverLogger.error(`❌ Conductor returned error starting workflow: ${response.status}`);
+    serverLogger.debug(`Error response data:`, JSON.stringify(response.data));
+    res.status(response.status).json({
+      error: 'Failed to start workflow',
+      message: response.data?.message || response.statusText,
+      status: response.status,
+      details: response.data,
+    });
+  } catch (error) {
+    serverLogger.error('❌ Error starting workflow execution on Conductor:', error.message);
+    serverLogger.debug(`Error details:`, error.response?.status, error.response?.statusText);
+    serverLogger.debug(`Error response:`, error.response?.data);
+    res.status(error.response?.status || 500).json({
+      error: 'Failed to start workflow',
+      message: error.message,
+      statusCode: error.response?.status,
+      statusText: error.response?.statusText,
+      details: error.response?.data,
+    });
+  }
+});
+
 // Proxy GET /api/metadata/workflow to Conductor server
 app.get('/api/metadata/workflow', async (req, res) => {
   serverLogger.debug('📊 Workflow metadata request received');
@@ -298,18 +392,27 @@ app.get('/api/workflow/search-v2/:workflowId', async (req, res) => {
 
     const { workflowId } = req.params;
     
+    // Build query parameters - include tasks by default, but allow override
+    const includeTasks = req.query.includeTasks === 'false' ? 'false' : 'true';
+    const queryParams = new URLSearchParams({
+      includeTasks,
+      ...req.query,
+    }).toString();
+    
+    const executionUrl = `${conductorServerUrl}/api/workflow/${workflowId}?${queryParams}`;
+    
     serverLogger.debug(
-      `🔗 Fetching detailed workflow execution from ${conductorServerUrl}/api/workflow/${workflowId}`
+      `🔗 Fetching detailed workflow execution from ${executionUrl}`
     );
 
     // Forward request to Conductor server
-    // Note: Conductor's /api/workflow/{id} endpoint returns detailed execution data
-    const response = await axios.get(`${conductorServerUrl}/api/workflow/${workflowId}`, {
+    // Note: Conductor's /api/workflow/{id} endpoint returns detailed execution data with tasks
+    const response = await axios.get(executionUrl, {
       headers,
     });
 
     serverLogger.info(`✅ Successfully fetched detailed execution for workflow ${workflowId}`);
-    serverLogger.debug(`Response size: ${JSON.stringify(response.data).length} bytes`);
+    serverLogger.debug(`Execution status: ${response.data?.status}, Tasks: ${Array.isArray(response.data?.tasks) ? response.data.tasks.length : 0}`);
     res.json(response.data);
   } catch (error) {
     serverLogger.error(

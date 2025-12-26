@@ -85,17 +85,19 @@ export function useExecutionService() {
   );
 
   /**
-   * Fetch detailed execution data from /search-v2 endpoint
-   * Used when viewing execution details, showing full payloads and task information
+   * Fetch detailed execution data from /api/workflow/{executionId} endpoint with retry logic
+   * Retries up to 3 times if execution is not found (404)
+   * This handles the case where execution details aren't immediately available after start
    */
   const fetchExecutionDetails = useCallback(
-    async (workflowId: string): Promise<ExecutionDetails> => {
+    async (workflowId: string, retries = 3): Promise<ExecutionDetails> => {
       try {
         setLoading(true);
         setError(null);
         const baseUrl = getBaseUrl();
 
-        const url = `${baseUrl}/workflow/search-v2/${workflowId}`;
+        // Use the correct Conductor endpoint with includeTasks parameter
+        const url = `${baseUrl}/workflow/${workflowId}?includeTasks=true`;
         console.log('[ExecutionService] Fetching execution details from:', url);
 
         const headers: HeadersInit = {
@@ -111,6 +113,15 @@ export function useExecutionService() {
         const response = await fetch(url, { headers });
 
         if (!response.ok) {
+          // If execution not found (404) and we have retries left, wait and retry
+          if (response.status === 404 && retries > 0) {
+            console.warn(
+              `[ExecutionService] Execution details not yet available (404). Retrying in 1 second... (${retries} retries left)`
+            );
+            // Wait 1 second before retrying
+            await new Promise((resolve) => setTimeout(resolve, 1000));
+            return fetchExecutionDetails(workflowId, retries - 1);
+          }
           throw new Error(`Failed to fetch execution details: ${response.statusText}`);
         }
 

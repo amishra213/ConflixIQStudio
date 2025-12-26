@@ -324,7 +324,7 @@ const resolvers = {
           };
 
           if (conductorConfig.apiKey) {
-            headers['X-API-Key'] = conductorConfig.apiKey;
+            headers['X-Conductor-API-Key'] = conductorConfig.apiKey;
           }
 
           let restUrl = `${conductorConfig.serverUrl}/api/metadata/workflow/${name}`;
