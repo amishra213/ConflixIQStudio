@@ -1,6 +1,6 @@
 # ConflixIQ Studio
 
-A comprehensive visual workflow designer for Netflix Conductor - build, edit, and manage Conductor workflows with an intuitive drag-and-drop interface.
+A comprehensive visual workflow designer for Netflix and OSS Conductor (https://github.com/conductor-oss/conductor) - build, edit, and manage Conductor workflows with an intuitive drag-and-drop interface.
 
 ![Node.js](https://img.shields.io/badge/Node.js-20+-green)
 ![React](https://img.shields.io/badge/React-18+-blue)
