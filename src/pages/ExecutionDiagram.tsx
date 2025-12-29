@@ -27,10 +27,13 @@ export function ExecutionDiagram() {
       try {
         setIsLoading(true);
         setError(null);
+        console.log('[ExecutionDiagram] Loading execution data for ID:', id);
         const data = await fetchExecutionDetails(id);
+        console.log('[ExecutionDiagram] Received execution data:', data);
         setExecutionData(data);
       } catch (err) {
         const errorMessage = err instanceof Error ? err.message : 'Failed to load execution details';
+        console.error('[ExecutionDiagram] Error loading execution data:', err);
         setError(errorMessage);
       } finally {
         setIsLoading(false);
@@ -41,9 +44,25 @@ export function ExecutionDiagram() {
   }, [id, fetchExecutionDetails]);
 
   const convertToWorkflowExecution = useCallback(() => {
-    if (!executionData) return;
+    if (!executionData) {
+      console.warn('[ExecutionDiagram] No execution data available for conversion');
+      return;
+    }
 
-    // Map API status to valid WorkflowTask status
+    console.log('[ExecutionDiagram] Converting execution data to WorkflowExecution format');
+    console.log('[ExecutionDiagram] Has workflowDefinition:', !!executionData.workflowDefinition);
+    console.log('[ExecutionDiagram] Tasks count:', executionData.tasks?.length || 0);
+
+    // If executionData already has the proper structure, use it directly
+    if (executionData.workflowDefinition) {
+      console.log('[ExecutionDiagram] Using executionData directly with existing workflowDefinition');
+      const converted: WorkflowExecution = executionData as unknown as WorkflowExecution;
+      console.log('[ExecutionDiagram] Converted WorkflowExecution:', converted);
+      setWorkflowExecution(converted);
+      return;
+    }
+
+    // Fallback: map API status to valid WorkflowTask status
     const mapStatus = (
       status: string
     ):
@@ -76,11 +95,12 @@ export function ExecutionDiagram() {
       }
     };
 
+    // Construct workflow execution if workflowDefinition doesn't exist
     const converted: WorkflowExecution = {
       workflowId: executionData.workflowId,
       workflowDefinition: {
         name: executionData.workflowName || executionData.workflowType || 'Unknown Workflow',
-        version: 1,
+        version: executionData.workflowVersion || 1,
         tasks: (executionData.tasks || []).map((task) => ({
           name: task.referenceTaskName,
           taskReferenceName: task.referenceTaskName,
@@ -120,12 +140,15 @@ export function ExecutionDiagram() {
       endTime: executionData.endTime,
     };
 
+    console.log('[ExecutionDiagram] Converted WorkflowExecution (fallback):', converted);
     setWorkflowExecution(converted);
   }, [executionData]);
 
   // Convert execution data to workflow execution diagram format
   useEffect(() => {
+    console.log('[ExecutionDiagram] useEffect triggered with executionData:', !!executionData);
     if (executionData) {
+      console.log('[ExecutionDiagram] Calling convertToWorkflowExecution...');
       convertToWorkflowExecution();
     }
   }, [executionData, convertToWorkflowExecution]);
@@ -165,6 +188,13 @@ export function ExecutionDiagram() {
   }
 
   const execution = executionData;
+
+  console.log('[ExecutionDiagram] Rendering with state:', {
+    isLoading,
+    hasError: !!error,
+    hasExecutionData: !!executionData,
+    hasWorkflowExecution: !!workflowExecution,
+  });
 
   return (
     <div className={`${isFullscreen ? 'fixed inset-0 z-50 bg-background' : 'p-8'} space-y-8`}>

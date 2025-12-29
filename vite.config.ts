@@ -24,9 +24,15 @@ export default defineConfig({
   },
   server: {
     proxy: {
+      '/api/workflow/search-v2/': {
+        target: 'http://localhost:4000',
+        changeOrigin: true,
+        secure: false,
+      },
       '/api': {
         target: 'http://localhost:8080',
         changeOrigin: true,
+        secure: false,
       },
     },
   },

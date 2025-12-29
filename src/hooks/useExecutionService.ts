@@ -85,7 +85,7 @@ export function useExecutionService() {
   );
 
   /**
-   * Fetch detailed execution data from /api/workflow/{executionId} endpoint with retry logic
+   * Fetch detailed execution data from /api/workflow/search-v2/{executionId} endpoint with retry logic
    * Retries up to 3 times if execution is not found (404)
    * This handles the case where execution details aren't immediately available after start
    */
@@ -96,8 +96,9 @@ export function useExecutionService() {
         setError(null);
         const baseUrl = getBaseUrl();
 
-        // Use the correct Conductor endpoint with includeTasks parameter
-        const url = `${baseUrl}/workflow/${workflowId}?includeTasks=true`;
+        // Use the backend proxy endpoint for detailed execution with task payloads
+        // This routes through /api/workflow/search-v2 on the backend server
+        const url = `${baseUrl}/workflow/search-v2/${workflowId}`;
         console.log('[ExecutionService] Fetching execution details from:', url);
 
         const headers: HeadersInit = {
