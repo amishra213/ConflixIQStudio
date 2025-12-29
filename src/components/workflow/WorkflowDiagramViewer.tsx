@@ -11,7 +11,7 @@ import {
 } from '@/utils/workflowToMermaid';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { JsonViewer } from '@/components/ui/json-viewer';
-import styles from '@/styles/WorkflowDiagramViewer.module.css';
+import '@/styles/WorkflowDiagramViewer.css';
 
 interface WorkflowTask {
   name?: string;
@@ -207,6 +207,13 @@ export function WorkflowDiagramViewer({
     renderDiagram();
   }, [renderDiagram]);
 
+  // Set zoom scale CSS custom property
+  useEffect(() => {
+    if (mermaidRef.current) {
+      mermaidRef.current.style.setProperty('--zoom-scale', String(zoom / 100));
+    }
+  }, [zoom]);
+
   useEffect(() => {
     if (autoRefresh && onRefresh) {
       const interval = setInterval(() => {
@@ -391,14 +398,11 @@ export function WorkflowDiagramViewer({
         </div>
 
         <div
-          className={`${styles.mermaidContainer} ${isFullscreen ? styles.mermaidContainerFull : styles.mermaidContainerDefault}`}
+          className={`mermaidContainer ${isFullscreen ? 'mermaidContainerFull' : 'mermaidContainerDefault'}`}
         >
           <div
             ref={mermaidRef}
-            className={styles.mermaidDiagram}
-            style={{
-              '--zoom-scale': String(zoom / 100),
-            } as React.CSSProperties & { [key: string]: string }}
+            className="mermaidDiagram"
           />
         </div>
       </Card>

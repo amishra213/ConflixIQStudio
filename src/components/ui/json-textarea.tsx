@@ -1,7 +1,7 @@
 import React, { useRef, useEffect } from 'react';
 import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
-import styles from '@/styles/json-textarea.module.css';
+import '@/styles/json-textarea.css';
 
 interface JsonTextareaProps extends Omit<React.ComponentProps<typeof Textarea>, 'onChange'> {
   value: string;
@@ -15,6 +15,7 @@ const JsonTextarea = React.forwardRef<HTMLTextAreaElement, JsonTextareaProps>(
   ({ value, onChange, showLineNumbers = true, className, maxHeight = '600px', rows, isInvalid = false, ...props }, ref) => {
     const lineNumbersRef = useRef<HTMLDivElement>(null);
     const textareaRef = useRef<HTMLTextAreaElement>(null);
+    const wrapperRef = useRef<HTMLDivElement>(null);
 
     // Sync scrolling between line numbers and textarea
     useEffect(() => {
@@ -31,16 +32,15 @@ const JsonTextarea = React.forwardRef<HTMLTextAreaElement, JsonTextareaProps>(
       return () => textarea.removeEventListener('scroll', handleScroll);
     }, []);
 
-    // Merge refs
+    // Set CSS custom properties
     useEffect(() => {
-      if (ref && textareaRef.current) {
-        if (typeof ref === 'function') {
-          ref(textareaRef.current);
-        } else {
-          ref.current = textareaRef.current;
-        }
-      }
-    }, [ref]);
+      if (!wrapperRef.current) return;
+      const lineHeight = 24; // 1.5rem = 24px
+      const padding = 8; // Padding for better fit
+      const calculatedHeight = value.split('\n').length * lineHeight + padding;
+      wrapperRef.current.style.setProperty('--calculated-height', `${calculatedHeight}px`);
+      wrapperRef.current.style.setProperty('--max-height', maxHeight);
+    }, [value, maxHeight]);
 
     if (!showLineNumbers) {
       return (
@@ -58,44 +58,38 @@ const JsonTextarea = React.forwardRef<HTMLTextAreaElement, JsonTextareaProps>(
     const lines = value.split('\n');
     const lineCount = Math.max(lines.length, rows || 1);
 
-    // Calculate height based on line count and line height
-    const lineHeight = 24; // 1.5rem = 24px
-    const padding = 8; // Padding for better fit
-    const calculatedHeight = lineCount * lineHeight + padding;
-
     return (
       <div
+        ref={wrapperRef}
         className={cn(
-          styles.jsonTextareaWrapper,
-          isInvalid && styles.jsonTextareaWrapperError
+          'jsonTextareaWrapper',
+          isInvalid && 'jsonTextareaWrapperError'
         )}
-        style={{
-          '--calculated-height': `${calculatedHeight}px`,
-          '--max-height': maxHeight,
-        } as React.CSSProperties & { [key: string]: string }}
+        data-calculated-height="true"
+        data-max-height="true"
       >
         {/* Line Numbers */}
         <div
           ref={lineNumbersRef}
-          className={styles.lineNumbers}
+          className="lineNumbers"
         >
           {Array.from({ length: lineCount }, (_, i) => (
             <div
               key={i}
-              className={styles.lineNumber}
+              className="lineNumber"
             >
               {i + 1}
             </div>
           ))}
         </div>
         {/* Textarea */}
-        <div className={styles.textareaContainer}>
+        <div className="textareaContainer">
           <Textarea
             ref={textareaRef}
             value={value}
             onChange={(e) => onChange(e.target.value)}
             className={cn(
-              styles.textarea,
+              'textarea',
               '!border-none !rounded-none !shadow-none !px-0 !py-0 !min-h-0 !h-auto !bg-transparent',
               className
             )}

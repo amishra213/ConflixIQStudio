@@ -1,0 +1,135 @@
+.json-node {
+  font-family: monospace;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.json-node-row {
+  display: flex;
+  align-items: flex-start;
+  border-radius: 0.25rem;
+  padding: 0.125rem 0.25rem;
+  transition: background-color 0.2s ease;
+}
+
+.json-node-row:hover {
+  background-color: hsl(var(--muted-rgb) / 0.3);
+}
+
+/* Dynamic margin-left based on data-indent attribute */
+.json-node-row[data-indent="20"] {
+  margin-left: 20px;
+}
+
+.json-node-row[data-indent="40"] {
+  margin-left: 40px;
+}
+
+.json-node-row[data-indent="60"] {
+  margin-left: 60px;
+}
+
+.json-node-row[data-indent="80"] {
+  margin-left: 80px;
+}
+
+.json-node-row[data-indent="100"] {
+  margin-left: 100px;
+}
+
+.json-node-row[data-indent="120"] {
+  margin-left: 120px;
+}
+
+.json-node-row[data-indent="140"] {
+  margin-left: 140px;
+}
+
+.json-node-row[data-indent="160"] {
+  margin-left: 160px;
+}
+
+.json-node-row[data-indent="180"] {
+  margin-left: 180px;
+}
+
+.json-node-row[data-indent="200"] {
+  margin-left: 200px;
+}
+
+.json-closing-bracket {
+  display: inline-block;
+}
+
+.json-closing-bracket[data-indent="20"] {
+  margin-left: 20px;
+}
+
+.json-closing-bracket[data-indent="40"] {
+  margin-left: 40px;
+}
+
+.json-closing-bracket[data-indent="60"] {
+  margin-left: 60px;
+}
+
+.json-closing-bracket[data-indent="80"] {
+  margin-left: 80px;
+}
+
+.json-closing-bracket[data-indent="100"] {
+  margin-left: 100px;
+}
+
+.json-closing-bracket[data-indent="120"] {
+  margin-left: 120px;
+}
+
+.json-closing-bracket[data-indent="140"] {
+  margin-left: 140px;
+}
+
+.json-closing-bracket[data-indent="160"] {
+  margin-left: 160px;
+}
+
+.json-closing-bracket[data-indent="180"] {
+  margin-left: 180px;
+}
+
+.json-closing-bracket[data-indent="200"] {
+  margin-left: 200px;
+}
+
+.json-viewer-container {
+  background-color: hsl(var(--background));
+  border: 1px solid hsl(var(--border));
+  border-radius: 0.5rem;
+  overflow: hidden;
+}
+
+.json-viewer-content {
+  padding: 1rem;
+  overflow: auto;
+}
+
+.json-viewer-content[data-max-height="none"] {
+  max-height: none;
+}
+
+.json-viewer-warning {
+  background-color: rgba(234, 179, 8, 0.1);
+  border-bottom: 1px solid rgba(234, 179, 8, 0.5);
+  padding: 0.5rem 1rem;
+  font-size: 12px;
+  color: #7c2d12;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.json-viewer-warning-icon {
+  width: 1rem;
+  height: 1rem;
+  flex-shrink: 0;
+}

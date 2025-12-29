@@ -1,5 +1,6 @@
 import { memo, useState, useMemo, useCallback } from 'react';
 import { ChevronRightIcon, ChevronDownIcon } from 'lucide-react';
+import '../../styles/json-viewer.css';
 
 interface JsonViewerProps {
   data: unknown;
@@ -102,7 +103,10 @@ const JsonNode = memo(
               );
             })}
           </div>
-          <span className="text-gray-400" style={{ marginLeft: `${indent}px` }}>
+          <span
+            className="json-closing-bracket text-gray-400"
+            data-indent={indent}
+          >
             ]
           </span>
         </div>
@@ -145,7 +149,10 @@ const JsonNode = memo(
               />
             ))}
           </div>
-          <span className="text-gray-400" style={{ marginLeft: `${indent}px` }}>
+          <span
+            className="json-closing-bracket text-gray-400"
+            data-indent={indent}
+          >
             {'}'}
           </span>
         </div>
@@ -183,10 +190,10 @@ const JsonNode = memo(
     }, [value, collapsible]);
 
     return (
-      <div className="font-mono text-xs leading-relaxed">
+      <div className="json-node">
         <div
-          className="flex items-start hover:bg-muted/30 rounded px-1 py-0.5"
-          style={{ marginLeft: `${indent}px` }}
+          className="json-node-row flex items-start rounded px-1 py-0.5"
+          data-indent={indent}
         >
           {isExpandable && (
             <button
@@ -251,9 +258,9 @@ export const JsonViewer = memo(
     }
 
     return (
-      <div className="bg-background border border-border rounded-lg overflow-hidden">
+      <div className="json-viewer-container">
         {isLargeData && (
-          <div className="bg-yellow-500/10 border-b border-yellow-500/50 px-4 py-2 text-xs text-yellow-400 flex items-center gap-2">
+          <div className="json-viewer-warning">
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path
                 strokeLinecap="round"
@@ -267,7 +274,10 @@ export const JsonViewer = memo(
             </span>
           </div>
         )}
-        <div className="p-4 overflow-auto" style={{ maxHeight }}>
+        <div
+          className="json-viewer-content"
+          data-max-height={maxHeight}
+        >
           <JsonNode
             nodeKey=""
             value={data}

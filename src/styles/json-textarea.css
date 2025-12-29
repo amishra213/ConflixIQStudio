@@ -11,6 +11,14 @@
   transition: border-color 0.2s ease;
 }
 
+.jsonTextareaWrapper[data-calculated-height] {
+  height: var(--calculated-height, auto);
+}
+
+.jsonTextareaWrapper[data-max-height] {
+  max-height: var(--max-height, 600px);
+}
+
 .jsonTextareaWrapperError {
   border-color: hsl(var(--destructive, 0 84% 60%));
   box-shadow: 0 0 0 1px hsl(var(--destructive, 0 84% 60%) / 0.3);

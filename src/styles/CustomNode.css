@@ -5,6 +5,11 @@
   flex-direction: column;
   justify-content: center;
   pointer-events: auto;
+  border-color: #2a3142;
+}
+
+/* Use CSS custom property for border color */
+.nodeContainer[data-border-color] {
   border-color: var(--node-border-color, #2a3142);
 }
 

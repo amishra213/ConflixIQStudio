@@ -1,7 +1,7 @@
 import { memo } from 'react';
 import { Handle, Position, NodeProps } from 'reactflow';
 import { EditIcon, Trash2Icon } from 'lucide-react';
-import styles from '@/styles/CustomNode.module.css';
+import '@/styles/CustomNode.css';
 
 export const CustomNode = memo(({ data, selected, id }: NodeProps) => {
   const getNodeIcon = (taskType: string) => {
@@ -30,9 +30,11 @@ export const CustomNode = memo(({ data, selected, id }: NodeProps) => {
 
   return (
     <div
-      className={`px-2 py-1.5 rounded-md border-2 bg-card transition-all group relative cursor-pointer ${
+      className={`px-2 py-1.5 rounded-md border-2 bg-card transition-all group relative cursor-pointer nodeContainer ${
         selected ? 'border-cyan-500 shadow-lg shadow-cyan-500/20' : 'border-border'
-      } ${styles.nodeContainer}`}
+      }`}
+      // Using inline style is necessary here as it sets a dynamic CSS custom property
+      // that comes from the task data and cannot be determined at build time
       style={{
         '--node-border-color': data.color || '#2a3142',
       } as React.CSSProperties & { [key: string]: string }}
@@ -47,7 +49,7 @@ export const CustomNode = memo(({ data, selected, id }: NodeProps) => {
         id="left"
         type="target"
         position={Position.Left}
-        className={`w-2.5 h-2.5 !bg-cyan-500 ${styles.handlePosition}`}
+        className="w-2.5 h-2.5 !bg-cyan-500 handlePosition"
       />
 
       {/* Right Handle */}
@@ -55,7 +57,7 @@ export const CustomNode = memo(({ data, selected, id }: NodeProps) => {
         id="right"
         type="source"
         position={Position.Right}
-        className={`w-2.5 h-2.5 !bg-cyan-500 ${styles.handlePosition}`}
+        className="w-2.5 h-2.5 !bg-cyan-500 handlePosition"
       />
 
       {/* Bottom Handle */}
