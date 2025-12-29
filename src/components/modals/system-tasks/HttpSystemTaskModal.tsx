@@ -234,7 +234,7 @@ export function HttpTaskModal({
     id: 'http',
     label: 'HTTP Request',
     content: (
-      <div className="space-y-4" style={{ '--line-height': '1.5rem' } as React.CSSProperties}>
+      <div className="space-y-4">
         <div className="p-6 bg-background border border-border rounded-lg">
           <h3 className="text-lg font-semibold text-foreground mb-4">HTTP Request Configuration</h3>
           <div className="space-y-4">

@@ -233,16 +233,18 @@ export function KafkaPublishTaskModal({
 
           <div>
             <Label className="text-foreground">Value *</Label>
-            <JsonTextarea
-              value={valueText}
-              onChange={(value) => {
-                setValueText(value);
-              }}
-              placeholder="Message to publish"
-              className="mt-1 bg-card text-foreground font-mono text-sm"
-              maxHeight="600px"
-              rows={5}
-            />
+            <div className="mt-1 mb-4">
+              <JsonTextarea
+                value={valueText}
+                onChange={(value) => {
+                  setValueText(value);
+                }}
+                placeholder="Message to publish"
+                className="bg-card text-foreground font-mono text-sm"
+                maxHeight="250px"
+                rows={5}
+              />
+            </div>
           </div>
 
           <div>

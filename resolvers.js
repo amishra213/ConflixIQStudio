@@ -109,6 +109,33 @@ function createUserFriendlyError(error, _operation) {
     };
   }
 
+  if (error.code === 'ECONNRESET' || error.code === 'ECONNABORTED') {
+    return {
+      message: `Connection lost with Conductor server`,
+      details: `The connection to ${error.config?.baseURL || 'localhost:8080'} was unexpectedly closed. The server may have terminated the connection. Please verify the server is healthy and try again.`,
+      code: 'CONNECTION_RESET',
+      severity: 'medium',
+    };
+  }
+
+  if (error.code === 'ENOTFOUND') {
+    return {
+      message: `Conductor server cannot be found`,
+      details: `The server ${error.config?.baseURL || 'localhost:8080'} could not be found. Please verify the server URL is correct.`,
+      code: 'SERVER_NOT_FOUND',
+      severity: 'medium',
+    };
+  }
+
+  if (error.code === 'ETIMEDOUT' || error.code === 'ESOCKETTIMEDOUT') {
+    return {
+      message: `Connection timed out`,
+      details: `The request to ${error.config?.baseURL || 'localhost:8080'} timed out after 30 seconds. The server may be slow or unresponsive.`,
+      code: 'TIMEOUT_ERROR',
+      severity: 'medium',
+    };
+  }
+
   if (error.response?.status >= 400) {
     const statusMessages = {
       400: 'Invalid workflow data',
@@ -191,6 +218,7 @@ const resolvers = {
             'Content-Type': 'application/json',
             ...(conductorConfig.apiKey && { 'X-Conductor-API-Key': conductorConfig.apiKey }),
           },
+          timeout: 30000,
           validateStatus: () => true,
         });
 
@@ -386,6 +414,7 @@ const resolvers = {
             'Content-Type': 'application/json',
             ...(conductorConfig.apiKey && { 'X-Conductor-API-Key': conductorConfig.apiKey }),
           },
+          timeout: 30000,
           validateStatus: () => true,
         });
 
@@ -446,6 +475,7 @@ const resolvers = {
           'Content-Type': 'application/json',
           ...(conductorConfig.apiKey && { 'X-Conductor-API-Key': conductorConfig.apiKey }),
         },
+        timeout: 30000,
         validateStatus: () => true, // Don't throw on any status code
       });
 
@@ -568,6 +598,7 @@ const resolvers = {
           'Content-Type': 'application/json',
           ...(conductorConfig.apiKey && { 'X-Conductor-API-Key': conductorConfig.apiKey }),
         },
+        timeout: 30000, // 30 second timeout
         validateStatus: () => true, // Don't throw on any status code
       });
 
@@ -664,11 +695,24 @@ const resolvers = {
         };
       } catch (error) {
         // Log the full error to file
-        handleErrorLogging('saveWorkflow', error, {
+        const errorContext = {
           workflowName: workflow.name,
           workflowVersion: workflow.version,
           serverUrl: conductorConfig.serverUrl,
-        });
+        };
+
+        // Add specific error details for connection issues
+        if (error.code === 'ECONNRESET' || error.code === 'ECONNREFUSED' || error.code === 'ENOTFOUND') {
+          errorContext.connectionError = true;
+          errorContext.errorCode = error.code;
+          errorContext.message = `Connection error: ${error.code} - Unable to connect to Conductor server at ${conductorConfig.serverUrl}`;
+        }
+
+        if (error.code === 'ECONNRESET') {
+          errorContext.suggestion = 'The Conductor server may have closed the connection unexpectedly. Check if the server is running and try again.';
+        }
+
+        handleErrorLogging('saveWorkflow', error, errorContext);
 
         const userError = createUserFriendlyError(error, 'saveWorkflow');
 
@@ -758,6 +802,7 @@ const resolvers = {
           'Content-Type': 'application/json',
           ...(conductorConfig.apiKey && { 'X-Conductor-API-Key': conductorConfig.apiKey }),
         },
+        timeout: 30000,
         validateStatus: () => true,
       });
 
@@ -810,6 +855,7 @@ const resolvers = {
           'Content-Type': 'application/json',
           ...(conductorConfig.apiKey && { 'X-Conductor-API-Key': conductorConfig.apiKey }),
         },
+        timeout: 30000,
         validateStatus: () => true,
       });
 
@@ -855,6 +901,7 @@ const resolvers = {
           'Content-Type': 'application/json',
           ...(conductorConfig.apiKey && { 'X-Conductor-API-Key': conductorConfig.apiKey }),
         },
+        timeout: 30000,
         validateStatus: () => true,
       });
 

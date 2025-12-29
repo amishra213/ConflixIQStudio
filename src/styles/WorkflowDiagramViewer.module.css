@@ -1,0 +1,21 @@
+.mermaidContainer {
+  padding: 2rem;
+  overflow: auto;
+}
+
+.mermaidContainerFull {
+  min-height: calc(100vh - 200px);
+}
+
+.mermaidContainerDefault {
+  min-height: 600px;
+}
+
+.mermaidDiagram {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.2s ease;
+  transform-origin: top center;
+  transform: scale(var(--zoom-scale, 1));
+}

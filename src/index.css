@@ -229,6 +229,7 @@
   line-height: 1.5;
   font-size: 13px;
   font-family: monospace;
+  -webkit-user-select: none;
   user-select: none;
   pointer-events: none;
   padding: 0;

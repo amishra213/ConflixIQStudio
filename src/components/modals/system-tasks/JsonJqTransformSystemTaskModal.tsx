@@ -50,7 +50,7 @@ export function JsonJqTransformTaskModal({
   }, [open, initialConfig]);
 
   const customBasicFields = (
-    <div style={{ '--line-height': '1.5rem' } as React.CSSProperties}>
+    <div>
       <Label className="text-foreground">Query Expression *</Label>
       <JsonTextarea
         value={config.queryExpression}

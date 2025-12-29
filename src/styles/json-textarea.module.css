@@ -1,0 +1,63 @@
+.jsonTextareaWrapper {
+  display: flex;
+  border: 1px solid hsl(var(--input));
+  border-radius: 0.375rem;
+  overflow: hidden;
+  width: 100%;
+  background-color: var(--card);
+  box-sizing: border-box;
+  height: var(--calculated-height, auto);
+  max-height: var(--max-height, 600px);
+  transition: border-color 0.2s ease;
+}
+
+.jsonTextareaWrapperError {
+  border-color: hsl(var(--destructive, 0 84% 60%));
+  box-shadow: 0 0 0 1px hsl(var(--destructive, 0 84% 60%) / 0.3);
+}
+
+.lineNumbers {
+  background-color: var(--muted);
+  border-right: 1px solid var(--border);
+  padding: 0.5rem 0.75rem;
+  text-align: right;
+  -webkit-user-select: none;
+  user-select: none;
+  overflow-y: hidden;
+  flex-shrink: 0;
+  width: auto;
+  box-sizing: border-box;
+}
+
+.lineNumber {
+  font-size: 0.75rem;
+  color: var(--muted-foreground);
+  font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, monospace;
+  line-height: 1.5rem;
+  height: 1.5rem;
+}
+
+.textareaContainer {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-width: 0;
+}
+
+.textarea {
+  flex: 1;
+  resize: none;
+  outline: none;
+  padding: 0.5rem 0.75rem;
+  background-color: transparent;
+  color: var(--foreground);
+  font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, monospace;
+  font-size: 0.875rem;
+  line-height: 1.5rem;
+  border: none;
+  overflow-y: auto;
+  width: 100%;
+  box-sizing: border-box;
+  margin: 0;
+}

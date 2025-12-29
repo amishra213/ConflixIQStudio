@@ -208,7 +208,7 @@ export function BaseTaskModal<T extends BaseTaskConfig>({
             </TabsList>
 
             {/* Basic Info Tab */}
-            <TabsContent value="basic" className="space-y-4">
+            <TabsContent value="basic" className="space-y-4 outline-none px-6">
               <Card className="p-6 bg-background border-border">
                 <h3 className="text-lg font-semibold text-foreground mb-4">Task Information</h3>
                 <div className="space-y-4">
@@ -283,14 +283,14 @@ export function BaseTaskModal<T extends BaseTaskConfig>({
 
             {/* Custom Tabs */}
             {customTabs.map((tab) => (
-              <TabsContent key={tab.id} value={tab.id} className="space-y-4">
+              <TabsContent key={tab.id} value={tab.id} className="space-y-4 outline-none px-6">
                 {tab.content}
               </TabsContent>
             ))}
 
             {/* JSON Config Tab */}
             {!hideJsonTab && (
-              <TabsContent value="json" className="space-y-4">
+              <TabsContent value="json" className="space-y-4 outline-none px-6">
                 <Card
                   className="p-6 bg-background border-border"
                   style={{ '--line-height': '1.5rem' } as React.CSSProperties}
@@ -305,18 +305,20 @@ export function BaseTaskModal<T extends BaseTaskConfig>({
                     value={completeConfigJson}
                     onChange={(value) => handleCompleteConfigChange(value)}
                     className="font-mono text-sm bg-card text-foreground min-h-[500px]"
+                    isInvalid={!!jsonError}
                   />
+                  {jsonError && (
+                    <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-lg mt-3">
+                      <p className="text-sm text-red-400">
+                        <span className="font-semibold">JSON Error:</span> {jsonError}
+                      </p>
+                    </div>
+                  )}
                 </Card>
               </TabsContent>
             )}
           </Tabs>
         </div>
-
-        {jsonError && (
-          <div className="px-6 py-3 bg-red-500/10 border-t border-red-500/50 flex-shrink-0">
-            <p className="text-sm text-red-400">{jsonError}</p>
-          </div>
-        )}
 
         <DialogFooter className="border-t border-border px-6 py-4 flex-shrink-0">
           <Button

@@ -11,6 +11,7 @@ import {
 } from '@/utils/workflowToMermaid';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { JsonViewer } from '@/components/ui/json-viewer';
+import styles from '@/styles/WorkflowDiagramViewer.module.css';
 
 interface WorkflowTask {
   name?: string;
@@ -390,17 +391,14 @@ export function WorkflowDiagramViewer({
         </div>
 
         <div
-          className="p-8 overflow-auto"
-          style={{ minHeight: isFullscreen ? 'calc(100vh - 200px)' : '600px' }}
+          className={`${styles.mermaidContainer} ${isFullscreen ? styles.mermaidContainerFull : styles.mermaidContainerDefault}`}
         >
           <div
             ref={mermaidRef}
-            className="flex items-center justify-center"
+            className={styles.mermaidDiagram}
             style={{
-              transform: `scale(${zoom / 100})`,
-              transformOrigin: 'top center',
-              transition: 'transform 0.2s ease',
-            }}
+              '--zoom-scale': String(zoom / 100),
+            } as React.CSSProperties & { [key: string]: string }}
           />
         </div>
       </Card>

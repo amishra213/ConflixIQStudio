@@ -1,16 +1,18 @@
 import React, { useRef, useEffect } from 'react';
 import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
+import styles from '@/styles/json-textarea.module.css';
 
 interface JsonTextareaProps extends Omit<React.ComponentProps<typeof Textarea>, 'onChange'> {
   value: string;
   onChange: (value: string) => void;
   showLineNumbers?: boolean;
   maxHeight?: string;
+  isInvalid?: boolean;
 }
 
 const JsonTextarea = React.forwardRef<HTMLTextAreaElement, JsonTextareaProps>(
-  ({ value, onChange, showLineNumbers = true, className, maxHeight = '600px', rows, ...props }, ref) => {
+  ({ value, onChange, showLineNumbers = true, className, maxHeight = '600px', rows, isInvalid = false, ...props }, ref) => {
     const lineNumbersRef = useRef<HTMLDivElement>(null);
     const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -58,46 +60,45 @@ const JsonTextarea = React.forwardRef<HTMLTextAreaElement, JsonTextareaProps>(
 
     // Calculate height based on line count and line height
     const lineHeight = 24; // 1.5rem = 24px
-    const padding = 16; // py-2 = 8px top + 8px bottom for each side
+    const padding = 8; // Padding for better fit
     const calculatedHeight = lineCount * lineHeight + padding;
 
     return (
       <div
-        className="flex rounded-md border border-input overflow-hidden w-full"
-        style={{ height: `${calculatedHeight}px`, maxHeight: maxHeight }}
+        className={cn(
+          styles.jsonTextareaWrapper,
+          isInvalid && styles.jsonTextareaWrapperError
+        )}
+        style={{
+          '--calculated-height': `${calculatedHeight}px`,
+          '--max-height': maxHeight,
+        } as React.CSSProperties & { [key: string]: string }}
       >
         {/* Line Numbers */}
         <div
           ref={lineNumbersRef}
-          className="bg-muted border-r border-border px-3 py-2 text-right select-none overflow-y-auto flex-shrink-0"
-          style={{ minWidth: '3.5rem', width: 'auto' }}
+          className={styles.lineNumbers}
         >
           {Array.from({ length: lineCount }, (_, i) => (
             <div
               key={i}
-              className="text-xs text-muted-foreground font-mono leading-relaxed"
-              style={{
-                lineHeight: 'var(--line-height, 1.5rem)',
-                height: 'var(--line-height, 1.5rem)',
-              }}
+              className={styles.lineNumber}
             >
               {i + 1}
             </div>
           ))}
         </div>
         {/* Textarea */}
-        <div className="flex-1 overflow-y-auto">
+        <div className={styles.textareaContainer}>
           <Textarea
             ref={textareaRef}
             value={value}
             onChange={(e) => onChange(e.target.value)}
             className={cn(
-              'border-0 focus-visible:ring-0 rounded-none resize-none w-full h-full',
+              styles.textarea,
+              '!border-none !rounded-none !shadow-none !px-0 !py-0 !min-h-0 !h-auto !bg-transparent',
               className
             )}
-            style={{
-              lineHeight: 'var(--line-height, 1.5rem)',
-            }}
             {...props}
           />
         </div>

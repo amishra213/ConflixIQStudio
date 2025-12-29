@@ -1,6 +1,7 @@
 import { memo } from 'react';
 import { Handle, Position, NodeProps } from 'reactflow';
 import { EditIcon, Trash2Icon } from 'lucide-react';
+import styles from '@/styles/CustomNode.module.css';
 
 export const CustomNode = memo(({ data, selected, id }: NodeProps) => {
   const getNodeIcon = (taskType: string) => {
@@ -28,38 +29,14 @@ export const CustomNode = memo(({ data, selected, id }: NodeProps) => {
   };
 
   return (
-    // NOSONAR S6819 - We use role="button" with div because we need nested button elements (edit/delete)
-    // which is not possible with native button element. The div is fully keyboard accessible with tabIndex, onKeyDown, and aria-label.
-    <div // NOSONAR
-      onClick={(e) => {
-        e.stopPropagation();
-        if (data.onEdit) {
-          data.onEdit(id);
-        }
-      }}
-      role="button"
-      tabIndex={0}
+    <div
       className={`px-2 py-1.5 rounded-md border-2 bg-card transition-all group relative cursor-pointer ${
         selected ? 'border-cyan-500 shadow-lg shadow-cyan-500/20' : 'border-border'
-      }`}
+      } ${styles.nodeContainer}`}
       style={{
-        borderColor: selected ? '#00bcd4' : data.color || '#2a3142',
-        width: '156.25px',
-        height: '60px',
-        display: 'flex',
-        flexDirection: 'column',
-        justifyContent: 'center',
-        pointerEvents: 'auto',
-      }}
+        '--node-border-color': data.color || '#2a3142',
+      } as React.CSSProperties & { [key: string]: string }}
       title={`Task: ${data.label}\nRef: ${data.taskReferenceName || 'N/A'}\n\nClick to edit or use the blue Edit button for more options`}
-      onKeyDown={(e) => {
-        if (e.key === 'Enter' || e.key === ' ') {
-          e.preventDefault();
-          if (data.onEdit) {
-            data.onEdit(id);
-          }
-        }
-      }}
       aria-label={`Task node: ${data.label}. ${data.taskType} task.`}
     >
       {/* Top Handle */}
@@ -70,8 +47,7 @@ export const CustomNode = memo(({ data, selected, id }: NodeProps) => {
         id="left"
         type="target"
         position={Position.Left}
-        className="w-2.5 h-2.5 !bg-cyan-500"
-        style={{ top: '50%', transform: 'translateY(-50%)' }}
+        className={`w-2.5 h-2.5 !bg-cyan-500 ${styles.handlePosition}`}
       />
 
       {/* Right Handle */}
@@ -79,8 +55,7 @@ export const CustomNode = memo(({ data, selected, id }: NodeProps) => {
         id="right"
         type="source"
         position={Position.Right}
-        className="w-2.5 h-2.5 !bg-cyan-500"
-        style={{ top: '50%', transform: 'translateY(-50%)' }}
+        className={`w-2.5 h-2.5 !bg-cyan-500 ${styles.handlePosition}`}
       />
 
       {/* Bottom Handle */}
@@ -95,17 +70,19 @@ export const CustomNode = memo(({ data, selected, id }: NodeProps) => {
       <div className="absolute -top-1 -right-1 flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity z-10">
         <button
           onClick={handleEditClick}
-          className="w-4 h-4 bg-blue-500 hover:bg-blue-600 rounded-full flex items-center justify-center shadow-lg cursor-pointer"
+          className="w-6 h-6 bg-blue-500 hover:bg-blue-600 rounded-full flex items-center justify-center shadow-lg cursor-pointer"
           title="Edit Task"
+          aria-label="Edit task"
         >
-          <EditIcon className="w-2 h-2 text-foreground" />
+          <EditIcon className="w-5 h-5 text-foreground" />
         </button>
         <button
           onClick={handleDeleteClick}
-          className="w-4 h-4 bg-red-500 hover:bg-red-600 rounded-full flex items-center justify-center shadow-lg cursor-pointer"
+          className="w-6 h-6 bg-red-500 hover:bg-red-600 rounded-full flex items-center justify-center shadow-lg cursor-pointer"
           title="Delete Task"
+          aria-label="Delete task"
         >
-          <Trash2Icon className="w-2 h-2 text-foreground" />
+          <Trash2Icon className="w-5 h-5 text-foreground" />
         </button>
       </div>
 

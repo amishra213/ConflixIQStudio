@@ -1,0 +1,14 @@
+.nodeContainer {
+  width: 156.25px;
+  height: 60px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  pointer-events: auto;
+  border-color: var(--node-border-color, #2a3142);
+}
+
+.handlePosition {
+  top: 50%;
+  transform: translateY(-50%);
+}

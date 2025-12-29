@@ -388,6 +388,7 @@ export function SimpleTaskModal({
                       <input
                         type="checkbox"
                         id="optional"
+                        title="Mark this task as optional"
                         checked={optional}
                         onChange={(e) => setOptional(e.target.checked)}
                         className="w-4 h-4 rounded border-border cursor-pointer"
@@ -400,6 +401,7 @@ export function SimpleTaskModal({
                       <input
                         type="checkbox"
                         id="async"
+                        title="Enable asynchronous task completion"
                         checked={asyncComplete}
                         onChange={(e) => setAsyncComplete(e.target.checked)}
                         className="w-4 h-4 rounded border-border cursor-pointer"
@@ -441,6 +443,7 @@ export function SimpleTaskModal({
                     className="font-mono text-xs bg-card text-foreground min-h-[400px]"
                     placeholder="JSON will appear here..."
                     readOnly
+                    isInvalid={!!jsonValidationError}
                   />
                   {jsonValidationError && (
                     <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-lg">

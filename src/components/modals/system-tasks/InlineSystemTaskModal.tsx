@@ -61,7 +61,7 @@ export function InlineSystemTaskModal({
   }, [open, initialConfig]);
 
   const customBasicFields = (
-    <div style={{ '--line-height': '1.5rem' } as React.CSSProperties}>
+    <div>
       <div>
         <Label className="text-foreground">Evaluator Type *</Label>
         <Select
