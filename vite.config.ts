@@ -24,7 +24,27 @@ export default defineConfig({
   },
   server: {
     proxy: {
-      '/api/workflow/search-v2/': {
+      '/graphql': {
+        target: 'http://localhost:4000',
+        changeOrigin: true,
+        secure: false,
+      },
+      '/api/filestore': {
+        target: 'http://localhost:4000',
+        changeOrigin: true,
+        secure: false,
+      },
+      '/api/config': {
+        target: 'http://localhost:4000',
+        changeOrigin: true,
+        secure: false,
+      },
+      '/api/workflow/search-v2': {
+        target: 'http://localhost:4000',
+        changeOrigin: true,
+        secure: false,
+      },
+      '/api/workflow/search': {
         target: 'http://localhost:4000',
         changeOrigin: true,
         secure: false,
@@ -35,5 +55,6 @@ export default defineConfig({
         secure: false,
       },
     },
+    middlewareMode: false,
   },
 });

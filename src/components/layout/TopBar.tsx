@@ -38,6 +38,8 @@ export function TopBar() {
           variant="ghost"
           size="icon"
           className="text-muted-foreground hover:bg-secondary hover:text-foreground"
+          onClick={() => window.open('https://github.com/amishra213/ConflixIQStudio/blob/main/README.md', '_blank')}
+          title="View Documentation"
         >
           <HelpCircleIcon className="w-5 h-5" />
         </Button>
