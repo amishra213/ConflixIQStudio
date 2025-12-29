@@ -1960,9 +1960,8 @@ export function WorkflowDesigner() {
             <img
               src={logo}
               alt="ConflixIQ Studio Logo"
-              className="h-8 w-8 mr-3 select-none"
+              className="h-8 w-8 mr-3 select-none min-w-[32px]"
               draggable={false}
-              style={{ minWidth: 32 }}
             />
             <div className="flex flex-col">
               <div className="flex items-center gap-3">
@@ -2203,7 +2202,7 @@ export function WorkflowDesigner() {
                         </div>
                         <div>
                           <Label className="text-muted-foreground text-sm">Status</Label>
-                          <Badge className="mt-1">{workflowSettings.status}</Badge>
+                          <p className="mt-1"><Badge>{workflowSettings.status}</Badge></p>
                         </div>
                         <div>
                           <Label className="text-muted-foreground text-sm">Version</Label>

@@ -6,10 +6,11 @@ interface JsonTextareaProps extends Omit<React.ComponentProps<typeof Textarea>, 
   value: string;
   onChange: (value: string) => void;
   showLineNumbers?: boolean;
+  maxHeight?: string;
 }
 
 const JsonTextarea = React.forwardRef<HTMLTextAreaElement, JsonTextareaProps>(
-  ({ value, onChange, showLineNumbers = true, className, ...props }, ref) => {
+  ({ value, onChange, showLineNumbers = true, className, maxHeight = '600px', rows, ...props }, ref) => {
     const lineNumbersRef = useRef<HTMLDivElement>(null);
     const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -46,13 +47,14 @@ const JsonTextarea = React.forwardRef<HTMLTextAreaElement, JsonTextareaProps>(
           value={value}
           onChange={(e) => onChange(e.target.value)}
           className={className}
+          rows={rows}
           {...props}
         />
       );
     }
 
     const lines = value.split('\n');
-    const lineCount = Math.max(lines.length, 1);
+    const lineCount = Math.max(lines.length, rows || 1);
 
     // Calculate height based on line count and line height
     const lineHeight = 24; // 1.5rem = 24px
@@ -62,7 +64,7 @@ const JsonTextarea = React.forwardRef<HTMLTextAreaElement, JsonTextareaProps>(
     return (
       <div
         className="flex rounded-md border border-input overflow-hidden w-full"
-        style={{ height: `${calculatedHeight}px`, maxHeight: '600px' }}
+        style={{ height: `${calculatedHeight}px`, maxHeight: maxHeight }}
       >
         {/* Line Numbers */}
         <div

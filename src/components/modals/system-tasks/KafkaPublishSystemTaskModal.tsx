@@ -210,7 +210,7 @@ export function KafkaPublishTaskModal({
       id: 'kafka',
       label: 'Kafka Config',
       content: (
-        <div className="space-y-3" style={{ '--line-height': '1.5rem' } as React.CSSProperties}>
+        <div className="space-y-3 kafka-config-container">
           <div>
             <Label className="text-foreground">Topic *</Label>
             <Input
@@ -239,7 +239,9 @@ export function KafkaPublishTaskModal({
                 setValueText(value);
               }}
               placeholder="Message to publish"
-              className="mt-1 bg-card text-foreground font-mono text-sm min-h-[100px]"
+              className="mt-1 bg-card text-foreground font-mono text-sm"
+              maxHeight="600px"
+              rows={5}
             />
           </div>
 

@@ -44,8 +44,8 @@ export const CustomNode = memo(({ data, selected, id }: NodeProps) => {
       }`}
       style={{
         borderColor: selected ? '#00bcd4' : data.color || '#2a3142',
-        width: '125px',
-        height: '50px',
+        width: '156.25px',
+        height: '60px',
         display: 'flex',
         flexDirection: 'column',
         justifyContent: 'center',
@@ -117,16 +117,16 @@ export const CustomNode = memo(({ data, selected, id }: NodeProps) => {
       )}
 
       <div className="flex items-center gap-1 mb-0.5">
-        <span className="text-sm">{getNodeIcon(data.taskType)}</span>
-        <span className="text-[10px] font-semibold text-cyan-400 uppercase">{data.taskType}</span>
+        <span className="text-[1.3rem]">{getNodeIcon(data.taskType)}</span>
+        <span className="text-[10px] font-bold text-cyan-400 uppercase">{data.taskType}</span>
       </div>
-      <div className="text-xs font-medium text-foreground truncate text-center">{data.label}</div>
+      <div className="text-xs font-bold text-foreground truncate text-center">{data.label}</div>
 
       {/* Config indicator */}
       {data.config && (
         <div className="mt-0.5 flex items-center justify-center gap-0.5">
           <div className="w-1 h-1 bg-green-500 rounded-full"></div>
-          <span className="text-[9px] text-green-400">Configured</span>
+          <span className="text-[9px] font-bold text-gray-600 dark:text-gray-400">Configured</span>
         </div>
       )}
     </div>
