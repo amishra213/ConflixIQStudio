@@ -1,6 +1,8 @@
 import axios from 'axios';
 import GraphQLJSON from 'graphql-type-json';
 import { serverLogger } from './server-logger.js';
+import http from 'node:http';
+import https from 'node:https';
 
 // Global configuration that can be updated at runtime
 let conductorConfig = {
@@ -17,6 +19,40 @@ function createConductorClient() {
       ...(conductorConfig.apiKey && { 'X-Conductor-API-Key': conductorConfig.apiKey }),
     },
     validateStatus: () => true, // Don't throw on any status code
+  });
+}
+
+// Function to create a REST client with proper socket timeout handling
+// This prevents ECONNRESET errors by ensuring socket-level timeouts are configured
+// Socket timeout configuration is critical for preventing hung connections
+// maxBodyLength and maxContentLength allow large workflow payloads (50MB+)
+function createRestClient(timeout = 30000) {
+  return axios.create({
+    baseURL: conductorConfig.serverUrl,
+    headers: {
+      'Content-Type': 'application/json',
+      ...(conductorConfig.apiKey && { 'X-Conductor-API-Key': conductorConfig.apiKey }),
+    },
+    timeout,
+    validateStatus: () => true, // Don't throw on any status code
+    maxBodyLength: 50 * 1024 * 1024, // 50MB
+    maxContentLength: 50 * 1024 * 1024, // 50MB
+    httpAgent: new http.Agent({
+      keepAlive: true,
+      keepAliveMsecs: 30000, // Increase keep-alive interval to 30 seconds
+      maxSockets: 50,
+      maxFreeSockets: 10,
+      timeout: timeout * 2, // Socket timeout should be higher than request timeout
+      freeSocketTimeout: timeout * 2,
+    }),
+    httpsAgent: new https.Agent({
+      keepAlive: true,
+      keepAliveMsecs: 30000, // Increase keep-alive interval to 30 seconds
+      maxSockets: 50,
+      maxFreeSockets: 10,
+      timeout: timeout * 2, // Socket timeout should be higher than request timeout
+      freeSocketTimeout: timeout * 2,
+    }),
   });
 }
 
@@ -180,22 +216,48 @@ function createUserFriendlyError(error, _operation) {
   };
 }
 
+// Helper function to clean null/undefined values from objects recursively
+function cleanObject(obj) {
+  if (obj === null || obj === undefined) {
+    return undefined;
+  }
+  if (Array.isArray(obj)) {
+    return obj.map(item => cleanObject(item)).filter(item => item !== undefined);
+  }
+  if (typeof obj === 'object') {
+    const cleaned = {};
+    for (const [key, value] of Object.entries(obj)) {
+      const cleanedValue = cleanObject(value);
+      // Only include the key if value is not undefined and not null
+      if (cleanedValue !== undefined && cleanedValue !== null) {
+        cleaned[key] = cleanedValue;
+      }
+    }
+    return Object.keys(cleaned).length > 0 ? cleaned : undefined;
+  }
+  return obj;
+}
+
 // Helper function to normalize workflow data for Conductor
+// This ensures the payload is clean, properly typed, and ready for Conductor's API
 function normalizeWorkflowForConductor(workflow) {
-  return {
-    ...workflow,
-    // Ensure critical fields are always set with proper types
+  // Start with a clean normalized object (no null values)
+  const normalized = {
     name: workflow.name || 'Unnamed Workflow',
     version: typeof workflow.version === 'number' ? workflow.version : (Number.parseInt(String(workflow.version)) || 1),
     description: workflow.description || '',
+    createdBy: workflow.createdBy || 'ConflixIQ Studio',
+    updatedBy: workflow.updatedBy || 'ConflixIQ Studio',
+    ownerEmail: workflow.ownerEmail || '',
+    ownerApp: workflow.ownerApp || '',
     // Ensure arrays are proper arrays
     tasks: Array.isArray(workflow.tasks) ? workflow.tasks : [],
     inputParameters: Array.isArray(workflow.inputParameters) ? workflow.inputParameters : [],
-    // Ensure objects are objects
-    outputParameters: typeof workflow.outputParameters === 'object' && workflow.outputParameters !== null ? workflow.outputParameters : {},
-    inputTemplate: typeof workflow.inputTemplate === 'object' && workflow.inputTemplate !== null ? workflow.inputTemplate : {},
-    variables: typeof workflow.variables === 'object' && workflow.variables !== null ? workflow.variables : {},
-    accessPolicy: typeof workflow.accessPolicy === 'object' && workflow.accessPolicy !== null ? workflow.accessPolicy : {},
+    // Ensure objects are objects and remove null values
+    outputParameters: workflow.outputParameters && typeof workflow.outputParameters === 'object' ? cleanObject(workflow.outputParameters) : {},
+    inputTemplate: workflow.inputTemplate && typeof workflow.inputTemplate === 'object' ? cleanObject(workflow.inputTemplate) : {},
+    variables: workflow.variables && typeof workflow.variables === 'object' ? cleanObject(workflow.variables) : {},
+    accessPolicy: workflow.accessPolicy && typeof workflow.accessPolicy === 'object' ? cleanObject(workflow.accessPolicy) : {},
     // Ensure boolean fields are booleans
     restartable: typeof workflow.restartable === 'boolean' ? workflow.restartable : true,
     workflowStatusListenerEnabled: typeof workflow.workflowStatusListenerEnabled === 'boolean' ? workflow.workflowStatusListenerEnabled : false,
@@ -204,6 +266,80 @@ function normalizeWorkflowForConductor(workflow) {
     timeoutSeconds: workflow.timeoutSeconds || 3600,
     timeoutPolicy: workflow.timeoutPolicy || 'TIME_OUT_WF',
   };
+
+  // Clean up tasks to remove null/undefined values from task definitions
+  if (Array.isArray(normalized.tasks)) {
+    normalized.tasks = normalized.tasks.map(task => {
+      if (!task) return null;
+      
+      // Build clean task object with required fields
+      const cleanTask = {
+        name: task.name,
+        taskReferenceName: task.taskReferenceName,
+        type: task.type,
+        description: task.description || undefined,
+        inputParameters: task.inputParameters ? cleanObject(task.inputParameters) : undefined,
+        outputParameters: task.outputParameters ? cleanObject(task.outputParameters) : undefined,
+        optional: task.optional || false,
+        asyncComplete: task.asyncComplete || false,
+        retryCount: task.retryCount !== null && task.retryCount !== undefined ? task.retryCount : undefined,
+        startDelay: task.startDelay || 0,
+        rateLimited: task.rateLimited || false,
+        evaluatorType: task.evaluatorType || undefined,
+        expression: task.expression || undefined,
+        scriptExpression: task.scriptExpression || undefined,
+        decisionCases: task.decisionCases ? cleanObject(task.decisionCases) : undefined,
+        defaultCase: task.defaultCase ? cleanObject(task.defaultCase) : undefined,
+        forkTasks: task.forkTasks ? cleanObject(task.forkTasks) : undefined,
+        joinOn: task.joinOn || undefined,
+        loopCondition: task.loopCondition || undefined,
+        loopOver: task.loopOver || undefined,
+        dynamicTaskNameParam: task.dynamicTaskNameParam || undefined,
+        sink: task.sink || undefined,
+        subWorkflowParam: task.subWorkflowParam ? cleanObject(task.subWorkflowParam) : undefined,
+      };
+      
+      // Remove undefined keys to keep payload compact
+      return Object.fromEntries(
+        Object.entries(cleanTask).filter(([, value]) => value !== undefined)
+      );
+    }).filter(task => task !== null);
+  }
+
+  return normalized;
+}
+
+// Helper function to perform PUT request with retry logic for transient failures
+async function putWorkflowWithRetry(client, endpoint, data, maxRetries = 2) {
+  let lastError = null;
+  
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      const response = await client.put(endpoint, data);
+      return { response, error: null, attempt };
+    } catch (error) {
+      lastError = error;
+      
+      // Check if it's a transient error
+      const isTransient = error.code === 'ECONNRESET' || 
+                         error.code === 'ETIMEDOUT' || 
+                         error.code === 'ECONNREFUSED';
+      
+      if (attempt < maxRetries && isTransient) {
+        const delayMs = Math.pow(2, attempt) * 1000; // Exponential backoff
+        serverLogger.warn(
+          `[Resolvers] Transient error on attempt ${attempt + 1}/${maxRetries + 1}, retrying after ${delayMs}ms...`
+        );
+        await new Promise(resolve => setTimeout(resolve, delayMs));
+        continue;
+      }
+      
+      // Non-transient error or final attempt
+      return { response: null, error: lastError, attempt };
+    }
+  }
+  
+  return { response: null, error: lastError, attempt: maxRetries + 1 };
 }
 
 const resolvers = {
@@ -212,15 +348,7 @@ const resolvers = {
     async workflows(_, { limit, offset }) {
       // Fetch from Conductor REST API instead of GraphQL (Conductor may not have GraphQL endpoint)
       try {
-        const client = axios.create({
-          baseURL: conductorConfig.serverUrl,
-          headers: {
-            'Content-Type': 'application/json',
-            ...(conductorConfig.apiKey && { 'X-Conductor-API-Key': conductorConfig.apiKey }),
-          },
-          timeout: 30000,
-          validateStatus: () => true,
-        });
+        const client = createRestClient(30000);
 
         // Fetch all workflows from REST endpoint
         const response = await client.get('/api/metadata/workflow');
@@ -408,15 +536,7 @@ const resolvers = {
     async taskDefinitions() {
       // Fetch task definitions from REST API: GET /api/metadata/taskdefs
       try {
-        const client = axios.create({
-          baseURL: conductorConfig.serverUrl,
-          headers: {
-            'Content-Type': 'application/json',
-            ...(conductorConfig.apiKey && { 'X-Conductor-API-Key': conductorConfig.apiKey }),
-          },
-          timeout: 30000,
-          validateStatus: () => true,
-        });
+        const client = createRestClient(30000);
 
         const response = await client.get('/api/metadata/taskdefs');
 
@@ -469,15 +589,8 @@ const resolvers = {
     async createWorkflow(_, { workflow }) {
       // Use REST POST endpoint for creating new workflows
       // This maps to: POST /api/metadata/workflow
-      const client = axios.create({
-        baseURL: conductorConfig.serverUrl,
-        headers: {
-          'Content-Type': 'application/json',
-          ...(conductorConfig.apiKey && { 'X-Conductor-API-Key': conductorConfig.apiKey }),
-        },
-        timeout: 30000,
-        validateStatus: () => true, // Don't throw on any status code
-      });
+      // Increase timeout for large payloads (workflows with many tasks)
+      const client = createRestClient(60000); // 60 second timeout for large workflows
 
       try {
         const normalizedWorkflow = normalizeWorkflowForConductor(workflow);
@@ -592,15 +705,8 @@ const resolvers = {
       // Use REST PUT endpoint for workflow update
       // The Conductor API expects workflows in an array format
       // This maps to: PUT /api/metadata/workflow
-      const client = axios.create({
-        baseURL: conductorConfig.serverUrl,
-        headers: {
-          'Content-Type': 'application/json',
-          ...(conductorConfig.apiKey && { 'X-Conductor-API-Key': conductorConfig.apiKey }),
-        },
-        timeout: 30000, // 30 second timeout
-        validateStatus: () => true, // Don't throw on any status code
-      });
+      // Increase timeout for large payloads (workflows with many tasks)
+      const client = createRestClient(60000); // 60 second timeout for large workflows
 
       try {
         const normalizedWorkflow = normalizeWorkflowForConductor(workflow);
@@ -612,24 +718,44 @@ const resolvers = {
           'v' + normalizedWorkflow.version
         );
 
-        // Log the exact payload being sent
-        serverLogger.debug(
-          '[Resolvers] Workflow payload being sent to Conductor:',
-          JSON.stringify(workflowArray, null, 2)
+        // Log the exact payload being sent with size information
+        const payloadJson = JSON.stringify(workflowArray);
+        const payloadSizeKB = (payloadJson.length / 1024).toFixed(2);
+        serverLogger.debug(`[Resolvers] Workflow payload size: ${payloadSizeKB} KB`);
+
+        // Use retry helper for transient failures
+        const { response, error: retryError, attempt } = await putWorkflowWithRetry(
+          client,
+          '/api/metadata/workflow',
+          workflowArray
         );
 
-        const response = await client.put('/api/metadata/workflow', workflowArray);
+        if (retryError) {
+          // Connection error after retries exhausted
+          const errorContext = {
+            workflowName: workflow.name,
+            workflowVersion: workflow.version,
+            serverUrl: conductorConfig.serverUrl,
+            attempts: attempt,
+            errorCode: retryError.code,
+          };
 
-        // Log the response status and data
-        serverLogger.debug(
-          '[Resolvers] Conductor response status:',
-          response.status,
-          'Response data:',
-          JSON.stringify(response.data)
-        );
+          handleErrorLogging('saveWorkflow', retryError, errorContext);
+          const userError = createUserFriendlyError(retryError, 'saveWorkflow');
+
+          return {
+            name: workflow.name || 'unknown',
+            version: workflow.version || 1,
+            success: false,
+            error: userError.message,
+            errorDetails: userError.details,
+            errorCode: userError.code,
+            errorSeverity: userError.severity,
+          };
+        }
 
         if (response.status >= 200 && response.status < 300) {
-          // Success - return name and version
+          // Success
           serverLogger.info(
             '[Resolvers] Workflow updated successfully:',
             normalizedWorkflow.name,
@@ -642,34 +768,24 @@ const resolvers = {
           };
         }
 
-        // Error response - extract and log detailed error from Conductor
+        // HTTP error response
         const errorData = response.data;
         const errorMsg =
           extractErrorMessage(errorData) || `HTTP ${response.status}: ${response.statusText}`;
 
-        // Log detailed error to file - include validation errors if present
         const errorContext = {
           status: response.status,
           statusText: response.statusText,
           workflowName: normalizedWorkflow.name,
           workflowVersion: normalizedWorkflow.version,
           responseData: errorData,
-          requestBody: workflowArray,
         };
 
-        // If there are validation errors, extract them for detailed logging
         if (errorData?.validationErrors && Array.isArray(errorData.validationErrors)) {
-          errorContext.validationErrors = errorData.validationErrors.map((err) => {
-            if (typeof err === 'object' && err !== null) {
-              return {
-                message: err.message || 'Unknown validation error',
-                field: err.field || err.path || 'unknown',
-                error: err.error || err.details || '',
-                raw: err,
-              };
-            }
-            return { message: String(err), raw: err };
-          });
+          errorContext.validationErrors = errorData.validationErrors.map((err) => ({
+            message: err.message || 'Unknown validation error',
+            field: err.field || err.path || 'unknown',
+          }));
         }
 
         handleErrorLogging('saveWorkflow', new Error(errorMsg), errorContext);
@@ -683,7 +799,6 @@ const resolvers = {
           'saveWorkflow'
         );
 
-        // Return error in response instead of throwing
         return {
           name: normalizedWorkflow.name || 'unknown',
           version: normalizedWorkflow.version || 1,
@@ -694,29 +809,16 @@ const resolvers = {
           errorSeverity: userError.severity,
         };
       } catch (error) {
-        // Log the full error to file
+        // Unexpected error
         const errorContext = {
           workflowName: workflow.name,
           workflowVersion: workflow.version,
           serverUrl: conductorConfig.serverUrl,
         };
 
-        // Add specific error details for connection issues
-        if (error.code === 'ECONNRESET' || error.code === 'ECONNREFUSED' || error.code === 'ENOTFOUND') {
-          errorContext.connectionError = true;
-          errorContext.errorCode = error.code;
-          errorContext.message = `Connection error: ${error.code} - Unable to connect to Conductor server at ${conductorConfig.serverUrl}`;
-        }
-
-        if (error.code === 'ECONNRESET') {
-          errorContext.suggestion = 'The Conductor server may have closed the connection unexpectedly. Check if the server is running and try again.';
-        }
-
         handleErrorLogging('saveWorkflow', error, errorContext);
-
         const userError = createUserFriendlyError(error, 'saveWorkflow');
 
-        // Return error in response instead of throwing
         return {
           name: workflow.name || 'unknown',
           version: workflow.version || 1,
@@ -796,15 +898,7 @@ const resolvers = {
     },
     async registerTask(_, { task }) {
       // Use REST API endpoint for task registration
-      const client = axios.create({
-        baseURL: conductorConfig.serverUrl,
-        headers: {
-          'Content-Type': 'application/json',
-          ...(conductorConfig.apiKey && { 'X-Conductor-API-Key': conductorConfig.apiKey }),
-        },
-        timeout: 30000,
-        validateStatus: () => true,
-      });
+      const client = createRestClient(30000);
 
       try {
         serverLogger.info('[Resolvers] Registering task:', task.name);
@@ -849,15 +943,7 @@ const resolvers = {
     },
     async updateTask(_, { task }) {
       // Use REST PUT endpoint: /api/metadata/taskdefs
-      const client = axios.create({
-        baseURL: conductorConfig.serverUrl,
-        headers: {
-          'Content-Type': 'application/json',
-          ...(conductorConfig.apiKey && { 'X-Conductor-API-Key': conductorConfig.apiKey }),
-        },
-        timeout: 30000,
-        validateStatus: () => true,
-      });
+      const client = createRestClient(30000);
 
       try {
         serverLogger.info('[Resolvers] Updating task definition:', task.name);
@@ -895,15 +981,7 @@ const resolvers = {
     },
     async deleteTask(_, { taskName }) {
       // Use REST DELETE endpoint: /api/metadata/taskdefs/{tasktype}
-      const client = axios.create({
-        baseURL: conductorConfig.serverUrl,
-        headers: {
-          'Content-Type': 'application/json',
-          ...(conductorConfig.apiKey && { 'X-Conductor-API-Key': conductorConfig.apiKey }),
-        },
-        timeout: 30000,
-        validateStatus: () => true,
-      });
+      const client = createRestClient(30000);
 
       try {
         serverLogger.info('[Resolvers] Deleting task definition:', taskName);

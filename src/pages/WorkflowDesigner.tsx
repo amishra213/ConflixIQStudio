@@ -1704,14 +1704,16 @@ export function WorkflowDesigner() {
       // If saveWorkflow returns false, it means there was an error
       // The error details are already logged to dashboard and logging store
       if (!success) {
-        throw new Error('Failed to save workflow to Conductor server');
+        // Don't throw - just return false so handlePublishFailure can retrieve error details
+        console.error('Failed to save workflow to Conductor server');
+        return false;
       }
 
       return success;
     } catch (error) {
       console.error('Failed to sync workflow to Conductor:', error);
-      // Re-throw to allow handleSave to catch and display error details
-      throw error;
+      // Return false instead of re-throwing to allow handlePublishFailure to show detailed errors
+      return false;
     }
   };
 
@@ -1730,13 +1732,37 @@ export function WorkflowDesigner() {
   };
 
   // Helper: Handle Conductor publication failure
-  const handlePublishFailure = (wf: typeof workflow, isNew: boolean) => {
+  const handlePublishFailure = async (wf: typeof workflow, isNew: boolean) => {
     markAsDraft(wf!.id);
-    toast({
-      title: 'Saved to cache',
-      description: `Workflow "${workflowName}" saved locally. Connection to Conductor server failed. You can publish it later.`,
-      variant: 'default',
-    });
+    
+    // Get error details from dashboard store
+    const { useDashboardStore } = await import('@/stores/dashboardStore');
+    const recentErrors = useDashboardStore.getState().recentErrors;
+    
+    // Find the most recent error (check last 5 errors in case there's a delay)
+    const latestError = recentErrors.slice(-5).find(
+      (err) => err.workflow === workflowName || err.message.includes('Connection')
+    );
+    
+    // Show error details if available, otherwise show generic message
+    if (latestError) {
+      const displayMessage = latestError.details
+        ? `${latestError.message}\n\nDetails: ${latestError.details}`
+        : latestError.message;
+      
+      toast({
+        title: 'Failed to publish workflow',
+        description: displayMessage,
+        variant: 'destructive',
+        duration: 15000, // Show for 15 seconds so user has time to read
+      });
+    } else {
+      toast({
+        title: 'Saved to cache',
+        description: `Workflow "${workflowName}" saved locally. Connection to Conductor server failed. You can publish it later.`,
+        variant: 'default',
+      });
+    }
 
     if (isNew) {
       navigate(`/workflows/${wf!.id}`);
@@ -1784,7 +1810,7 @@ export function WorkflowDesigner() {
       if (success) {
         handlePublishSuccess(wf, isNew);
       } else {
-        handlePublishFailure(wf, isNew);
+        await handlePublishFailure(wf, isNew);
       }
     } catch (error) {
       console.error('Error saving workflow:', error);
@@ -1793,26 +1819,30 @@ export function WorkflowDesigner() {
       const { useDashboardStore } = await import('@/stores/dashboardStore');
       const recentErrors = useDashboardStore.getState().recentErrors;
 
-      // Get the most recent error (should be the one we just encountered)
-      const latestError = recentErrors.at(-1);
+      // Get the most recent error - check last 5 errors in case there's a delay
+      const latestError = recentErrors.slice(-5).find(
+        (err) => err.workflow === workflowName || err.message.includes('Connection')
+      ) || recentErrors.at(-1);
 
       // Extract detailed error message
       let errorTitle = 'Failed to save workflow';
       let errorDescription =
         error instanceof Error ? error.message : 'An unexpected error occurred';
+      let errorDetails = '';
 
       // Use the detailed error from dashboard store if available
-      if (latestError?.workflow === workflowName) {
-        errorTitle = latestError.message;
-        errorDescription = latestError.details;
+      if (latestError) {
+        errorTitle = `Save Failed: ${latestError.message}`;
+        errorDescription = latestError.details || errorDescription;
+        errorDetails = `\n\nError Severity: ${latestError.severity}\nTimestamp: ${new Date(latestError.timestamp).toLocaleString()}`;
       }
 
       // Show detailed error to user with all available information
       toast({
         title: errorTitle,
-        description: errorDescription,
+        description: errorDescription + errorDetails,
         variant: 'destructive',
-        duration: 10000, // Show for 10 seconds so user has time to read
+        duration: 15000, // Show for 15 seconds so user has time to read
       });
 
       // Save to cache as fallback

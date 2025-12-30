@@ -29,9 +29,12 @@ serverLogger.debug(`Logger Configuration:`, serverLogger.getStats());
 // Enable CORS for all origins
 serverLogger.debug('🔌 Setting up Express middleware...');
 app.use(cors());
-app.use(express.json());
+// Increase JSON payload limit to prevent request size issues
+// Some workflows with many tasks can have large payloads
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ limit: '50mb', extended: true }));
 serverLogger.debug('✓ CORS enabled for all origins');
-serverLogger.debug('✓ JSON parser middleware enabled');
+serverLogger.debug('✓ JSON parser middleware enabled (50MB limit)');
 
 // Serve static files from distribution directory (built React app) - only in production
 const isDev = process.env.NODE_ENV !== 'production';
@@ -475,8 +478,23 @@ async function startApolloServer() {
   serverLogger.debug('✓ Apollo Server started successfully');
 
   serverLogger.debug('📡 Mounting GraphQL middleware at /graphql');
-  app.use('/graphql', expressMiddleware(server));
-  serverLogger.debug('✓ GraphQL middleware mounted');
+  // Use expressMiddleware with explicit CORS configuration and timeout handling
+  // Large workflow payloads (50MB+) need extended request timeout
+  app.use(
+    '/graphql',
+    cors({
+      origin: '*', // Allow all origins
+      methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+      allowedHeaders: ['Content-Type', 'Authorization', 'X-Conductor-API-Key'],
+      credentials: true,
+    }),
+    expressMiddleware(server, {
+      // Increase timeout for large payload processing
+      // Default is 120000ms (2 minutes), increasing for large workflows
+      context: async () => ({ timeout: 180000 }), // 3 minutes
+    })
+  );
+  serverLogger.debug('✓ GraphQL middleware mounted with CORS enabled and extended timeout');
 
   serverLogger.debug(`🌐 Starting HTTP server on port ${PORT}...`);
   app.listen(PORT, () => {

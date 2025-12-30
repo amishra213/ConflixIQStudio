@@ -254,11 +254,24 @@ export function Workflows() {
         description: `${addedCount} workflow(s) have been imported from Conductor server.`,
       });
     } catch (error) {
+      // Get error details from dashboard store
+      const { useDashboardStore } = await import('@/stores/dashboardStore');
+      const recentErrors = useDashboardStore.getState().recentErrors;
+      const latestError = recentErrors.at(-1);
+      
+      let errorDescription = error instanceof Error ? error.message : 'Failed to sync workflows from Conductor server';
+      let errorTitle = 'Sync failed';
+      
+      if (latestError) {
+        errorTitle = `Sync Failed: ${latestError.message}`;
+        errorDescription = latestError.details;
+      }
+      
       toast({
-        title: 'Sync failed',
-        description:
-          error instanceof Error ? error.message : 'Failed to sync workflows from Conductor server',
+        title: errorTitle,
+        description: errorDescription,
         variant: 'destructive',
+        duration: 10000,
       });
     }
   };
@@ -549,8 +562,9 @@ export function Workflows() {
   };
 
   const handlePublishWorkflow = async (workflowId: string) => {
+    let workflow: Workflow | undefined;
     try {
-      const workflow = allDeduplicatedWorkflows.find((w) => w.id === workflowId);
+      workflow = allDeduplicatedWorkflows.find((w) => w.id === workflowId);
       if (!workflow) {
         toast({
           title: 'Workflow not found',
@@ -587,7 +601,28 @@ export function Workflows() {
       } else {
         // Revert to draft if publish fails
         const cacheStatus = getAllWorkflows().find((w) => w.id === workflowId);
-        if (cacheStatus?.isLocalOnly) {
+        
+        // Get error details from dashboard store
+        const { useDashboardStore } = await import('@/stores/dashboardStore');
+        const recentErrors = useDashboardStore.getState().recentErrors;
+        
+        // Find the most recent error - check last 5 errors in case there's a delay
+        const latestError = recentErrors.slice(-5).find(
+          (err) => (workflow && err.workflow === workflow.name) || err.message.includes('Connection')
+        );
+        
+        if (latestError) {
+          const displayMessage = latestError.details
+            ? `${latestError.message}\n\nDetails: ${latestError.details}`
+            : latestError.message;
+          
+          toast({
+            title: 'Publish failed',
+            description: displayMessage,
+            variant: 'destructive',
+            duration: 15000,
+          });
+        } else if (cacheStatus?.isLocalOnly) {
           toast({
             title: 'Publish failed',
             description: 'Failed to publish workflow to Conductor. It remains cached locally.',
@@ -596,10 +631,28 @@ export function Workflows() {
         }
       }
     } catch (error) {
+      // Get error details from dashboard store
+      const { useDashboardStore } = await import('@/stores/dashboardStore');
+      const recentErrors = useDashboardStore.getState().recentErrors;
+      
+      // Find the most recent error - check last 5 errors in case there's a delay
+      const latestError = recentErrors.slice(-5).find(
+        (err) => err.workflow === workflow?.name || err.message.includes('Connection')
+      ) || recentErrors.at(-1);
+      
+      let errorDescription = error instanceof Error ? error.message : 'Failed to publish workflow';
+      let errorTitle = 'Publish error';
+      
+      if (latestError) {
+        errorTitle = `Publish Failed: ${latestError.message}`;
+        errorDescription = latestError.details || errorDescription;
+      }
+      
       toast({
-        title: 'Publish error',
-        description: error instanceof Error ? error.message : 'Failed to publish workflow',
+        title: errorTitle,
+        description: errorDescription,
         variant: 'destructive',
+        duration: 15000,
       });
     } finally {
       setPublishingWorkflowId(null);
