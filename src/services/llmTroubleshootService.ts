@@ -257,6 +257,37 @@ export function gatherAutoContext(
     // Best-effort: show execution ID so the LLM can reference it
     activeExecutionSummary = `Execution ID in view: ${pageContext.executionId}`;
     if (!pageLabel) pageLabel = `Execution Details – ${pageContext.executionId}`;
+  } else {
+    // No explicit execution context — pull the most recent failed/terminated
+    // execution events captured by the logging store so the LLM always has them.
+    const failedEvents = loggingState.executionEvents
+      .filter((e) =>
+        ['execution_failed', 'execution_terminated', 'task_failed', 'task_timeout'].includes(
+          e.eventType
+        )
+      )
+      .slice(0, 5);
+
+    if (failedEvents.length > 0) {
+      const lines = failedEvents.map((e) => {
+        const parts = [`[${e.eventType.toUpperCase()}]`];
+        if (e.workflowType) parts.push(`workflow="${e.workflowType}"`);
+        if (e.workflowId) parts.push(`id=${e.workflowId.slice(0, 12)}...`);
+        if (e.status) parts.push(`status=${e.status}`);
+        if (e.reasonForIncompletion) parts.push(`reason="${e.reasonForIncompletion}"`);
+        if (e.errorMessage) parts.push(`error="${e.errorMessage}"`);
+        const taskDetails =
+          Array.isArray((e.details as Record<string, unknown>)?.failedTasks) &&
+          ((e.details as { failedTasks?: unknown[] }).failedTasks ?? []).length > 0
+            ? '\n' +
+              ((e.details as { failedTasks: Array<{ taskType?: string; ref?: string; status?: string; reason?: string }> }).failedTasks)
+                .map((t) => `    [${t.status ?? '?'}] ${t.taskType ?? '?'} / ${t.ref ?? '?'}${t.reason ? ` → ${t.reason}` : ''}`)
+                .join('\n')
+            : '';
+        return parts.join(' ') + taskDetails;
+      });
+      activeExecutionSummary = `Recent failed executions:\n${lines.join('\n')}`;
+    }
   }
 
   return {

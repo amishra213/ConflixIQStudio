@@ -229,6 +229,11 @@ export function TroubleshootDrawer() {
       };
     }
 
+    // /executions  — Execution list
+    if (path === '/executions') {
+      return { pageLabel: 'Executions List' };
+    }
+
     // /workflow-designer (new/generic designer without ID)
     if (path === '/workflow-designer') {
       return { pageLabel: 'Workflow Designer' };
