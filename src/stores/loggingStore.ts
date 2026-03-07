@@ -17,6 +17,34 @@ export interface LogEntry {
   error?: string;
 }
 
+/**
+ * Structured execution event for enriched LLM context
+ */
+export interface ExecutionEvent {
+  id: string;
+  timestamp: string;
+  eventType:
+    | 'execution_started'
+    | 'execution_completed'
+    | 'execution_failed'
+    | 'execution_terminated'
+    | 'execution_paused'
+    | 'execution_resumed'
+    | 'execution_retried'
+    | 'task_failed'
+    | 'task_timeout'
+    | 'api_error'
+    | 'config_change';
+  workflowId?: string;
+  workflowType?: string;
+  taskId?: string;
+  taskType?: string;
+  status?: string;
+  errorMessage?: string;
+  reasonForIncompletion?: string;
+  details?: Record<string, unknown>;
+}
+
 interface LoggingSettings {
   enabled: boolean;
   logRequests: boolean;
@@ -31,9 +59,12 @@ interface LoggingSettings {
 interface LoggingState {
   loggingSettings: LoggingSettings;
   logs: LogEntry[];
+  executionEvents: ExecutionEvent[];
   updateLoggingSettings: (settings: Partial<LoggingSettings>) => void;
   addLog: (log: Omit<LogEntry, 'id' | 'timestamp'>) => void;
+  addExecutionEvent: (event: Omit<ExecutionEvent, 'id' | 'timestamp'>) => void;
   clearLogs: () => void;
+  clearExecutionEvents: () => void;
   exportLogs: () => void;
   getFilteredLogs: (filter?: {
     type?: string;
@@ -41,6 +72,12 @@ interface LoggingState {
     startDate?: Date;
     endDate?: Date;
   }) => LogEntry[];
+  /**
+   * Returns a compact text snapshot of recent logs + execution events for LLM context injection.
+   * @param maxLogs - How many recent API log entries to include (default 30)
+   * @param maxEvents - How many recent execution events to include (default 20)
+   */
+  getLLMContextSnapshot: (maxLogs?: number, maxEvents?: number) => string;
 }
 
 const defaultLoggingSettings: LoggingSettings = {
@@ -59,6 +96,7 @@ export const useLoggingStore = create<LoggingState>()(
     (set, get) => ({
       loggingSettings: defaultLoggingSettings,
       logs: [],
+      executionEvents: [],
 
       updateLoggingSettings: (settings) => {
         set((state) => ({
@@ -120,8 +158,25 @@ export const useLoggingStore = create<LoggingState>()(
         set({ logs: filteredLogs });
       },
 
+      addExecutionEvent: (event) => {
+        const timestamp = Date.now();
+        const random = Math.random().toString(36).slice(2, 9);
+        const newEvent: ExecutionEvent = {
+          ...event,
+          id: `evt_${timestamp}_${random}`,
+          timestamp: new Date().toISOString(),
+        };
+        set((state) => ({
+          executionEvents: [newEvent, ...state.executionEvents].slice(0, 500),
+        }));
+      },
+
       clearLogs: () => {
         set({ logs: [] });
+      },
+
+      clearExecutionEvents: () => {
+        set({ executionEvents: [] });
       },
 
       exportLogs: () => {
@@ -156,12 +211,66 @@ export const useLoggingStore = create<LoggingState>()(
           return true;
         });
       },
+
+      getLLMContextSnapshot: (maxLogs = 30, maxEvents = 20) => {
+        const { logs, executionEvents } = get();
+        const lines: string[] = [];
+
+        // Recent execution events (errors, failures, lifecycle)
+        const recentEvents = executionEvents.slice(0, maxEvents);
+        if (recentEvents.length > 0) {
+          lines.push('=== RECENT EXECUTION EVENTS ===');
+          for (const evt of recentEvents) {
+            const parts = [`[${evt.timestamp}] ${evt.eventType.toUpperCase()}`];
+            if (evt.workflowType) parts.push(`workflow="${evt.workflowType}"`);
+            if (evt.workflowId) parts.push(`id=${evt.workflowId.slice(0, 12)}...`);
+            if (evt.taskType) parts.push(`task="${evt.taskType}"`);
+            if (evt.status) parts.push(`status=${evt.status}`);
+            if (evt.errorMessage) parts.push(`error="${evt.errorMessage}"`);
+            if (evt.reasonForIncompletion) parts.push(`reason="${evt.reasonForIncompletion}"`);
+            lines.push(parts.join(' '));
+          }
+          lines.push('');
+        }
+
+        // Recent error API logs
+        const errorLogs = logs.filter((l) => l.type === 'error').slice(0, 10);
+        if (errorLogs.length > 0) {
+          lines.push('=== RECENT API ERRORS ===');
+          for (const log of errorLogs) {
+            lines.push(
+              `[${log.timestamp}] ${log.method} ${log.url} → ${log.status ?? 'ERR'} ${log.error ?? ''}`
+            );
+            if (log.responseBody) {
+              const body = JSON.stringify(log.responseBody).slice(0, 300);
+              lines.push(`  response: ${body}`);
+            }
+          }
+          lines.push('');
+        }
+
+        // Recent API calls summary
+        const recentLogs = logs.slice(0, maxLogs);
+        if (recentLogs.length > 0) {
+          lines.push('=== RECENT API CALLS ===');
+          for (const log of recentLogs) {
+            lines.push(
+              `[${log.timestamp}] ${log.type.toUpperCase()} ${log.method} ${log.url}` +
+                (log.status ? ` → ${log.status}` : '') +
+                (log.duration ? ` (${log.duration}ms)` : '') +
+                (log.error ? ` ERROR: ${log.error}` : '')
+            );
+          }
+        }
+
+        return lines.join('\n');
+      },
     }),
     {
       name: 'conductor-logging',
       partialize: (state) => ({
         loggingSettings: state.loggingSettings,
-        // Don't persist logs - they are runtime data only
+        // Don't persist logs or executionEvents - they are runtime data only
       }),
     }
   )

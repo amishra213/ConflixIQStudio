@@ -38,6 +38,7 @@ interface SettingsStore {
   setProxyPort: (port: number) => void;
   setOpenAiApiEndpoint: (endpoint: string) => void;
   setOpenAiApiKey: (apiKey: string) => void;
+  setOpenAiModel: (model: string) => void;
   setEnableNotifications: (enabled: boolean) => void;
   setAutoSaveWorkflows: (enabled: boolean) => void;
   setIsConnected: (connected: boolean) => void;
@@ -58,9 +59,12 @@ export const useSettingsStore = create<SettingsStore>((set) => ({
     proxyPort: 4000,
   },
   openAiLlm: {
-    apiKey: '',
-    apiEndpoint: 'https://api.openai.com/v1/chat/completions',
-    model: 'gpt-4o', // Default model
+    // Defaults read from .env (VITE_LLM_* variables); can be overridden in Settings UI
+    apiKey: (import.meta.env.VITE_LLM_API_KEY as string) ?? '',
+    apiEndpoint:
+      (import.meta.env.VITE_LLM_API_ENDPOINT as string) ??
+      'https://api.deepseek.com/v1/chat/completions',
+    model: (import.meta.env.VITE_LLM_MODEL as string) ?? 'deepseek-chat',
   },
   enableNotifications: true,
   autoSaveWorkflows: true,
@@ -102,6 +106,10 @@ export const useSettingsStore = create<SettingsStore>((set) => ({
   setOpenAiApiKey: (apiKey) =>
     set((state) => ({
       openAiLlm: { ...state.openAiLlm, apiKey },
+    })),
+  setOpenAiModel: (model) =>
+    set((state) => ({
+      openAiLlm: { ...state.openAiLlm, model },
     })),
   setEnableNotifications: (enabled) => set({ enableNotifications: enabled }),
   setAutoSaveWorkflows: (enabled) => set({ autoSaveWorkflows: enabled }),

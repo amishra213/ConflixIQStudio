@@ -1,9 +1,13 @@
 import { useNavigate } from 'react-router-dom';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { ActivityIcon, CheckCircle2Icon, XCircleIcon, EyeIcon, ArrowLeftIcon, RefreshCwIcon } from 'lucide-react';
+import {
+  ActivityIcon, CheckCircle2Icon, XCircleIcon, EyeIcon,
+  ArrowLeftIcon, RefreshCwIcon, PauseIcon, PlayIcon,
+  Trash2Icon, RotateCcwIcon,
+} from 'lucide-react';
 import { ExecutionSummary } from '@/services/executionService';
 import { useToast } from '@/components/ui/use-toast';
 import { useExecutionService } from '@/hooks/useExecutionService';
@@ -11,7 +15,13 @@ import { useExecutionService } from '@/hooks/useExecutionService';
 export function Executions() {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { fetchExecutionSummaries } = useExecutionService();
+  const {
+    fetchExecutionSummaries,
+    terminateExecution,
+    pauseExecution,
+    resumeExecution,
+    retryExecution,
+  } = useExecutionService();
   const [executions, setExecutions] = useState<ExecutionSummary[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -19,6 +29,7 @@ export function Executions() {
   const [pageSize] = useState(50);
   const [totalHits, setTotalHits] = useState(0);
   const [hasLoaded, setHasLoaded] = useState(false);
+  const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
 
   const _loadExecutions = async () => {
     try {
@@ -104,6 +115,29 @@ export function Executions() {
     }
     return null;
   };
+
+  const handleQuickAction = useCallback(
+    async (workflowId: string, action: string, fn: () => Promise<void>) => {
+      setActionLoadingId(`${workflowId}-${action}`);
+      try {
+        await fn();
+        toast({ title: 'Success', description: `Execution ${action} successfully.` });
+        // Reload the current page
+        const response = await fetchExecutionSummaries(undefined, undefined, currentPage * pageSize, pageSize);
+        setExecutions(response.results || []);
+        setTotalHits(response.totalHits || 0);
+      } catch (err) {
+        toast({
+          title: 'Error',
+          description: err instanceof Error ? err.message : `Failed to ${action}`,
+          variant: 'destructive',
+        });
+      } finally {
+        setActionLoadingId(null);
+      }
+    },
+    [toast, fetchExecutionSummaries, currentPage, pageSize]
+  );
 
   const getDurationDisplay = (status: string, duration: string | null) => {
     const isRunning = status.toUpperCase() === 'RUNNING';
@@ -255,14 +289,96 @@ export function Executions() {
                         {getDurationDisplay(execution.status, duration)}
                       </td>
                       <td className="px-6 py-4">
-                        <Button
-                          size="sm"
-                          onClick={() => navigate(`/executions/${execution.workflowId}`)}
-                          className="bg-primary text-primary-foreground hover:bg-primary/90 font-medium"
-                        >
-                          <EyeIcon className="w-4 h-4 mr-2" />
-                          View
-                        </Button>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <Button
+                            size="sm"
+                            onClick={() => navigate(`/executions/${execution.workflowId}`)}
+                            className="bg-primary text-primary-foreground hover:bg-primary/90 font-medium"
+                          >
+                            <EyeIcon className="w-4 h-4 mr-2" />
+                            View
+                          </Button>
+
+                          {/* Pause — RUNNING only */}
+                          {execution.status === 'RUNNING' && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              title="Pause execution"
+                              disabled={!!actionLoadingId}
+                              onClick={() =>
+                                handleQuickAction(execution.workflowId, 'paused', () =>
+                                  pauseExecution(execution.workflowId)
+                                )
+                              }
+                              className="text-amber-500 border-amber-500 hover:bg-amber-500/10 px-2"
+                            >
+                              {actionLoadingId === `${execution.workflowId}-paused`
+                                ? <ActivityIcon className="w-4 h-4 animate-spin" />
+                                : <PauseIcon className="w-4 h-4" />}
+                            </Button>
+                          )}
+
+                          {/* Resume — PAUSED only */}
+                          {execution.status === 'PAUSED' && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              title="Resume execution"
+                              disabled={!!actionLoadingId}
+                              onClick={() =>
+                                handleQuickAction(execution.workflowId, 'resumed', () =>
+                                  resumeExecution(execution.workflowId)
+                                )
+                              }
+                              className="text-green-500 border-green-500 hover:bg-green-500/10 px-2"
+                            >
+                              {actionLoadingId === `${execution.workflowId}-resumed`
+                                ? <ActivityIcon className="w-4 h-4 animate-spin" />
+                                : <PlayIcon className="w-4 h-4" />}
+                            </Button>
+                          )}
+
+                          {/* Terminate — RUNNING or PAUSED */}
+                          {['RUNNING', 'PAUSED'].includes(execution.status) && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              title="Terminate execution"
+                              disabled={!!actionLoadingId}
+                              onClick={() =>
+                                handleQuickAction(execution.workflowId, 'terminated', () =>
+                                  terminateExecution(execution.workflowId, 'Terminated by user')
+                                )
+                              }
+                              className="text-destructive border-destructive hover:bg-destructive/10 px-2"
+                            >
+                              {actionLoadingId === `${execution.workflowId}-terminated`
+                                ? <ActivityIcon className="w-4 h-4 animate-spin" />
+                                : <Trash2Icon className="w-4 h-4" />}
+                            </Button>
+                          )}
+
+                          {/* Retry — FAILED or TIMED_OUT */}
+                          {['FAILED', 'TIMED_OUT'].includes(execution.status) && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              title="Retry execution"
+                              disabled={!!actionLoadingId}
+                              onClick={() =>
+                                handleQuickAction(execution.workflowId, 'retried', () =>
+                                  retryExecution(execution.workflowId)
+                                )
+                              }
+                              className="text-blue-500 border-blue-500 hover:bg-blue-500/10 px-2"
+                            >
+                              {actionLoadingId === `${execution.workflowId}-retried`
+                                ? <ActivityIcon className="w-4 h-4 animate-spin" />
+                                : <RotateCcwIcon className="w-4 h-4" />}
+                            </Button>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   );

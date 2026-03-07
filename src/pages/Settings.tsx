@@ -48,6 +48,7 @@ export function Settings() {
     setProxyPort,
     setOpenAiApiEndpoint,
     setOpenAiApiKey,
+    setOpenAiModel,
     setEnableNotifications,
     setAutoSaveWorkflows,
   } = useSettingsStore();
@@ -696,6 +697,21 @@ export function Settings() {
                 placeholder="Enter your OpenAI API key"
                 className="mt-2 bg-background text-foreground border-border"
               />
+            </div>
+            <div>
+              <Label htmlFor="openai-model" className="text-foreground">
+                Model
+              </Label>
+              <Input
+                id="openai-model"
+                value={openAiLlm.model ?? 'gpt-4o'}
+                onChange={(e) => setOpenAiModel(e.target.value)}
+                placeholder="e.g. gpt-4o, gpt-4-turbo, gpt-3.5-turbo"
+                className="mt-2 bg-background text-foreground border-border"
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                Model used by the AI Troubleshoot feature. Defaults to gpt-4o.
+              </p>
             </div>
           </div>
         </Card>

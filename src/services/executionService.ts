@@ -156,7 +156,16 @@ export interface WorkflowDefinition {
 }
 
 /**
- * Detailed execution data returned from /search-v2 endpoint
+ * Task log entry returned from /api/tasks/{taskId}/log
+ */
+export interface TaskLog {
+  taskId: string;
+  log: string;
+  createdTime: number;
+}
+
+/**
+ * Detailed execution data returned from /api/workflow/{workflowId}
  */
 export interface ExecutionDetails extends ExecutionSummary {
   workflowInstanceId: string;
@@ -239,15 +248,14 @@ export async function fetchExecutionSummaries(
 }
 
 /**
- * Fetch detailed execution data from /search-v2 endpoint
- * Used when viewing execution details, showing full payloads and task information
+ * Fetch detailed execution data from /api/workflow/{workflowId}
+ * Standard Conductor endpoint for retrieving a workflow execution by ID
  * @param workflowId - Workflow instance ID to fetch
  * @returns Promise<ExecutionDetails>
  */
 export async function fetchExecutionDetails(workflowId: string): Promise<ExecutionDetails> {
   try {
-    // Use proxy endpoint instead of direct API call
-    const response = await fetch(`/api/workflow/search-v2/${workflowId}`);
+    const response = await fetch(`/api/workflow/${workflowId}`);
 
     if (!response.ok) {
       throw new Error(`Failed to fetch execution details: ${response.statusText}`);
@@ -295,7 +303,8 @@ export async function fetchExecutionsByCorrelationId(
 }
 
 /**
- * Terminate a workflow execution
+ * Terminate a running workflow execution
+ * Standard Conductor endpoint: DELETE /api/workflow/{workflowId}?reason=...
  * @param workflowId - Workflow instance ID to terminate
  * @param reason - Optional reason for termination
  * @returns Promise<void>
@@ -305,12 +314,11 @@ export async function terminateExecution(
   reason?: string
 ): Promise<void> {
   try {
-    const url = new URL(`/api/workflow/${workflowId}/terminate`, globalThis.location.origin);
+    const url = new URL(`/api/workflow/${workflowId}`, globalThis.location.origin);
     if (reason) {
       url.searchParams.append('reason', reason);
     }
 
-    // Use proxy endpoint instead of direct API call
     const response = await fetch(url.toString(), {
       method: 'DELETE',
     });
@@ -320,6 +328,76 @@ export async function terminateExecution(
     }
   } catch (error) {
     console.error('Error terminating execution:', error);
+    throw error;
+  }
+}
+
+/**
+ * Pause a running workflow execution
+ * Standard Conductor endpoint: PUT /api/workflow/{workflowId}/pause
+ * @param workflowId - Workflow instance ID to pause
+ * @returns Promise<void>
+ */
+export async function pauseExecution(workflowId: string): Promise<void> {
+  try {
+    const response = await fetch(`/api/workflow/${workflowId}/pause`, {
+      method: 'PUT',
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to pause execution: ${response.statusText}`);
+    }
+  } catch (error) {
+    console.error('Error pausing execution:', error);
+    throw error;
+  }
+}
+
+/**
+ * Resume a paused workflow execution
+ * Standard Conductor endpoint: PUT /api/workflow/{workflowId}/resume
+ * @param workflowId - Workflow instance ID to resume
+ * @returns Promise<void>
+ */
+export async function resumeExecution(workflowId: string): Promise<void> {
+  try {
+    const response = await fetch(`/api/workflow/${workflowId}/resume`, {
+      method: 'PUT',
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to resume execution: ${response.statusText}`);
+    }
+  } catch (error) {
+    console.error('Error resuming execution:', error);
+    throw error;
+  }
+}
+
+/**
+ * Restart a completed or terminated workflow execution from the beginning
+ * Standard Conductor endpoint: POST /api/workflow/{workflowId}/restart
+ * @param workflowId - Workflow instance ID to restart
+ * @param useLatestDefinitions - Whether to use latest workflow/task definitions (default false)
+ * @returns Promise<void>
+ */
+export async function restartExecution(
+  workflowId: string,
+  useLatestDefinitions: boolean = false
+): Promise<void> {
+  try {
+    const url = new URL(`/api/workflow/${workflowId}/restart`, globalThis.location.origin);
+    url.searchParams.append('useLatestDefinitions', String(useLatestDefinitions));
+
+    const response = await fetch(url.toString(), {
+      method: 'POST',
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to restart execution: ${response.statusText}`);
+    }
+  } catch (error) {
+    console.error('Error restarting execution:', error);
     throw error;
   }
 }
@@ -349,21 +427,70 @@ export async function retryExecution(workflowId: string): Promise<string> {
 }
 
 /**
- * Get execution logs
- * @param workflowId - Workflow instance ID
- * @returns Promise<string> - Log content
+ * Fetch log entries for a specific task
+ * Standard Conductor endpoint: GET /api/tasks/{taskId}/log
+ * @param taskId - Task instance ID
+ * @returns Promise<TaskLog[]> - Array of log entries
  */
-export async function fetchExecutionLogs(workflowId: string): Promise<string> {
+export async function fetchTaskLogs(taskId: string): Promise<TaskLog[]> {
   try {
-    // Use proxy endpoint instead of direct API call
-    const response = await fetch(`/api/workflow/${workflowId}/logs`);
+    const response = await fetch(`/api/tasks/${taskId}/log`);
 
     if (!response.ok) {
-      throw new Error(`Failed to fetch execution logs: ${response.statusText}`);
+      // 404 means no logs exist for this task — return empty array
+      if (response.status === 404) return [];
+      throw new Error(`Failed to fetch task logs: ${response.statusText}`);
     }
 
-    const data = await response.text();
-    return data;
+    const data = await response.json();
+    return Array.isArray(data) ? data : [];
+  } catch (error) {
+    console.error(`Error fetching logs for task ${taskId}:`, error);
+    return [];
+  }
+}
+
+/**
+ * Fetch and aggregate logs across all tasks of a workflow execution.
+ * Conductor stores logs per-task (GET /api/tasks/{taskId}/log).
+ * @param execution - Full ExecutionDetails object (must include tasks array)
+ * @returns Promise<string> - Formatted log content sorted by time
+ */
+export async function fetchExecutionLogs(execution: ExecutionDetails): Promise<string> {
+  try {
+    if (!execution.tasks || execution.tasks.length === 0) {
+      return '[No tasks found in this execution]';
+    }
+
+    // Fetch logs for all tasks in parallel
+    const taskLogResults = await Promise.all(
+      execution.tasks.map(async (task) => {
+        const logs = await fetchTaskLogs(task.taskId);
+        return { task, logs };
+      })
+    );
+
+    // Build a flat sorted log string
+    const allEntries: Array<{ time: number; line: string }> = [];
+
+    for (const { task, logs } of taskLogResults) {
+      if (logs.length > 0) {
+        for (const entry of logs) {
+          allEntries.push({
+            time: entry.createdTime,
+            line: `[${new Date(entry.createdTime).toISOString()}] [${task.referenceTaskName}] ${entry.log}`,
+          });
+        }
+      }
+    }
+
+    allEntries.sort((a, b) => a.time - b.time);
+
+    if (allEntries.length === 0) {
+      return '[No task log entries found. Workers must explicitly add logs via POST /api/tasks/{taskId}/log]';
+    }
+
+    return allEntries.map((e) => e.line).join('\n');
   } catch (error) {
     console.error('Error fetching execution logs:', error);
     throw error;

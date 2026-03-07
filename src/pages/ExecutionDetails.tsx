@@ -15,6 +15,11 @@ import {
   DownloadIcon,
   MaximizeIcon,
   NetworkIcon,
+  PauseIcon,
+  PlayIcon,
+  RotateCcwIcon,
+  RefreshCwIcon,
+  Trash2Icon,
 } from 'lucide-react';
 import { useState, useMemo, useCallback, useEffect } from 'react';
 import { useToast } from '@/hooks/use-toast';
@@ -32,12 +37,23 @@ export function ExecutionDetails() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { fetchExecutionDetails } = useExecutionService();
+  const {
+    fetchExecutionDetails,
+    terminateExecution,
+    pauseExecution,
+    resumeExecution,
+    restartExecution,
+    retryExecution,
+    fetchExecutionLogs,
+  } = useExecutionService();
   const [expandedTasks, setExpandedTasks] = useState<Set<number>>(new Set());
   const [selectedTaskForModal, setSelectedTaskForModal] = useState<TaskModalData | null>(null);
   const [execution, setExecution] = useState<ExecutionDetailsData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [logs, setLogs] = useState<string | null>(null);
+  const [logsLoading, setLogsLoading] = useState(false);
 
   // Fetch execution details when component mounts
   useEffect(() => {
@@ -80,6 +96,49 @@ export function ExecutionDetails() {
       return newSet;
     });
   }, []);
+
+  const reloadExecution = useCallback(async () => {
+    if (!id) return;
+    try {
+      const data = await fetchExecutionDetails(id);
+      setExecution(data);
+    } catch {
+      /* ignore reload errors */
+    }
+  }, [id, fetchExecutionDetails]);
+
+  const handleAction = useCallback(
+    async (action: string, fn: () => Promise<void>) => {
+      setActionLoading(action);
+      try {
+        await fn();
+        toast({ title: 'Success', description: `Execution ${action} successfully.` });
+        await reloadExecution();
+      } catch (err) {
+        toast({
+          title: 'Error',
+          description: err instanceof Error ? err.message : `Failed to ${action} execution`,
+          variant: 'destructive',
+        });
+      } finally {
+        setActionLoading(null);
+      }
+    },
+    [toast, reloadExecution]
+  );
+
+  const handleLoadLogs = useCallback(async () => {
+    if (!execution) return;
+    setLogsLoading(true);
+    try {
+      const content = await fetchExecutionLogs(execution);
+      setLogs(content);
+    } catch (err) {
+      setLogs(err instanceof Error ? `Error: ${err.message}` : 'Failed to load logs');
+    } finally {
+      setLogsLoading(false);
+    }
+  }, [execution, fetchExecutionLogs]);
 
   const handleCopyJson = useCallback(
     (data: unknown, label: string) => {
@@ -202,9 +261,15 @@ export function ExecutionDetails() {
   // Get workflow name from execution or use workflowType as fallback
   const workflowName = execution.workflowName || execution.workflowType || 'Unknown Workflow';
 
+  const isRunning = execution.status === 'RUNNING';
+  const isPaused = execution.status === 'PAUSED';
+  const isFailed = ['FAILED', 'TIMED_OUT'].includes(execution.status);
+  const isTerminated = execution.status === 'TERMINATED';
+  const isCompleted = execution.status === 'COMPLETED';
+
   return (
     <div className="p-8 space-y-8">
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-4 flex-wrap">
         <Button
           variant="ghost"
           onClick={() => navigate('/executions')}
@@ -213,20 +278,102 @@ export function ExecutionDetails() {
           <ArrowLeftIcon className="w-5 h-5 mr-2" />
           Back
         </Button>
-        <div className="flex-1 flex items-center gap-4">
+        <div className="flex-1 flex items-center gap-4 flex-wrap">
           <div>
             <h1 className="text-3xl font-medium text-foreground">{workflowName}</h1>
             <p className="text-muted-foreground mt-1">Execution ID: {execution.workflowId}</p>
           </div>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => navigate(`/executions/${id}/diagram`)}
-            className="text-purple-500 border-purple-500 hover:bg-purple-500/10"
-          >
-            <NetworkIcon className="w-4 h-4 mr-2" />
-            View Diagram
-          </Button>
+          <div className="flex items-center gap-2 flex-wrap ml-auto">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => navigate(`/executions/${id}/diagram`)}
+              className="text-purple-500 border-purple-500 hover:bg-purple-500/10"
+            >
+              <NetworkIcon className="w-4 h-4 mr-2" />
+              Diagram
+            </Button>
+
+            {/* Pause — only for RUNNING */}
+            {isRunning && (
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={!!actionLoading}
+                onClick={() => handleAction('paused', () => pauseExecution(execution.workflowId))}
+                className="text-amber-500 border-amber-500 hover:bg-amber-500/10"
+              >
+                <PauseIcon className="w-4 h-4 mr-2" />
+                {actionLoading === 'paused' ? 'Pausing…' : 'Pause'}
+              </Button>
+            )}
+
+            {/* Resume — only for PAUSED */}
+            {isPaused && (
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={!!actionLoading}
+                onClick={() => handleAction('resumed', () => resumeExecution(execution.workflowId))}
+                className="text-green-500 border-green-500 hover:bg-green-500/10"
+              >
+                <PlayIcon className="w-4 h-4 mr-2" />
+                {actionLoading === 'resumed' ? 'Resuming…' : 'Resume'}
+              </Button>
+            )}
+
+            {/* Terminate — for RUNNING or PAUSED */}
+            {(isRunning || isPaused) && (
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={!!actionLoading}
+                onClick={() =>
+                  handleAction('terminated', () =>
+                    terminateExecution(execution.workflowId, 'Terminated by user')
+                  )
+                }
+                className="text-destructive border-destructive hover:bg-destructive/10"
+              >
+                <Trash2Icon className="w-4 h-4 mr-2" />
+                {actionLoading === 'terminated' ? 'Terminating…' : 'Terminate'}
+              </Button>
+            )}
+
+            {/* Retry — for FAILED or TIMED_OUT */}
+            {isFailed && (
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={!!actionLoading}
+                onClick={() =>
+                  handleAction('retried', async () => {
+                    await retryExecution(execution.workflowId);
+                  })
+                }
+                className="text-blue-500 border-blue-500 hover:bg-blue-500/10"
+              >
+                <RefreshCwIcon className="w-4 h-4 mr-2" />
+                {actionLoading === 'retried' ? 'Retrying…' : 'Retry'}
+              </Button>
+            )}
+
+            {/* Restart — for COMPLETED, FAILED, or TERMINATED */}
+            {(isCompleted || isFailed || isTerminated) && (
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={!!actionLoading}
+                onClick={() =>
+                  handleAction('restarted', () => restartExecution(execution.workflowId))
+                }
+                className="text-foreground border-border hover:bg-muted"
+              >
+                <RotateCcwIcon className="w-4 h-4 mr-2" />
+                {actionLoading === 'restarted' ? 'Restarting…' : 'Restart'}
+              </Button>
+            )}
+          </div>
         </div>
       </div>
 
@@ -591,20 +738,43 @@ export function ExecutionDetails() {
         </TabsContent>
 
         <TabsContent value="logs">
-          <Card className="p-6 bg-card border-border">
-            <pre className="text-sm text-foreground font-mono bg-background p-4 rounded-lg border border-border overflow-x-auto">
-              {`[${new Date(execution.startTime).toISOString()}] Workflow execution started
-[${new Date(execution.startTime).toISOString()}] Initializing tasks...
-${execution.tasks && execution.tasks.length > 0
-  ? execution.tasks
-    .map(
-      (task) =>
-        `[${task.startTime ? new Date(task.startTime).toISOString() : 'pending'}] Task ${task.referenceTaskName}: ${task.status}`
-    )
-    .join('\n')
-  : '[...] No tasks recorded'}
-${execution.endTime ? '[' + new Date(execution.endTime).toISOString() + '] Workflow execution completed' : '[...] Execution in progress'}`}
-            </pre>
+          <Card className="p-6 bg-card border-border space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-foreground">Task Execution Logs</p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Logs are written by workers via POST /api/tasks/&#123;taskId&#125;/log
+                </p>
+              </div>
+              <Button
+                size="sm"
+                onClick={handleLoadLogs}
+                disabled={logsLoading}
+                className="bg-primary text-primary-foreground hover:bg-primary/90"
+              >
+                <RefreshCwIcon className={`w-4 h-4 mr-2 ${logsLoading ? 'animate-spin' : ''}`} />
+                {logsLoading ? 'Loading…' : logs !== null ? 'Refresh Logs' : 'Load Logs'}
+              </Button>
+            </div>
+
+            {logs === null && !logsLoading && (
+              <div className="bg-background border border-border rounded-lg p-8 text-center">
+                <p className="text-muted-foreground text-sm">Click "Load Logs" to fetch task logs from Conductor.</p>
+              </div>
+            )}
+
+            {logsLoading && (
+              <div className="bg-background border border-border rounded-lg p-8 text-center">
+                <ActivityIcon className="w-6 h-6 text-primary animate-spin mx-auto mb-2" />
+                <p className="text-muted-foreground text-sm">Fetching logs for {execution.tasks?.length || 0} tasks…</p>
+              </div>
+            )}
+
+            {logs !== null && !logsLoading && (
+              <pre className="text-sm text-foreground font-mono bg-background p-4 rounded-lg border border-border overflow-x-auto whitespace-pre-wrap">
+                {logs}
+              </pre>
+            )}
           </Card>
         </TabsContent>
 

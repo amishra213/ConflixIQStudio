@@ -436,35 +436,6 @@ app.get('/api/workflow/search-v2/:workflowId', async (req, res) => {
 // Register filestore routes
 fileStoreRoutes(app);
 
-// SPA fallback routes - handle all other routes
-if (isDev === false) {
-  // Production: serve index.html for all unmatched routes
-  serverLogger.debug('Configuring production mode static file serving');
-  app.get('*', (req, res) => {
-    // Don't serve API routes from the SPA fallback
-    if (req.path.startsWith('/api') || req.path.startsWith('/graphql')) {
-      return res.status(404).json({ error: 'Not found' });
-    }
-    res.sendFile(path.join(distPath, 'index.html'));
-  });
-} else {
-  // Development: serve development page with link to Vite
-  serverLogger.debug('Development mode: Serving development page pointing to Vite on port 5173');
-  
-  // Catch-all route for development
-  app.get('*', (req, res) => {
-    // Skip API and graphql routes
-    if (req.path.startsWith('/api') || req.path.startsWith('/graphql')) {
-      return res.status(404).json({ error: 'Not found' });
-    }
-    
-    serverLogger.debug(`Development request for ${req.path} - redirecting to Vite`);
-    
-    // Redirect to Vite dev server
-    res.redirect(`http://localhost:5173${req.path}`);
-  });
-}
-
 async function startApolloServer() {
   serverLogger.info('⚙️  Initializing Apollo Server...');
   const server = new ApolloServer({
@@ -480,6 +451,7 @@ async function startApolloServer() {
   serverLogger.debug('📡 Mounting GraphQL middleware at /graphql');
   // Use expressMiddleware with explicit CORS configuration and timeout handling
   // Large workflow payloads (50MB+) need extended request timeout
+  // IMPORTANT: This must be mounted BEFORE catch-all routes
   app.use(
     '/graphql',
     cors({
@@ -495,6 +467,35 @@ async function startApolloServer() {
     })
   );
   serverLogger.debug('✓ GraphQL middleware mounted with CORS enabled and extended timeout');
+
+  // SPA fallback routes - handle all other routes (MUST be after specific routes)
+  if (isDev === false) {
+    // Production: serve index.html for all unmatched routes
+    serverLogger.debug('Configuring production mode static file serving');
+    app.get('*', (req, res) => {
+      // Don't serve API routes from the SPA fallback
+      if (req.path.startsWith('/api') || req.path.startsWith('/graphql')) {
+        return res.status(404).json({ error: 'Not found' });
+      }
+      res.sendFile(path.join(distPath, 'index.html'));
+    });
+  } else {
+    // Development: serve development page with link to Vite
+    serverLogger.debug('Development mode: Serving development page pointing to Vite on port 5173');
+    
+    // Catch-all route for development
+    app.get('*', (req, res) => {
+      // Skip API and graphql routes
+      if (req.path.startsWith('/api') || req.path.startsWith('/graphql')) {
+        return res.status(404).json({ error: 'Not found' });
+      }
+      
+      serverLogger.debug(`Development request for ${req.path} - redirecting to Vite`);
+      
+      // Redirect to Vite dev server
+      res.redirect(`http://localhost:5173${req.path}`);
+    });
+  }
 
   serverLogger.debug(`🌐 Starting HTTP server on port ${PORT}...`);
   app.listen(PORT, () => {

@@ -2,6 +2,7 @@ import { Outlet } from 'react-router-dom';
 import { Sidebar } from './Sidebar';
 import { TopBar } from './TopBar';
 import { Toaster } from '@/components/ui/toaster';
+import { TroubleshootDrawer } from '@/components/TroubleshootDrawer';
 
 export function AppShell() {
   return (
@@ -14,6 +15,8 @@ export function AppShell() {
         </main>
       </div>
       <Toaster />
+      {/* AI Troubleshoot drawer — available on every page via TopBar button */}
+      <TroubleshootDrawer />
     </div>
   );
 }

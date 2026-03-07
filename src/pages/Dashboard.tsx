@@ -55,15 +55,38 @@ export function Dashboard() {
     executions.filter((e) => e.duration).reduce((acc, e) => acc + (e.duration || 0), 0) /
     (executions.filter((e) => e.duration).length || 1);
 
-  const chartData = [
-    { name: 'Mon', executions: 12 },
-    { name: 'Tue', executions: 19 },
-    { name: 'Wed', executions: 15 },
-    { name: 'Thu', executions: 22 },
-    { name: 'Fri', executions: 18 },
-    { name: 'Sat', executions: 8 },
-    { name: 'Sun', executions: 5 },
-  ];
+  // Generate execution trends data based on actual executions grouped by day of week
+  const chartData = useMemo(() => {
+    const daysOfWeek = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    const executionsByDay = new Map<string, number>();
+
+    // Initialize all days with 0 executions
+    daysOfWeek.forEach((day) => executionsByDay.set(day, 0));
+
+    // Count executions by day of week
+    executions.forEach((execution) => {
+      try {
+        const executionDate = new Date(execution.startTime);
+        const dayOfWeek = daysOfWeek[executionDate.getDay()];
+        const currentCount = executionsByDay.get(dayOfWeek) || 0;
+        executionsByDay.set(dayOfWeek, currentCount + 1);
+      } catch (error) {
+        // Skip invalid dates
+        console.error('Invalid execution date:', execution.startTime);
+      }
+    });
+
+    // Return data in the correct order starting from Monday
+    return [
+      { name: 'Mon', executions: executionsByDay.get('Mon') || 0 },
+      { name: 'Tue', executions: executionsByDay.get('Tue') || 0 },
+      { name: 'Wed', executions: executionsByDay.get('Wed') || 0 },
+      { name: 'Thu', executions: executionsByDay.get('Thu') || 0 },
+      { name: 'Fri', executions: executionsByDay.get('Fri') || 0 },
+      { name: 'Sat', executions: executionsByDay.get('Sat') || 0 },
+      { name: 'Sun', executions: executionsByDay.get('Sun') || 0 },
+    ];
+  }, [executions]);
 
   return (
     <div className="p-8 space-y-8 bg-background">
